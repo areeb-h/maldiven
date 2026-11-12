@@ -1,6 +1,6 @@
 # ADR 0003: Offline Android and supporting toolchain
 
-Date: 2026-11-12. Status: Proposed.
+Date: 2026-11-12. Status: Superseded for active online architecture by [ADR 0006](0006-authoritative-multiplayer.md) and [ADR 0007](0007-native-voice-feasibility.md). Historical Android toolchain details remain applicable where verified.
 
 ## Context
 The initial deliverable is an installable APK for physical-device testing. The repository is public. Builds must be reproducible without publishing credentials or restricted asset sources.

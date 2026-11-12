@@ -1,40 +1,35 @@
-# Maldiven development plan
+# Active project plan: Drift Station
 
-Status: proposed implementation plan; approved for repository commit. Date: 2026-11-12.
+Updated: 2026-11-12. Repository: Maldiven. Drift Station is a working game title; availability has not been checked.
 
-## Goal
-An offline Android game where the player enjoys roaming a beautiful, compact tropical island. The first release focuses on movement, camera comfort, scenery and atmosphere.
+## Direction
+Build an Android-first, third-person 3D social survival game for friends aboard a failing space station. Cooperation, voice, transferable equipment, incomplete information and limited combat should generate memorable shared stories. Six players and one infiltrator are the first complete-round target; eight players is a later validation target. A 12–15 minute round is an initial pacing hypothesis.
 
-## Initial scope
-- Landscape third-person view; walk, run, jump and camera orbit.
-- Simultaneous multi-touch joystick, camera drag and jump.
-- Beach, village, palm grove, lookout, cove and jetty.
-- Two connected exploration loops with shortcuts and visible landmarks.
-- Fixed afternoon lighting, lightweight water, ambient sound and footsteps.
-- Pause, sensitivity, audio, graphics settings and saved position.
-- Safe spawn recovery and a clear deep-water boundary.
+The current executable remains the 0.2.0 island resource prototype. Multiplayer, voice, station art and the proposed game rules are not implemented. This commit changes planning documents only.
 
-Combat, quests, crafting, multiplayer, swimming, complex interiors and settlement mechanics are deferred.
+## Read in this order
+1. [Game design](game-design/drift-station.md): experience, concrete rules, scope and station layout.
+2. [Research and design rationale](research/psychology-and-game-design.md): eight sources, evidence limits and testable applications.
+3. [Roadmap](roadmap.md): work packages, dependencies, acceptance gates, planning allowances and stop conditions.
+4. [Playtest protocol](game-design/playtesting.md): hypotheses, measurements and iteration decisions.
+5. [Architecture decisions](adr/README.md): current decisions, proposed technologies and superseded island assumptions.
 
-## Map proposal
-Approximately 350 by 250 metres, adjusted after greybox testing. Coastal loop: arrival beach, village, jetty, cove, beach. Inland loop: village, palm grove, lookout, village. Walkable routes must connect without invisible barriers. The lighthouse is a navigation landmark initially.
+## Design pillars
+- Useful cooperation: actions create reasons to ask, negotiate, help and trust.
+- Meaningful choice: multiple ways to contribute; transferable tools instead of rigid class dependence.
+- Readable uncertainty: truthful but incomplete world evidence, visible equipment and clear causes of failure.
+- Recoverable conflict: early weapons create rescue/escape decisions; avoid long inactive periods.
+- Comfortable mobile play: stable rendering, intelligible voice, readable layout and simple touch controls.
 
-## Milestones and exit criteria
-1. Toolchain: pin engine and export templates; confirm import, startup and minimal Android export. Record actual installed versions.
-2. Movement greybox: slopes, steps, walls and camera obstructions; responsive movement and simultaneous touch controls; pause/resume recovery.
-3. Island greybox: complete both loops, validate travel times and shoreline boundaries, eliminate stuck locations.
-4. Visual slice: polish beach-to-village route with representative vegetation, water, lighting, character animation and sound. Evaluate on the physical phone before extending art production.
-5. Full roaming island: expand using validated modular assets and measured budgets; add settings and robust local saves.
-6. APK delivery: verify installation, cold start, background/resume, saved-position recovery and sustained play. Deliver a signed test APK and source commit reference.
+These are product hypotheses informed by research, not claims that academic theories guarantee fun or superiority over another game.
 
-## Validation
-Target stable 30 FPS first (33.3 ms); evaluate 60 FPS separately. Measure frame-time spikes, RAM, load time, package size and thermal behaviour after 10–15 minutes on the actual Android device. Desktop and headless checks do not establish mobile performance or visual quality. Derive mesh, material and draw-call budgets from the representative slice.
+## First complete slice
+One compact station, six private-room players, one infiltrator, proximity voice plus one shared radio channel, transferable access/tool equipment, one shared repair objective, one restricted core, one sabotage, one stun weapon with injury/recovery, and two competing extraction paths. Full match state, reconnect, win/loss and a short debrief are required.
 
-## Repository and build workflow
-Text scenes, scripts and documentation in Git; large source art in Git LFS when introduced. Ignore .godot caches, builds, keystores and credentials. Record source and redistribution license for every external asset. Planned CI: pinned-engine import/parse/start checks, then Android export once the SDK and templates are configured. No CI, game scaffold or APK exists yet.
+A cooperative rehearsal with no infiltrator precedes deduction tests. Networking and native Android voice must work before station art expansion. Public matchmaking, multiple maps, large role rosters, lethal weapons, permanent elimination, maintenance drones, multiple radio channels, ranked progression and monetisation are deferred.
 
-## Risks
-Concept art exceeds demonstrated runtime quality; foliage/water overdraw; camera clipping; uneven touch behaviour; device-specific drivers; unverified asset/plugin licenses. Resolve these in the small visual slice before expanding the map.
+## Preserve previous work
+The [island plan](archive/island-plan.md), resource generator and APK build reports remain historical references. Preserve the complete island baseline on an archive branch before further implementation. Keep the repository name and package IDs until naming and migration are deliberately decided. Reuse movement, touch, camera, profiling and build tooling where suitable; tropical scenery is not the station art set.
 
-## Next action
-Install/verify the pinned engine and create the minimal movement project after committing these planning documents.
+## Immediate next milestone
+P1: a time-boxed technical experiment with a dedicated game server and a native Android voice candidate, tested across actual phones and Wi-Fi/mobile data. Produce a technology decision, measured latency/battery/build impact, and a repeatable test. No hosting subscription or paid service is committed by this plan.

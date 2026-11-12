@@ -1,8 +1,16 @@
 # Maldiven
 
-Offline Android-first island roaming game built with Godot and typed GDScript.
+Android-first Godot project. **Active direction: Drift Station**, a proposed 3D social-survival game for friends with voice, cooperation, hidden objectives and recoverable conflict. The current executable is still the island 0.2.0 prototype.
 
-## Current prototype
+## Planning
+- [Active plan](docs/plan.md)
+- [Game design and station layout](docs/game-design/drift-station.md)
+- [Roadmap and milestone gates](docs/roadmap.md)
+- [Psychology and game-design research](docs/research/psychology-and-game-design.md)
+- [Playtest protocol](docs/game-design/playtesting.md)
+- [ADRs](docs/adr/README.md)
+
+## Current island prototype
 An early stylised island using eight original GLB resources: shaped terrain, detailed cottage, curved palms, coastal rocks, jetty, grass, bench and human explorer. Flat water and simple procedural walking animation remain provisional. See [resources and screenshot follow-up](docs/resources.md).
 
 Open `project.godot` in Godot Standard and run the main scene.
@@ -20,4 +28,4 @@ Mobile renderer and built-in Jolt are configured. Use `godot --headless --path .
 ## Plan
 See [development plan](docs/plan.md) and [ADRs](docs/adr/README.md).
 
-A debug-signed ARM64 Android APK has been exported and structurally verified; see [Android build and testing](docs/android-build.md). Next: install and test it on the phone, tune movement/camera, then replace the blockout with the designed island. Saves, sound, animated character art and graphics settings are not implemented yet.
+Debug-signed 0.2.0 Mobile and Compatibility APKs were exported and structurally verified; see [build report](docs/android-build-0.2.0.md). Phone validation of rendering and controls remains outstanding. Station multiplayer, voice and weapons are planning work only. The next station milestone is the network/voice feasibility experiment.

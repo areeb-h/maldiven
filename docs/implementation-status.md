@@ -18,3 +18,6 @@ Run: `godot --headless --path . --script res://tests/movement_smoke.gd`.
 - Touch HUD removes desktop help; wide-screen aspect expands.
 - Version 0.2.0 Mobile and Compatibility diagnostic APKs now export successfully and pass structural/package checks. Physical-device validation is pending. See docs/android-build-0.2.0.md.
 - See docs/resources.md for resource counts, preview limitations and rebuild instructions.
+
+## Active direction: station social game
+The owner selected a space-station social-game direction. The executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. Multiplayer, voice, weapons, session services and station art are not implemented. Preserve the island baseline on archive/island-v0.2.0. The immediate next milestone is the P1 technical feasibility experiment.

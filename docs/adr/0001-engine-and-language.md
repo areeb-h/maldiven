@@ -15,3 +15,6 @@ One engine owns runtime, physics, UI and animation. Engine version upgrades requ
 - https://godotengine.org/article/maintenance-release-godot-4-7-2/
 - https://docs.godotengine.org/en/4.7/tutorials/physics/using_jolt_physics.html
 - https://docs.godotengine.org/en/4.7/classes/class_springarm3d.html
+
+## Station planning update (2026-11-12)
+The engine/GDScript baseline is retained. Native voice may require a plugin/Gradle export; this exception is gated by ADR 0007. Station multiplayer is not implemented by the planning update.

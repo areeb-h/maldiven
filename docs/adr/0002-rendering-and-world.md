@@ -1,6 +1,6 @@
 # ADR 0002: Mobile rendering and handcrafted island
 
-Date: 2026-11-12. Status: Proposed.
+Date: 2026-11-12. Status: Superseded for active world design by [ADR 0008](0008-station-layout-and-assets.md). Rendering diagnostics remain in ADR 0004.
 
 ## Context
 The visual concept prioritises inviting scenery and smooth roaming on Android. Advanced desktop rendering features cannot be assumed available or affordable on mobile.
