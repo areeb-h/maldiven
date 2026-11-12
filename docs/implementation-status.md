@@ -47,3 +47,7 @@ The [Friends Lab milestone](milestones/2026-11-12-friends-phone.md) adds the sep
 ## PC host with phone on another network
 
 A [launcher-only tunnel follow-up](milestones/2026-11-12-public-tunnel.md) adds `--public-address` and documents a free Playit UDP route. The existing 0.3.0 APK can use the generated public-IP invite. Four Python endpoint tests and 21 Friends Lab integration checks pass in the scoped evidence; actual Windows/Playit-to-phone connectivity remains to be tested.
+
+## Friends Lab 0.3.1: invite entry
+
+The [0.3.1 update](android-build-0.3.1.md) adds defensive clipboard handling, bounded formatting normalization, input readiness feedback and native invite-file import. The PC launcher exports private crew .txt files. The original package/signing identity is retained. Scoped desktop/package checks pass; physical Android paste/picker validation remains pending.

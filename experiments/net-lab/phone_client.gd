@@ -9,6 +9,8 @@ var ui_options := {}
 var menu_layer: CanvasLayer
 var invite_text: TextEdit
 var menu_message: Label
+var invite_feedback: Label
+var invite_picker: FileDialog
 var touch: Control
 var audio: Node
 var microphone_allowed := false
@@ -26,7 +28,7 @@ func start() -> void:
 	interactive = not Common.options().has("--ticket-file")
 	if interactive:
 		on_request_permissions_result.connect(permission_result)
-		show_join_menu("Start the PC server, then paste one private invite.\nUse headphones for this voice test. Same Wi-Fi required.")
+		show_join_menu("Paste an invite copied on this phone, or import a private invite.txt file.\nKeep the PC server and any tunnel running. Use headphones first.")
 	else:
 		super.start()
 
@@ -75,6 +77,7 @@ func show_join_menu(message: String) -> void:
 	stack.add_child(title)
 	menu_message = Label.new()
 	menu_message.text = message
+	menu_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	menu_message.add_theme_font_size_override("font_size", 20)
 	stack.add_child(menu_message)
 	invite_text = TextEdit.new()
@@ -82,20 +85,106 @@ func show_join_menu(message: String) -> void:
 	invite_text.custom_minimum_size = Vector2(0, 140)
 	invite_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	invite_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	invite_text.virtual_keyboard_enabled = true
+	invite_text.context_menu_enabled = true
+	invite_text.add_theme_font_size_override("font_size", 20)
+	invite_text.text_changed.connect(update_invite_feedback)
 	stack.add_child(invite_text)
+	invite_feedback = Label.new()
+	invite_feedback.text = "No invite loaded. The tunnel address alone is not an invite."
+	invite_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	invite_feedback.add_theme_font_size_override("font_size", 17)
+	stack.add_child(invite_feedback)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
 	stack.add_child(row)
+	stack.move_child(row, 2) # Keep join actions above the keyboard/text field.
 	var paste := make_button("Paste invite")
-	paste.pressed.connect(func(): invite_text.text = DisplayServer.clipboard_get().strip_edges())
+	paste.pressed.connect(paste_invite)
 	row.add_child(paste)
+	var import_button := make_button("Import invite file")
+	import_button.pressed.connect(choose_invite_file)
+	row.add_child(import_button)
 	var connect_button := make_button("Connect to PC")
 	connect_button.pressed.connect(connect_invite)
 	row.add_child(connect_button)
 	var note := Label.new()
 	note.text = "Invites expire after 10 minutes and can be used once. Keep them private.\nPrototype: movement + nearby/radio push-to-talk. No weapons or missions yet."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", 17)
 	stack.add_child(note)
+	invite_picker = FileDialog.new()
+	invite_picker.access = FileDialog.ACCESS_FILESYSTEM
+	invite_picker.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	invite_picker.use_native_dialog = true
+	invite_picker.add_filter("*.txt", "Maldiven invite", "text/plain")
+	invite_picker.add_filter("*", "All files", "*/*")
+	invite_picker.file_selected.connect(load_invite_file)
+	root.add_child(invite_picker)
+
+func normalize_invite(text: String) -> String:
+	if text.length() > 24000:
+		return ""
+	var clean := text.strip_edges()
+	for character in ["\u200b", "\u200c", "\u200d", "\ufeff"]:
+		clean = clean.replace(character, "")
+	clean = clean.strip_edges()
+	if clean.begins_with("```") and clean.ends_with("```"):
+		clean = clean.substr(3, clean.length() - 6)
+	for character in [" ", "\t", "\r", "\n"]:
+		clean = clean.replace(character, "")
+	return clean
+
+func paste_invite() -> void:
+	# Android may return an empty clipboard. Do not erase an existing invite.
+	invite_text.grab_focus()
+	call_deferred("read_invite_clipboard")
+
+func read_invite_clipboard() -> void:
+	if is_instance_valid(invite_text) and is_instance_valid(menu_message):
+		load_pasted_invite(DisplayServer.clipboard_get())
+
+func load_pasted_invite(text: String) -> bool:
+	if text.strip_edges().is_empty():
+		menu_message.text = "Clipboard unavailable. Tap the field and use your keyboard's Paste, or Import invite file."
+		invite_text.grab_focus()
+		return false
+	invite_text.text = normalize_invite(text)
+	update_invite_feedback()
+	return not parse_invite(invite_text.text).is_empty()
+
+func update_invite_feedback() -> void:
+	if invite_feedback == null:
+		return
+	var clean := normalize_invite(invite_text.text)
+	if clean.is_empty():
+		invite_feedback.text = "No invite loaded. Use Paste or Import invite file."
+	elif not clean.begins_with("MDV1."):
+		invite_feedback.text = "This is not an invite. Load the complete MDV1. text or invite.txt file."
+	elif parse_invite(clean).is_empty():
+		invite_feedback.text = "%d characters loaded; invite is incomplete or damaged." % clean.length()
+	else:
+		invite_feedback.text = "Invite ready · %d characters. Tap Connect to PC." % clean.length()
+
+func choose_invite_file() -> void:
+	DisplayServer.virtual_keyboard_hide()
+	invite_picker.popup_file_dialog()
+
+func load_invite_file(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null or file.get_length() > 24000:
+		menu_message.text = "Could not open this invite file, or it is too large. Select the crew invite.txt from your PC."
+		return
+	var data := file.get_buffer(file.get_length())
+	file.close()
+	if data.slice(0, 3) == PackedByteArray([239, 187, 191]):
+		data = data.slice(3)
+	for byte in data:
+		if byte > 127 or byte == 0:
+			menu_message.text = "This file is not a plain-text invite. Select the crew invite.txt from your PC."
+			return
+	if load_pasted_invite(data.get_string_from_ascii()):
+		menu_message.text = "Invite file loaded. Tap Connect to PC."
 
 func make_button(text: String) -> Button:
 	var button := Button.new()
@@ -105,11 +194,15 @@ func make_button(text: String) -> Button:
 	return button
 
 func parse_invite(text: String) -> Dictionary:
+	text = normalize_invite(text)
 	if not text.begins_with("MDV1.") or text.length() > 18000:
 		return {}
 	var encoded := text.substr(5)
-	if encoded.length() % 4 != 0 or encoded.is_empty():
+	if encoded.is_empty() or encoded.length() % 4 == 1:
 		return {}
+	# Some sharing apps omit trailing base64 padding.
+	while encoded.length() % 4 != 0:
+		encoded += "="
 	for character in encoded:
 		if character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=":
 			return {}
@@ -122,13 +215,16 @@ func parse_invite(text: String) -> Dictionary:
 	return parsed
 
 func connect_invite() -> void:
-	invite = parse_invite(invite_text.text.strip_edges())
+	invite = parse_invite(invite_text.text)
 	if invite.is_empty():
 		menu_message.text = "Invalid invite. Copy the complete MDV1. text from the PC invite page."
 		return
 	ui_options = {"--ticket-file": "invite-in-memory", "--port": str(int(invite["port"])), "--hold-seconds": "86400", "--timeout": "12"}
 	menu_layer.queue_free()
 	menu_layer = null
+	invite_picker.queue_free()
+	invite_picker = null
+	DisplayServer.virtual_keyboard_hide()
 	super.start()
 
 func build_interface() -> void:
@@ -319,6 +415,8 @@ func return_to_menu(status: String, reason: String) -> void:
 	local_body = null
 	camera = null
 	status_label = null
+	invite_feedback = null
+	invite_picker = null
 	touch = null
 	audio = null
 	mic_button = null

@@ -1,6 +1,6 @@
 # Run Friends Lab on your PC and Android phone
 
-This is the **0.3.0 Friends Lab**: one shared 3D test room, up to six crew slots, authoritative movement, nearby push-to-talk and room radio. Install it beside the older island app. Your PC runs the server; your phone runs the game. The default mode uses the **same home Wi-Fi/LAN**. If the phone is on mobile data or another network, use the [free UDP tunnel setup](#phone-on-mobile-data-or-another-wi-fi) below. The PC can use Ethernet.
+This is the **0.3.1 Friends Lab**: one shared 3D test room, up to six crew slots, authoritative movement, nearby push-to-talk and room radio. Install it beside the older island app. Your PC runs the server; your phone runs the game. The default mode uses the **same home Wi-Fi/LAN**. If the phone is on mobile data or another network, use the [free UDP tunnel setup](#phone-on-mobile-data-or-another-wi-fi) below. The PC can use Ethernet.
 
 This build does not provide internet matchmaking, a built-in public relay, account login, match recovery, weapons or missions. The PC launcher can advertise a separately configured UDP tunnel to the existing APK. A Windows server walkthrough is provided below; its launcher was exercised on Linux loopback, so Windows execution and actual phone audio still need your test.
 
@@ -52,7 +52,7 @@ Use the same custom port in the firewall rule if you launch with `--port`. Do no
 
 ## Phone on mobile data or another Wi-Fi
 
-Use this mode when the phone cannot reach the PC's private network. The PC still hosts the game; a third-party tunnel forwards its UDP traffic. **No new APK is needed:** Friends Lab 0.3.0 already accepts a public IPv4 in the private invite. Its old “Same Wi-Fi required” menu text describes the original default mode and can be ignored for a tunnel invite.
+Use this mode when the phone cannot reach the PC's private network. The PC still hosts the game; a third-party tunnel forwards its UDP traffic. **No new APK is needed:** Friends Lab 0.3.0 already accepts a public IPv4 in the private invite. Version 0.3.0 also remains protocol-compatible, although its old “Same Wi-Fi required” menu text describes only the original LAN mode.
 
 As checked on 2026-11-12, [Playit.gg](https://playit.gg/) lists custom **UDP** in its free tier and says no credit card is required. TCP and TCP+UDP tunnels are different products and may require Premium. Use only the free UDP option. No payment or hosted VM is required for these instructions. See the [official supported tunnel list](https://playit.gg/login).
 
@@ -90,7 +90,7 @@ The tunnel forwards the existing certificate-checked DTLS packets. Invites still
 
 ## 3. Connect the phone
 
-1. Install **`maldiven-friends-0.3.0-arm64.apk`** from the build/download supplied with this milestone. Its name is **Maldiven Friends Lab** and its package is `com.areebh.maldiven.friends`; the island app can stay installed.
+1. Install **`maldiven-friends-0.3.1-arm64.apk`** from the build/download supplied with this milestone. Its name is **Maldiven Friends Lab** and its package is `com.areebh.maldiven.friends`; the island app can stay installed.
 2. For default LAN mode, connect the phone to the same Wi-Fi as the PC. For `--public-address` mode, keep the UDP agent online; the phone can use another network. Unrelated VPNs and guest/client isolation can affect connectivity.
 3. On the PC invite page, click the text area for **Crew 1 / Invite A** and copy the complete `MDV1.` text. Transfer it privately to your phone using your usual method. It includes the server certificate and a one-use admission credential. Do not publish or screenshot it for a public bug report.
 4. Open the phone app, choose **Paste invite**, then **Connect to PC**. You can also paste directly into the text field.
@@ -99,6 +99,33 @@ The tunnel forwards the existing certificate-checked DTLS packets. Invites still
 Both A and B expire **10 minutes after server startup**. B is a spare for the same crew slot after a leave; it cannot join while that identity is connected. A used or failed admission can consume its ticket. If both are spent or expired, stop/restart the server to create a fresh room and invites, then reconnect everyone. A restart disconnects the existing room. A lost connection does not resume the old session automatically.
 
 The invite page is a local file, not a website served to your phone. The phone does not need to open a PC URL. Game and voice traffic use UDP directly to the PC.
+
+## Paste unavailable on Android: import an invite file
+
+Friends Lab **0.3.1** adds an alternative that does not require the clipboard:
+
+1. Install the 0.3.1 APK over the previous Friends Lab app. It uses the same package and debug signing certificate as 0.3.0.
+2. Stop the PC game server with Ctrl+C, run `git pull --ff-only`, then restart it with the same `--public-address` argument. Keep the UDP tunnel agent running in the environment that can reach the game's local listener.
+3. The new private invite page has a **Save invite.txt** link for each crew slot. Download one file and transfer it privately to the phone as a file/document, saving it in Downloads.
+4. On the phone choose **Import invite file**, select that crew's `.txt`, then **Connect to PC**. The file is validated and loaded; it never connects automatically. Android 10+ uses the native file picker with access to the selected document, without broad storage permission.
+
+The launcher also writes the same private files to `invite-files` beside `invites.html`. In the owner's current WSL setup, Crew 1's first invite is:
+
+```text
+/home/areeb/.local/state/maldiven-friends/invite-files/crew-1-A-invite.txt
+```
+
+Open that directory in Windows Explorer from a second WSL terminal:
+
+```bash
+explorer.exe "$(wslpath -w "$HOME/.local/state/maldiven-friends/invite-files")"
+```
+
+These files contain bearer tickets. Share only the intended crew slot privately and never commit/upload them publicly. They expire ten minutes after server startup just like copied invitations; importing does not refresh expiry. Restart for fresh invitations if needed.
+
+The paste button now focuses the text field before reading the clipboard and preserves existing text when Android returns an empty clipboard. It reports a readable error and offers the file import route. Text normalization accepts wrapped whitespace, UTF-8 BOM/zero-width formatting and omitted trailing base64 padding while preserving the closed invite envelope and certificate/authentication checks. The entry screen shows character count and whether the invite is ready. The tunnel address alone remains invalid input.
+
+This update is verified through desktop/headless checks and a packaged entry-point smoke test. Actual Android clipboard and native document-picker operation still require a physical phone check.
 
 ## 4. Move and test voice
 

@@ -22,7 +22,7 @@ def main():
     parser.add_argument('--pack-only', action='store_true', help='Export/start the desktop pack to verify the real app entry point')
     args = parser.parse_args()
     engine, _ = validate_engine(args.godot or ensure_engine())
-    output = ROOT / 'builds' / ('maldiven-friends.zip' if args.pack_only else 'maldiven-friends-0.3.0-arm64.apk')
+    output = ROOT / 'builds' / ('maldiven-friends.zip' if args.pack_only else 'maldiven-friends-0.3.1-arm64.apk')
     output.parent.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='maldiven-friends-export-') as name:
         stage = Path(name) / 'project'

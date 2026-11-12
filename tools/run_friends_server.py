@@ -11,6 +11,7 @@ import socket
 import subprocess
 import time
 import webbrowser
+from urllib.parse import quote
 from pathlib import Path
 
 from bootstrap_godot import ROOT, ensure_engine, validate_engine
@@ -71,18 +72,28 @@ def default_state():
 def write_invites(path, host, port, certificate, credentials, remote=False):
     import base64
     cards = []
+    invite_directory = path.parent / 'invite-files'
+    invite_directory.mkdir(exist_ok=True, mode=0o700)
+    if os.name != 'nt':
+        invite_directory.chmod(0o700)
     for item in credentials:
         payload = dict(host=host, port=port, certificate=certificate, credential=item)
         invite = 'MDV1.' + base64.b64encode(json.dumps(payload, separators=(',', ':')).encode('ascii')).decode('ascii')
         slot = item['player_id'].replace('player-', '')
         suffix = 'A' if item['issuance'] == 0 else 'B (retry)'
-        cards.append('<section><h2>Crew ' + slot + ' · Invite ' + suffix + '</h2><textarea readonly onclick="this.select()">' + html.escape(invite) + '</textarea></section>')
+        filename = 'crew-' + str(int(slot)) + '-' + ('A' if item['issuance'] == 0 else 'B') + '-invite.txt'
+        private_file = invite_directory / filename
+        private_file.write_text(invite + '\n', encoding='ascii')
+        if os.name != 'nt':
+            private_file.chmod(0o600)
+        cards.append('<section><h2>Crew ' + slot + ' · Invite ' + suffix + '</h2><textarea readonly onclick="this.select()">' + html.escape(invite) + '</textarea><p><a download="' + filename + '" href="data:text/plain;charset=utf-8,' + quote(invite, safe='') + '">Save invite.txt</a> — send this file privately to the phone and choose Import invite file in Friends Lab 0.3.1.</p></section>')
     connection_note = ('Keep the server terminal and UDP tunnel agent running. Phones can use another network.'
                        if remote else 'Keep the server terminal open and use the same Wi-Fi.')
     path.write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Maldiven private invites</title><style>body{background:#091722;color:#dfefed;font:18px system-ui;max-width:900px;margin:40px auto;padding:20px}h1{color:#8fe0df}section{background:#112b39;padding:20px;margin:16px 0;border-radius:16px}textarea{box-sizing:border-box;width:100%;height:90px;font:14px monospace}strong{color:#a8e4d0}</style>
 <h1>Maldiven / Friends Lab</h1><p><strong>Private invites — do not publish this page.</strong></p>
 <p>Copy a complete MDV1. invite to your phone, open Maldiven Friends Lab, choose Paste invite, then Connect to PC. Give each person a different crew slot. A and B belong to the same person; B is for retrying after a leave. Both expire 10 minutes after the server starts. Connected sessions stay connected.</p>
+<p>If Android paste is unavailable, use Save invite.txt below. The same files are in the invite-files folder beside this page. Transfer one crew file to the phone, then choose Import invite file and Connect to PC.</p>
 <p>Connection address: ''' + html.escape(host) + ' · UDP ' + str(port) + '. ' + connection_note + ' Headphones first. No echo cancellation in this experiment.</p>' + ''.join(cards) + '</html>', encoding='utf-8')
     if os.name != 'nt':
         path.chmod(0o600)
@@ -145,6 +156,7 @@ def main():
                 if args.local_only:
                     print('Local-only development room: a phone cannot connect to this address.', flush=True)
                 print('Private invite page: ' + str(page), flush=True)
+                print('Private invite files: ' + str(state / 'invite-files'), flush=True)
                 print('Use a different crew slot per phone. Invites expire in 10 minutes. Ctrl+C stops the room.', flush=True)
                 if not args.no_browser:
                     webbrowser.open(page.as_uri())

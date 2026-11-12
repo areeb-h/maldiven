@@ -27,5 +27,6 @@ Updated 2026-11-12. Accepted records indicate an agreed direction, not implement
 | [0021](0021-server-clock-motion-and-replicas.md) | Server-clock motion and public pose replicas | Accepted for the initial local movement lab |
 | [0022](0022-lan-phone-and-pcm-voice-experiment.md) | LAN phone invites, DTLS and native PCM voice candidate | Accepted for the isolated experiment; physical/provider gates open |
 | [0023](0023-public-udp-tunnel-invites.md) | Public UDP tunnel advertisements for the existing phone APK | Accepted for launcher; external route test pending |
+| [0024](0024-invite-entry-and-document-import.md) | Recoverable Android invite entry and private file import | Accepted for 0.3.1; physical picker test pending |
 
 ADRs should state context, choice, alternatives/consequences and validation. Record a replacement rather than erasing a decision that informed prior builds.

@@ -42,6 +42,9 @@ class PublicInvites(unittest.TestCase):
             self.assertEqual(payload, {'host': '8.8.8.8', 'port': 32100, 'certificate': 'synthetic-public-certificate', 'credential': credential})
             self.assertIn('Phones can use another network', page)
             self.assertNotIn('use the same Wi-Fi', page)
+            saved = path.parent / 'invite-files' / 'crew-1-A-invite.txt'
+            self.assertEqual(saved.read_text(encoding='ascii').strip(), encoded)
+            self.assertIn('download="crew-1-A-invite.txt"', page)
 
 
 if __name__ == '__main__':
