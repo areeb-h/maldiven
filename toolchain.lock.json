@@ -43,7 +43,10 @@
   },
   "network_lab": {
     "compatibility_manifest": "experiments/net-lab/compatibility.json",
-    "stage": "NET-001 local admission only",
+    "movement_compatibility_manifest": "experiments/net-lab/movement-compatibility.json",
+    "stage": "NET-001 admission and NET-002 movement loopback experiments",
+    "simulation_hz": 30,
+    "snapshot_hz": 15,
     "bind": "127.0.0.1",
     "native_addons_required": false
   },

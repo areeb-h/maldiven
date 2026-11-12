@@ -97,14 +97,18 @@ func _process(_delta: float) -> bool:
 	if admitted_msec >= 0 and not leaving:
 		var requested := args.has("--leave-file") and FileAccess.file_exists(args["--leave-file"])
 		if requested or now - admitted_msec >= hold_msec:
-			leaving = true
-			leave_msec = now
-			api.send_bytes(Common.encode({"kind": "leave"}), 1)
+			request_leave()
 	if admitted_msec < 0 and now - started_msec > int(float(args.get("--timeout", "6")) * 1000.0):
 		finish("timeout", 2)
 	if leaving and now - leave_msec > 2000:
 		finish("leave_timeout", 2)
 	return false
+
+func request_leave() -> void:
+	if admitted_msec >= 0 and not leaving and not finished:
+		leaving = true
+		leave_msec = Time.get_ticks_msec()
+		api.send_bytes(Common.encode({"kind": "leave"}), 1)
 
 func on_auth_failed(_id: int) -> void:
 	finish("auth_failed", 3)

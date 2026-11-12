@@ -1,6 +1,6 @@
 # Technical architecture and capability plan
 
-Version 0.2. This is an implementation contract proposal. Current runtime remains the island prototype; none of the online components below has been verified by this documentation work.
+Version 0.3. This remains the target architecture. The main game is the island prototype; [local admission and initial shared motion](../milestones/2026-11-12-shared-movement.md) are now implemented in the isolated lab. The named production modules and broader systems below are proposals unless linked evidence states otherwise.
 
 ## Boundaries
 | Component | Owns | Must not own |

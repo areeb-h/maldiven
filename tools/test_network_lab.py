@@ -26,11 +26,11 @@ def wait_for(predicate, timeout=8):
 
 
 class Process:
-    def __init__(self, engine, project, output, name, script, options):
+    def __init__(self, engine, project, output, name, script, options, headless=True, engine_options=()):
         self.path = output / (name + '.log')
         self.stream = self.path.open('w')
         self.process = subprocess.Popen(
-            [str(engine), '--headless', '--path', str(project), '--script', 'res://' + script, '--', *options],
+            [str(engine), *(['--headless'] if headless else []), *engine_options, '--path', str(project), '--script', 'res://' + script, '--', *options],
             stdout=self.stream, stderr=subprocess.STDOUT)
 
     def events(self):
@@ -68,11 +68,11 @@ class Lab:
         self.processes, self.servers, self.tokens = [], [], []
         self.counter = 0
 
-    def server(self, name, capacity=2, ttl=60, reuse_state=None):
+    def server(self, name, capacity=2, ttl=60, reuse_state=None, script='server.gd', extra=()):
         state = reuse_state or self.temporary / name
         state.mkdir(mode=0o700, exist_ok=reuse_state is not None)
-        process = Process(self.engine, self.project, self.output, name, 'server.gd',
-                          ['--state-dir', str(state), '--max-clients', str(capacity), '--ticket-ttl', str(ttl), '--auth-timeout', '1'])
+        process = Process(self.engine, self.project, self.output, name, script,
+                          ['--state-dir', str(state), '--max-clients', str(capacity), '--ticket-ttl', str(ttl), '--auth-timeout', '1', *extra])
         self.processes.append(process)
         self.servers.append((process, state))
         ready = wait_for(lambda: process.event('server_ready'))
@@ -86,7 +86,7 @@ class Lab:
     def credential(self, server, player, issuance=0):
         return copy.deepcopy(next(x for x in server['credentials'] if x['player_id'] == player and x['issuance'] == issuance))
 
-    def client(self, server, credential, hold=0.15, behaviour='normal', raw=None, app=None, timeout=6):
+    def client(self, server, credential, hold=0.15, behaviour='normal', raw=None, app=None, timeout=6, script='client.gd', extra=(), headless=True, engine_options=()):
         self.counter += 1
         name = 'client-%02d' % self.counter
         path = self.temporary / (name + '.json')
@@ -97,11 +97,11 @@ class Lab:
                    '--hold-seconds', str(hold), '--behaviour', behaviour, '--leave-file', str(leave), '--timeout', str(timeout)]
         for option, data in (('--raw-file', raw), ('--app-file', app)):
             if data is not None:
-                extra = self.temporary / (name + option + '.bin')
-                extra.write_bytes(data)
-                extra.chmod(0o600)
-                options += [option, str(extra)]
-        process = Process(self.engine, self.project, self.output, name, 'client.gd', options)
+                payload_path = self.temporary / (name + option + '.bin')
+                payload_path.write_bytes(data)
+                payload_path.chmod(0o600)
+                options += [option, str(payload_path)]
+        process = Process(self.engine, self.project, self.output, name, script, options + list(extra), headless=headless, engine_options=engine_options)
         self.processes.append(process)
         process.leave_path = leave
         return process
@@ -298,7 +298,7 @@ def main():
                 report['status'] = 'passed'
             finally:
                 lab.close()
-    except (AssertionError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+    except Exception as exc:
         report['error'] = str(exc)
         print('FAILED: ' + str(exc), flush=True)
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')

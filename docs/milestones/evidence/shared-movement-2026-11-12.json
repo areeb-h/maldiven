@@ -1,0 +1,508 @@
+{
+  "recorded_utc": "2026-11-12T11:53:21.330982+00:00",
+  "base_commit": "8675004c69e082aeac946115fd6dcd612d3bf33f",
+  "reports": {
+    "admission": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "loopback-ready-and-private-credentials",
+          "passed": true,
+          "seconds": 0.0
+        },
+        {
+          "name": "valid-admission",
+          "passed": true,
+          "seconds": 0.0
+        },
+        {
+          "name": "duplicate-identity",
+          "passed": true,
+          "seconds": 0.79
+        },
+        {
+          "name": "two-distinct-clients",
+          "passed": true,
+          "seconds": 0.0
+        },
+        {
+          "name": "capacity-bound",
+          "passed": true,
+          "seconds": 0.622
+        },
+        {
+          "name": "clean-disconnect",
+          "passed": true,
+          "seconds": 0.338
+        },
+        {
+          "name": "single-use-ticket-replay",
+          "passed": true,
+          "seconds": 0.474
+        },
+        {
+          "name": "fresh-ticket-same-identity",
+          "passed": true,
+          "seconds": 0.17
+        },
+        {
+          "name": "protocol-major-mismatch",
+          "passed": true,
+          "seconds": 0.628
+        },
+        {
+          "name": "protocol-minor-mismatch",
+          "passed": true,
+          "seconds": 0.468
+        },
+        {
+          "name": "fractional-protocol",
+          "passed": true,
+          "seconds": 0.625
+        },
+        {
+          "name": "content-mismatch",
+          "passed": true,
+          "seconds": 0.525
+        },
+        {
+          "name": "rules-mismatch",
+          "passed": true,
+          "seconds": 0.632
+        },
+        {
+          "name": "room-mismatch",
+          "passed": true,
+          "seconds": 1.028
+        },
+        {
+          "name": "epoch-mismatch",
+          "passed": true,
+          "seconds": 0.631
+        },
+        {
+          "name": "unknown-ticket",
+          "passed": true,
+          "seconds": 0.861
+        },
+        {
+          "name": "identity-spoof-field",
+          "passed": true,
+          "seconds": 0.475
+        },
+        {
+          "name": "malformed-json",
+          "passed": true,
+          "seconds": 0.527
+        },
+        {
+          "name": "oversized-auth",
+          "passed": true,
+          "seconds": 0.476
+        },
+        {
+          "name": "non-ascii-auth",
+          "passed": true,
+          "seconds": 0.423
+        },
+        {
+          "name": "rejections-did-not-consume-valid-ticket",
+          "passed": true,
+          "seconds": 0.117
+        },
+        {
+          "name": "silent-auth-timeout",
+          "passed": true,
+          "seconds": 1.528
+        },
+        {
+          "name": "half-finished-auth-releases-identity",
+          "passed": true,
+          "seconds": 2.011
+        },
+        {
+          "name": "unsupported-application-message",
+          "passed": true,
+          "seconds": 0.54
+        },
+        {
+          "name": "simultaneous-identity-reservation",
+          "passed": true,
+          "seconds": 0.811
+        },
+        {
+          "name": "fresh-epoch-on-restart",
+          "passed": true,
+          "seconds": 0.0
+        },
+        {
+          "name": "old-ticket-rejected-after-restart",
+          "passed": true,
+          "seconds": 0.591
+        },
+        {
+          "name": "admission-after-restart",
+          "passed": true,
+          "seconds": 0.167
+        },
+        {
+          "name": "accepted-session-outlives-join-timeout",
+          "passed": true,
+          "seconds": 1.858
+        },
+        {
+          "name": "server-stop-cleans-active-and-pending-sessions",
+          "passed": true,
+          "seconds": 0.96
+        },
+        {
+          "name": "server-owned-ticket-expiry",
+          "passed": true,
+          "seconds": 0.628
+        },
+        {
+          "name": "no-credentials-or-engine-errors-in-logs",
+          "passed": true,
+          "seconds": 0.001
+        }
+      ],
+      "source_id": "1090c5a93f3d27b2aeae849eb90c2028d991f37de46ce6ccd1ff6f7b24fc7c43",
+      "compatibility": {
+        "protocol_major": 1,
+        "protocol_minor": 0,
+        "content_id": "station-net-lab-001",
+        "rules_id": "admission-only-v1",
+        "room_id": "station-lab"
+      },
+      "started_utc": "2026-11-12T11:50:39.683038+00:00",
+      "scope": "independent Godot server/client processes over IPv4 loopback; local bearer-ticket ledger only; no movement, encryption, internet, phone, voice or match reconnect validation",
+      "engine": {
+        "version": "4.7.2.stable.official.ed1daf0bf",
+        "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+      }
+    },
+    "movement": {
+      "status": "passed",
+      "source_id": "1090c5a93f3d27b2aeae849eb90c2028d991f37de46ce6ccd1ff6f7b24fc7c43",
+      "checks": [
+        {
+          "name": "two-clients-receive-authoritative-replicas",
+          "passed": true
+        },
+        {
+          "name": "server-floor-contact",
+          "passed": true
+        },
+        {
+          "name": "directional-intent-moves-only-owned-body",
+          "passed": true
+        },
+        {
+          "name": "release-stops-authoritative-motion",
+          "passed": true
+        },
+        {
+          "name": "central-obstacle-blocks-motion",
+          "passed": true
+        },
+        {
+          "name": "client-position-claim",
+          "passed": true
+        },
+        {
+          "name": "other-actor-claim",
+          "passed": true
+        },
+        {
+          "name": "client-delta-claim",
+          "passed": true
+        },
+        {
+          "name": "axis-out-of-range",
+          "passed": true
+        },
+        {
+          "name": "axis-wrong-type",
+          "passed": true
+        },
+        {
+          "name": "sprint-wrong-type",
+          "passed": true
+        },
+        {
+          "name": "sequence-replay",
+          "passed": true
+        },
+        {
+          "name": "sequence-jump",
+          "passed": true
+        },
+        {
+          "name": "wrong-epoch",
+          "passed": true
+        },
+        {
+          "name": "missing-input-times-out-with-bounded-coast",
+          "passed": true
+        },
+        {
+          "name": "focus-policy-clears-movement-intent",
+          "passed": true
+        },
+        {
+          "name": "local-teleport-is-corrected-not-replicated",
+          "passed": true
+        },
+        {
+          "name": "flood-and-diagonal-input-cannot-increase-speed",
+          "passed": true
+        },
+        {
+          "name": "disconnect-removes-remote-avatar",
+          "passed": true
+        },
+        {
+          "name": "fresh-admission-has-one-avatar",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-50-loss-0",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-50-loss-1",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-50-loss-3",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-100-loss-0",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-100-loss-1",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-100-loss-3",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-200-loss-0",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-200-loss-1",
+          "passed": true
+        },
+        {
+          "name": "simulated-motion-rtt-200-loss-3",
+          "passed": true
+        },
+        {
+          "name": "no-engine-errors-or-credential-leaks",
+          "passed": true
+        }
+      ],
+      "profiles": [
+        {
+          "requested_simulated_rtt_ms": 50,
+          "requested_motion_loss_percent": 0,
+          "ack_samples": 48,
+          "input_to_snapshot_p95_ms": 93,
+          "prediction_error_p95_m": 0.037,
+          "counters": {
+            "input_dropped": 0,
+            "input_received": 170,
+            "queue_peak": 6,
+            "snapshot_dropped": 0,
+            "snapshot_sent": 85
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 50,
+          "requested_motion_loss_percent": 1,
+          "ack_samples": 47,
+          "input_to_snapshot_p95_ms": 100,
+          "prediction_error_p95_m": 0.114,
+          "counters": {
+            "input_dropped": 0,
+            "input_received": 174,
+            "queue_peak": 6,
+            "snapshot_dropped": 1,
+            "snapshot_sent": 85
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 50,
+          "requested_motion_loss_percent": 3,
+          "ack_samples": 52,
+          "input_to_snapshot_p95_ms": 117,
+          "prediction_error_p95_m": 0.132,
+          "counters": {
+            "input_dropped": 2,
+            "input_received": 184,
+            "queue_peak": 8,
+            "snapshot_dropped": 2,
+            "snapshot_sent": 91
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 100,
+          "requested_motion_loss_percent": 0,
+          "ack_samples": 47,
+          "input_to_snapshot_p95_ms": 157,
+          "prediction_error_p95_m": 0.056,
+          "counters": {
+            "input_dropped": 0,
+            "input_received": 172,
+            "queue_peak": 11,
+            "snapshot_dropped": 0,
+            "snapshot_sent": 86
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 100,
+          "requested_motion_loss_percent": 1,
+          "ack_samples": 42,
+          "input_to_snapshot_p95_ms": 185,
+          "prediction_error_p95_m": 0.19,
+          "counters": {
+            "input_dropped": 1,
+            "input_received": 170,
+            "queue_peak": 13,
+            "snapshot_dropped": 0,
+            "snapshot_sent": 85
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 100,
+          "requested_motion_loss_percent": 3,
+          "ack_samples": 41,
+          "input_to_snapshot_p95_ms": 148,
+          "prediction_error_p95_m": 0.056,
+          "counters": {
+            "input_dropped": 2,
+            "input_received": 178,
+            "queue_peak": 7,
+            "snapshot_dropped": 2,
+            "snapshot_sent": 87
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 200,
+          "requested_motion_loss_percent": 0,
+          "ack_samples": 47,
+          "input_to_snapshot_p95_ms": 270,
+          "prediction_error_p95_m": 0.11,
+          "counters": {
+            "input_dropped": 0,
+            "input_received": 172,
+            "queue_peak": 14,
+            "snapshot_dropped": 0,
+            "snapshot_sent": 83
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 200,
+          "requested_motion_loss_percent": 1,
+          "ack_samples": 47,
+          "input_to_snapshot_p95_ms": 268,
+          "prediction_error_p95_m": 0.129,
+          "counters": {
+            "input_dropped": 0,
+            "input_received": 174,
+            "queue_peak": 12,
+            "snapshot_dropped": 1,
+            "snapshot_sent": 83
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        },
+        {
+          "requested_simulated_rtt_ms": 200,
+          "requested_motion_loss_percent": 3,
+          "ack_samples": 46,
+          "input_to_snapshot_p95_ms": 265,
+          "prediction_error_p95_m": 0.198,
+          "counters": {
+            "input_dropped": 3,
+            "input_received": 176,
+            "queue_peak": 14,
+            "snapshot_dropped": 1,
+            "snapshot_sent": 85
+          },
+          "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+        }
+      ],
+      "scope": "Godot motion/replica processes on loopback; application-level simulated motion-message delay/loss, not OS transport or phone tests",
+      "engine": {
+        "version": "4.7.2.stable.official.ed1daf0bf",
+        "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+      }
+    },
+    "island": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "clean-import",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "assets",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "movement",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "pack-export",
+          "exit_code": 0,
+          "passed": true
+        },
+        {
+          "name": "pack-startup",
+          "exit_code": 0,
+          "passed": true
+        }
+      ],
+      "source_id": "1090c5a93f3d27b2aeae849eb90c2028d991f37de46ce6ccd1ff6f7b24fc7c43",
+      "started_utc": "2026-11-12T11:51:55.793230+00:00",
+      "host": {
+        "system": "Linux",
+        "machine": "x86_64"
+      },
+      "scope": "fresh desktop/headless import, existing regression checks, ZIP pack export and packaged startup; no Android/phone/network/voice validation",
+      "engine": {
+        "version": "4.7.2.stable.official.ed1daf0bf",
+        "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+      },
+      "pack": {
+        "sha256": "34242dfe607ba97fbe53e43523207b710e6069ba5c4260360ef32047a3ca9a0c",
+        "bytes": 280888,
+        "files": 28,
+        "development_files_excluded": true
+      }
+    }
+  },
+  "preview": {
+    "sha256": "1e5042bbc2242391ff6d4a545bbb4770b672d77ad612d097ca4df28248c54755",
+    "bytes": 93281,
+    "width": 1280,
+    "height": 720,
+    "method": "actual Godot client with two connected peers, authenticated virtual Xorg display, software GL, dummy audio",
+    "clean_exit": true
+  }
+}

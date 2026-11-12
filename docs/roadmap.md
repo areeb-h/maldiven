@@ -9,7 +9,7 @@ Allowances below are rough focused developer-days, not calendar commitments or e
 
 ## Dependencies and gates
 
-Execution update: BASE-001's [initial desktop/headless foundation](milestones/2026-11-12-baseline.md) and NET-001's [local admission experiment](milestones/2026-11-12-network-admission.md) are implemented. The latter has 32 passing multi-process checks plus five island regressions for the same inputs. NET-002, production/encrypted admission, native voice, Android re-export and physical-phone validation remain open; P1 has not passed.
+Execution update: BASE-001 [build foundation](milestones/2026-11-12-baseline.md), NET-001 [local admission](milestones/2026-11-12-network-admission.md) and NET-002 [initial shared 3D motion](milestones/2026-11-12-shared-movement.md) are implemented locally. Current evidence combines 30 movement cases, 32 admission regressions and five island checks. Native voice/device integration is next. Full prediction replay, encrypted/public transport, real-network and physical-phone validation remain open; P1 has not passed.
 
 | Phase | Allowance | Work and concrete deliverable | Exit gate |
 | --- | ---: | --- | --- |

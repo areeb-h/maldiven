@@ -23,7 +23,7 @@ func start() -> void:
 		fail("state_directory_required")
 		return
 	for key in args:
-		if key not in ["--state-dir", "--port", "--max-clients", "--ticket-ttl", "--auth-timeout"]:
+		if key not in allowed_options():
 			fail("unknown_option")
 			return
 	state_dir = str(args["--state-dir"])
@@ -88,6 +88,9 @@ func start() -> void:
 		fail("state_write_failed")
 		return
 	Common.event(ready)
+
+func allowed_options() -> Array:
+	return ["--state-dir", "--port", "--max-clients", "--ticket-ttl", "--auth-timeout"]
 
 func _process(_delta: float) -> bool:
 	if api == null:
