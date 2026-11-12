@@ -1,0 +1,21 @@
+config_version=5
+
+[application]
+config/name="Maldiven"
+run/main_scene="res://scenes/island.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/handheld/orientation=0
+
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.42,0.7,0.85,1)
+
+[physics]
+3d/physics_engine="Jolt Physics"
