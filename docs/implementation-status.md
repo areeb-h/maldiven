@@ -3,6 +3,9 @@
 Updated 2026-11-12.
 
 ## Movement foundation
+
+The [BASE-001 initial build foundation](milestones/2026-11-12-baseline.md) is now implemented: checked toolchain manifest, checksum-pinned Linux bootstrap, engine guard shared with Android export, fresh-copy validation, pack export and packaged startup. All five desktop/headless checks passed; an incorrect 4.6.3 engine was explicitly rejected. The [evidence record](milestones/evidence/baseline-2026-11-12.json) identifies the run. This is the first execution step following the planning passes; P1 network/voice and physical-phone gates remain open.
+
 - Godot 4.7.2 stable downloaded and executed successfully. Earlier download timeout resolved on retry.
 - Procedural blockout, capsule explorer, camera-relative movement, run, jump buffer/coyote time, spring-arm camera collision, independent touch pointers, pause/resume and spawn recovery implemented.
 - Headless editor import and runtime smoke tests passed on 4.7.2. Automated tests cover floor contact, movement, stopping, jump, recovery, three-finger movement/look/jump and pause.

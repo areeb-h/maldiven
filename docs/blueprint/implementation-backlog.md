@@ -1,8 +1,11 @@
 # Implementation-ready backlog and expansion ladder
 
-Version 0.3. All tasks below are planned. They are not completed by the existence of this document. The earlier roadmap supplies phase allowances; this file supplies ready-to-pick work and evidence.
+Version 0.3. Task rows describe required work; execution notes below identify implemented portions. A task is not completed by the existence of this document. The earlier roadmap supplies phase allowances; this file supplies ready-to-pick work and evidence.
 
 ## Foundation critical path
+
+Execution: BASE-001's initial desktop/headless baseline is implemented and verified; see the [milestone and evidence](../milestones/2026-11-12-baseline.md). Native voice selection/pinning and Android device checks remain their own open gates. NET-001 is next. All other task rows remain planned unless a linked implementation record states otherwise.
+
 | Order / task | Deliverable | Prerequisite | Acceptance evidence |
 | --- | --- | --- | --- |
 | 1 / BASE-001 | Pinned client/server/native dependency manifest and build IDs | Current source baseline | Clean import/export reproduced; old island remains accessible |

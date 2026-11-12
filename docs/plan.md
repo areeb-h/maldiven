@@ -5,7 +5,7 @@ Updated: 2026-11-12. Repository: Maldiven. Drift Station is a working game title
 ## Direction
 Build an Android-first, third-person 3D social survival game for friends aboard a failing space station. Cooperation, voice, transferable equipment, incomplete information and limited combat should generate memorable shared stories. Six players and one infiltrator are the first complete-round target; eight players is a later validation target. A 12–15 minute round is an initial pacing hypothesis.
 
-The current executable remains the 0.2.0 island resource prototype. Multiplayer, voice, station art and the proposed game rules are not implemented. This commit changes planning documents only.
+The current executable remains the 0.2.0 island resource prototype. Multiplayer, voice, station art and the proposed game rules are not implemented. The earlier planning passes are committed; the checked build foundation is now implemented, with evidence linked below.
 
 ## Read in this order
 1. [Game design](game-design/drift-station.md): experience, concrete rules, scope and station layout.
@@ -57,4 +57,7 @@ These additions clarify the foundation and stage H2/H3 content; they do not add 
 The [island plan](archive/island-plan.md), resource generator and APK build reports remain historical references. Preserve the complete island baseline on an archive branch before further implementation. Keep the repository name and package IDs until naming and migration are deliberately decided. Reuse movement, touch, camera, profiling and build tooling where suitable; tropical scenery is not the station art set.
 
 ## Immediate next milestone
+
+Step 1, the [checked desktop/headless build foundation](milestones/2026-11-12-baseline.md), is implemented and verified. Next is NET-001's local server/client compatibility and authenticated-admission test, followed by authoritative motion and the native voice experiment. The whole P1 milestone below is still open.
+
 P1: a time-boxed technical experiment with a dedicated game server and a native Android voice candidate, tested across actual phones and Wi-Fi/mobile data. Produce a technology decision, measured latency/battery/build impact, and a repeatable test. No hosting subscription or paid service is committed by this plan.

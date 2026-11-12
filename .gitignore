@@ -9,3 +9,4 @@ assets/previews/*.blend*
 assets/previews/*.png
 __pycache__/
 *.pyc
+tools/.cache/

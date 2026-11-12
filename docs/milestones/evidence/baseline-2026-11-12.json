@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "name": "clean-import",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "assets",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "movement",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "pack-export",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "pack-startup",
+      "exit_code": 0,
+      "passed": true
+    }
+  ],
+  "source_id": "1009e71a47a8cf424626b3e552967008c691ac2fb3e3c2a3653633d118b28cd0",
+  "started_utc": "2026-11-12T10:56:28.328268+00:00",
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64"
+  },
+  "scope": "fresh desktop/headless import, existing regression checks, ZIP pack export and packaged startup; no Android/phone/network/voice validation",
+  "engine": {
+    "version": "4.7.2.stable.official.ed1daf0bf",
+    "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+  },
+  "pack": {
+    "sha256": "dd9445bc5adcb94976d10aafa7cc7076dff738efab2e918ca5668bd8f42cf6ef",
+    "bytes": 280874,
+    "files": 28,
+    "development_files_excluded": true
+  },
+  "wrong_engine_check": {
+    "supplied_version": "4.6.3.stable.official.7d41c59c4",
+    "exit_code": 1,
+    "rejected_before_import": true
+  },
+  "python_syntax_check": "passed for bootstrap_godot.py, validate_project.py and build_android.py",
+  "android_helper_wrong_engine_check": {
+    "exit_code": 2,
+    "rejected_before_export": true,
+    "apk_exported": false
+  },
+  "archive_branch": "archive/island-v0.2.0",
+  "base_commit": "e5fbb9f381ca86b6ebc70ba5ddf636e7218faaf2"
+}

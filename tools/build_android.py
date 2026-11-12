@@ -3,16 +3,20 @@
 Requires a configured Godot Android SDK and matching export templates.
 """
 import argparse, pathlib, shutil, subprocess, tempfile
+from bootstrap_godot import ensure_engine, validate_engine
 
 def main():
  p=argparse.ArgumentParser(description=__doc__)
- p.add_argument('--godot',default='godot')
+ p.add_argument('--godot',help='Pinned Godot executable; otherwise bootstrap the Linux build host')
  p.add_argument('--renderer',choices=['mobile','compatibility'],default='mobile')
  args=p.parse_args()
  root=pathlib.Path(__file__).resolve().parents[1]
  out=root/'builds'/('maldiven-resources-'+args.renderer+'-arm64.apk');out.parent.mkdir(exist_ok=True)
- engine=shutil.which(args.godot)
- if not engine:p.error('Godot executable not found')
+ try:
+  engine,_=validate_engine(args.godot or ensure_engine())
+ except (OSError,RuntimeError,subprocess.SubprocessError) as exc:
+  p.error(str(exc))
+ engine=str(engine)
  with tempfile.TemporaryDirectory(prefix='maldiven-export-') as temp:
   stage=pathlib.Path(temp)/'project'
   shutil.copytree(root,stage,ignore=shutil.ignore_patterns('.git','.godot','builds','tools','previews'))

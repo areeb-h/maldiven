@@ -8,6 +8,9 @@ One primary developer with AI assistance, Android first, friend-only testing and
 Allowances below are rough focused developer-days, not calendar commitments or empirical estimates. Total P1–P8 allowance is 70–120 days (approximately 14–24 full-time working weeks), excluding recruiting/testing delays and a broad commercial launch. Re-estimate after P1 and P3 using measured throughput. The gate owner is the project owner; implementation/test evidence must be attached to milestone notes.
 
 ## Dependencies and gates
+
+Execution update: BASE-001's [initial desktop/headless foundation](milestones/2026-11-12-baseline.md) is implemented and its five build/regression checks pass. NET-001, native voice, Android re-export and physical-phone validation remain open; P1 has not passed.
+
 | Phase | Allowance | Work and concrete deliverable | Exit gate |
 | --- | ---: | --- | --- |
 | P0: direction and baseline | Documentation pass | Active plan, research, ADRs, roadmap, playtests; preserved island branch | All cross-links resolve; old/current scope distinguished; no claim of station implementation |

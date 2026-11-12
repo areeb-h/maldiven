@@ -27,6 +27,9 @@ Open `project.godot` in Godot Standard and run the main scene.
 - Out-of-bounds recovery returns the explorer to spawn.
 
 ## Versions and validation
+
+The [checked build foundation](docs/milestones/2026-11-12-baseline.md) is implemented. Run `python tools/validate_project.py` to bootstrap the pinned Linux engine and perform fresh import, existing regression checks, pack export and packaged startup. Dependencies and release checksums are in `toolchain.lock.json`; the ambient `godot` command is not assumed to be the correct version. Python 3.11+ is required for these helpers.
+
 Godot 4.7.2 stable Standard, with matching export templates required for platform export. The engine binary was downloaded successfully after an initial connection timeout. Import, startup and movement smoke checks are run against 4.7.2.
 
 Mobile renderer and built-in Jolt are configured. Use `godot --headless --path . --editor --import` to check imports. Use `godot --headless --path . --quit-after 120` for a basic startup smoke check. These checks cannot establish visual quality or Android performance.
