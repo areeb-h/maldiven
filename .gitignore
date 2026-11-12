@@ -3,3 +3,9 @@ builds/
 *.keystore
 *.jks
 export_credentials.cfg
+
+# Generated source previews are delivered separately; rebuild with Blender.
+assets/previews/*.blend*
+assets/previews/*.png
+__pycache__/
+*.pyc

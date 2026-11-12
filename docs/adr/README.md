@@ -7,3 +7,4 @@ ADRs record the context, choice and consequences of significant technical decisi
 | [0001](0001-engine-and-language.md) | Engine and scripting | Proposed |
 | [0002](0002-rendering-and-world.md) | Mobile rendering and world assets | Proposed |
 | [0003](0003-platform-and-toolchain.md) | Android toolchain and dependencies | Proposed |
+| [0004](0004-device-rendering-workaround.md) | Android rendering corruption and diagnostic builds | Proposed |

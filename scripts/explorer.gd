@@ -9,7 +9,9 @@ var coyote := 0.0
 var spawn := Vector3(0, 2, 16)
 var pivot: Node3D
 var arm: SpringArm3D
-var visual: MeshInstance3D
+var visual: Node3D
+var stride_phase := 0.0
+var limbs: Array[Node3D] = []
 
 func _ready() -> void:
 	floor_snap_length = 0.35
@@ -20,16 +22,12 @@ func _ready() -> void:
 	collider.shape = shape
 	collider.position.y = 0.9
 	add_child(collider)
-	visual = MeshInstance3D.new()
-	var mesh := CapsuleMesh.new()
-	mesh.radius = 0.35
-	mesh.height = 1.8
-	visual.mesh = mesh
-	visual.position.y = 0.9
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("277f87")
-	visual.material_override = mat
+	var character: PackedScene = preload("res://assets/models/explorer.glb")
+	visual = character.instantiate()
+	visual.rotation.y = PI
 	add_child(visual)
+	for limb_name in ["LeftLeg", "RightLeg", "LeftArm", "RightArm"]:
+		limbs.append(visual.find_child(limb_name, true, false) as Node3D)
 	pivot = Node3D.new()
 	pivot.position.y = 1.5
 	add_child(pivot)
@@ -73,6 +71,15 @@ func _physics_process(delta: float) -> void:
 		jump_buffer = 0
 		coyote = 0
 	move_and_slide()
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	if horizontal_speed > 0.1:
+		visual.rotation.y = lerp_angle(visual.rotation.y, atan2(velocity.x, velocity.z), minf(1.0, delta * 12.0))
+	stride_phase += horizontal_speed * delta * 2.4
+	var swing := sin(stride_phase) * minf(horizontal_speed / 6.0, 1.0) * 0.5 if is_on_floor() else 0.0
+	for index in range(limbs.size()):
+		if is_instance_valid(limbs[index]):
+			var target := swing if index in [0, 3] else -swing
+			limbs[index].rotation.x = lerpf(limbs[index].rotation.x, target, minf(1.0, delta * 18.0))
 	if position.y < -5 or Vector2(position.x, position.z).length() > 49:
 		position = spawn
 		velocity = Vector3.ZERO

@@ -3,7 +3,7 @@
 Offline Android-first island roaming game built with Godot and typed GDScript.
 
 ## Current prototype
-A small procedural blockout with beach, cottages, palms, jetty, slope, stairs and camera-obstruction wall. Placeholder geometry and flat water establish movement; this is not the finished island or the concept art's visual quality.
+An early stylised island using eight original GLB resources: shaped terrain, detailed cottage, curved palms, coastal rocks, jetty, grass, bench and human explorer. Flat water and simple procedural walking animation remain provisional. See [resources and screenshot follow-up](docs/resources.md).
 
 Open `project.godot` in Godot Standard and run the main scene.
 

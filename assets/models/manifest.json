@@ -1,0 +1,48 @@
+{
+  "generator": "tools/generate_assets.py",
+  "blender_version": "4.3.2",
+  "units": "metres",
+  "source": "original procedural models, no external assets",
+  "assets": {
+    "cottage": {
+      "triangles": 2058,
+      "mesh_nodes": 12,
+      "bytes": 158224
+    },
+    "palm": {
+      "triangles": 1968,
+      "mesh_nodes": 6,
+      "bytes": 142684
+    },
+    "coastal_rocks": {
+      "triangles": 240,
+      "mesh_nodes": 3,
+      "bytes": 27908
+    },
+    "jetty": {
+      "triangles": 2292,
+      "mesh_nodes": 4,
+      "bytes": 167756
+    },
+    "grass_tuft": {
+      "triangles": 9,
+      "mesh_nodes": 2,
+      "bytes": 2604
+    },
+    "bench": {
+      "triangles": 352,
+      "mesh_nodes": 3,
+      "bytes": 28420
+    },
+    "island_terrain": {
+      "triangles": 1454,
+      "mesh_nodes": 2,
+      "bytes": 32604
+    },
+    "explorer": {
+      "triangles": 972,
+      "mesh_nodes": 20,
+      "bytes": 83920
+    }
+  }
+}

@@ -12,7 +12,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var label := Label.new()
-	label.text = "MALDIVEN  /  MOVEMENT PROTOTYPE\nWASD · drag to look · Space to jump · Esc to pause"
+	label.text = "MALDIVEN"
+	if not DisplayServer.is_touchscreen_available():
+		label.text += "\nWASD · right-drag to look · Space to jump"
 	label.position = Vector2(24, 20)
 	label.add_theme_color_override("font_color", Color("203e48"))
 	add_child(label)
