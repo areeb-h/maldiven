@@ -16,5 +16,5 @@ Run: `godot --headless --path . --script res://tests/movement_smoke.gd`.
 - GLB import/collision tests and movement tests pass.
 - 2x MSAA applied as a candidate workaround for reported horizontal Vulkan bands; Compatibility diagnostic builder supplied. Neither workaround is verified on the affected phone yet.
 - Touch HUD removes desktop help; wide-screen aspect expands.
-- The existing 0.1.0 APK predates this resource pass. Build a new APK before expecting these changes on the phone.
+- Version 0.2.0 Mobile and Compatibility diagnostic APKs now export successfully and pass structural/package checks. Physical-device validation is pending. See docs/android-build-0.2.0.md.
 - See docs/resources.md for resource counts, preview limitations and rebuild instructions.
