@@ -14,10 +14,14 @@ Updated 2026-11-12. Accepted records indicate an agreed direction, not implement
 | [0008](0008-station-layout-and-assets.md) | Modular station topology and asset pipeline | Proposed |
 | [0009](0009-combat-and-recovery.md) | Recoverable conflict and one-weapon scope | Proposed |
 | [0010](0010-evidence-and-playtesting.md) | Research, measurement and player participation | Proposed |
-| [0011](0011-round-and-session-lifecycle.md) | Match lifecycle, reconnect and outcomes | Proposed |
+| [0011](0011-round-and-session-lifecycle.md) | Match lifecycle, reconnect and outcomes | Proposed; absence response superseded by 0019 |
 | [0012](0012-systemic-station-and-expansion.md) | Systemic station and expansion horizons | Proposed |
 | [0013](0013-interaction-protocol-and-invariants.md) | Transactions, protocol and invariants | Proposed |
 | [0014](0014-bounded-event-director.md) | Bounded event director | Proposed for H2 |
 | [0015](0015-experience-and-release-evidence.md) | Experience and release evidence gates | Proposed |
+| [0016](0016-allegiance-jobs-and-equipment.md) | Separate allegiance, jobs and equipment | Proposed; H2 job board |
+| [0017](0017-evidence-provenance-and-agreements.md) | Evidence provenance and explicit agreements | Proposed |
+| [0018](0018-curated-mission-variants.md) | Curated mission variants before procedural combinations | Proposed for H2 |
+| [0019](0019-uniform-roster-interruption.md) | Uniform roster grace/interruption without role leak | Proposed H1 clarification |
 
 ADRs should state context, choice, alternatives/consequences and validation. Record a replacement rather than erasing a decision that informed prior builds.

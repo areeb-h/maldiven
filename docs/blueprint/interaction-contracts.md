@@ -1,6 +1,6 @@
 # State, concurrency and failure contracts
 
-Version 0.2. These contracts are intended to be implemented and tested; they are not runtime guarantees today.
+Version 0.3. These contracts are intended to be implemented and tested; they are not runtime guarantees today.
 
 ## Non-negotiable invariants
 | ID | Invariant | Typical counterexample to test |
@@ -32,14 +32,14 @@ Handover uses recipient acceptance to avoid forcing unwanted equipment onto a pl
 ## Countdown semantics
 Use server deadlines, not client decrement counters. Clients display estimated remaining time and can correct smoothly. Interruption is a state transition with a reason, not a silent reset. Resolve final-tick completion against the authoritative event sequence; once the outcome commits, later inputs cannot change it.
 
-A unique core cannot satisfy two extraction routes simultaneously. If both routes are armed at different times, only the route with current valid prerequisites can complete. Proposed tick order: apply accepted commands in the server-assigned sequence, advance authoritative movement/projectiles, resolve interaction changes, then evaluate due deadlines ordered by their absolute server deadline. At an exactly equal deadline, a still-valid extraction completes before station failure. Revalidate prerequisites immediately before committing. Two simultaneously valid extractions with one unique core are an invariant violation: fail the round as interrupted and retain diagnostic evidence, rather than arbitrarily inventing a winner. Test the policy explicitly; never depend on dictionary iteration order.
+A unique core cannot satisfy two extraction routes simultaneously. If both routes are armed at different times, only the route with current valid prerequisites can complete. Proposed tick order: apply accepted commands in the server-assigned sequence, advance authoritative movement/projectiles, resolve interaction changes, then evaluate due deadlines ordered by their absolute server deadline. For exactly equal terminal deadlines, an unrecovered required roster slot causes interruption first, then a still-valid extraction takes precedence over station failure. An already committed result cannot be overwritten by a later deadline. Revalidate prerequisites immediately before committing. Two simultaneously valid extractions with one unique core are an invariant violation: fail the round as interrupted and retain diagnostic evidence, rather than arbitrarily inventing a winner. Test the policy explicitly; never depend on dictionary iteration order. The [roster contract](round-roster-and-continuity.md) supplies the grace/occupancy cases.
 
 ## Proposed failure responses
 | Failure | Player-facing response | Authoritative/operational response |
 | --- | --- | --- |
 | Brief packet loss | Continue local presentation; show delayed action state when necessary | Sequence inputs, reject stale transactions, bounded reconciliation |
 | Connection lost | Reconnecting indicator and a cancellable return-to-lobby path | Reserve identity for initial 60-second grace; freeze/release unsafe interactions |
-| Infiltrator fails to return | Honest interruption explanation without early role leak | Interrupted round after grace; no fabricated faction win |
+| Any fixed-roster participant fails to return | Uniform honest interruption explanation without faction inference | Same grace for every slot; interrupt a still-active H1 round; no fabricated faction win |
 | Session service unavailable | Retry with clear status; never show a fake joined room | Reject new admissions; avoid corrupting active room authority |
 | Voice unavailable | Visible voice warning, local mute and pings | Fail closed for channels requiring confidential routing; bounded retries |
 | Room server crashes | Return to room/retry or explicit interrupted result | H1 restarts in lobby; do not claim seamless mid-round recovery |
@@ -56,3 +56,5 @@ Do not expose faction-specific failure codes to bystanders. Public rejection exa
 Use protocol major/minor plus content/rules IDs. Reject incompatible majors. Declare which minor combinations are supported; absence of a compatibility test means unsupported. A new map/tool action needs versioned capability data and a server validator. Pin a room to its version through completion, then roll new clients/rooms deliberately.
 
 The schema is a draft for commands, not a complete network protocol: joining, acknowledgements, snapshots, privacy policy and media signalling still require implementations and companion schemas before P2/P4 gates can pass.
+
+The [combat contract](combat-counterplay-and-recovery.md) adds proposed tag/recovery/charge semantics. The [social contract](social-roles-and-agreements.md) defines future agreement revisions and evidence provenance; those H2 messages are not supported by the current draft command schema.

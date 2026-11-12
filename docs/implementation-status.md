@@ -24,3 +24,7 @@ The owner selected a space-station social-game direction. The executable remains
 
 ## Expanded planning pass
 The production blueprint now covers broader social-space modes, shared station systems, technical modules, transaction/failure invariants, mobile/art/audio production, 20 scenario cases, rollout/recovery, 28 ordered work packages and 14 expansion experiments. Draft JSON command schema/examples and station topology are planning artifacts. New ADRs 0012–0015 remain proposed. No station gameplay, online service, voice integration or new APK was implemented by this expansion.
+
+## Social, mission and experience expansion
+
+Additional proposed design now covers allegiance versus public jobs/equipment, explicit agreement/evidence provenance, six mission candidates, pacing/replay, spatial reaction/audio boundaries, map families, a first combat tuning preset and a twelve-state first-session storyboard. Nine additional work packages clarify H1 acceptance and stage H2 experiments. PT-07–PT-10 plus SX/CX/RC acceptance cases remain to implement/run. Research addendum R09/R10 documents primary-source ideas and limitations. ADRs 0016–0019 are proposed; 0019 supersedes the faction-specific absence response in 0011. The uniform roster policy avoids using abort behaviour as a role detector. No executable, voice integration, interactive mockup or APK changed in this planning pass.

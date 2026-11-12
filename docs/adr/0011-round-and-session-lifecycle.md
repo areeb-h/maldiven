@@ -2,6 +2,8 @@
 
 Date: 2026-11-12. Status: Proposed.
 
+Clarification: [ADR 0019](0019-uniform-roster-interruption.md) supersedes the faction-specific absence response below with the same grace/interruption policy for every fixed-roster slot. The remaining lifecycle direction is retained. Read the [roster contract](../blueprint/round-roster-and-continuity.md) for current proposed rules.
+
 ## Context
 Short friend sessions need understandable outcomes and recovery from mobile interruptions. Secret roles, physical cargo and two extraction paths make informal client-side outcome logic unreliable.
 

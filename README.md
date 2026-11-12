@@ -11,6 +11,9 @@ Android-first Godot project. **Active direction: Drift Station**, a proposed 3D 
 - [Full production blueprint](docs/blueprint/vision-and-experience.md)
 - [Implementation backlog and expansion ladder](docs/blueprint/implementation-backlog.md)
 - [Technical contracts and failures](docs/blueprint/interaction-contracts.md)
+- [Social roles, agreements and evidence](docs/blueprint/social-roles-and-agreements.md)
+- [Missions and replay](docs/blueprint/missions-pacing-and-replay.md)
+- [First-session storyboard](docs/blueprint/first-session-storyboard.md)
 - [ADRs](docs/adr/README.md)
 
 ## Current island prototype

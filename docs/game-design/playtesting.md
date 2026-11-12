@@ -1,6 +1,6 @@
 # Playtest and evaluation protocol
 
-Version 0.1, 2026-11-12. Formative product evaluation; not a clinical/psychological assessment or a powered scientific experiment. Numbers below are chosen targets to revise transparently.
+Version 0.3, 2026-11-12. Formative product evaluation; not a clinical/psychological assessment or a powered scientific experiment. Numbers below are chosen targets to revise transparently.
 
 ## Recruitment and session shape
 Start with one familiar group to find crashes and unclear rules. Before the friends-alpha gate, include at least six distinct groups and 30 valid completed rounds. Repeated rounds in one group are dependent observations; report counts by group and participant as well as round. Include mixed gaming experience and people who prefer less speaking. Do not infer personality, honesty or wellbeing from telemetry.
@@ -69,3 +69,16 @@ Next single variable to test:
 
 ## Expanded scenario coverage
 Use [SC-01–SC-20](../blueprint/scenarios-and-pre-mortem.md) for difficult interactions and [release evidence](../blueprint/verification-and-release.md) to distinguish rule tests, native-phone checks and human playtests. Machine-readable command examples exercise structural validity only; they do not establish authority, voice privacy or fun.
+
+## Additional comparisons: coordination and content
+
+Use these only after the relevant feature is implemented; they are not tests completed by the planning pass. Keep the same evidence/privacy rules and include technical failures in reliability reporting.
+
+| ID | Question/comparison | Observe | Decision |
+| --- | --- | --- | --- |
+| PT-07 | Explicit contextual request/acknowledgement versus ordinary pings | Who thinks the plan was accepted; repeated clarification; changed-revision confusion; input burden | Keep cards only if shared understanding improves without administrative overhead |
+| PT-08 | Voluntary public jobs versus unstructured self-organisation | Job handover, rejected offers, per-player choice, recurring control by one organiser | Keep, simplify or remove the board; no exclusive class permissions |
+| PT-09 | A shared mission with alternative routes/recovery versus the baseline mission | Which alternatives are used, meaningful tradeoffs, waiting/softlocks and outcome explanations | Revise fake/dominated options before authoring more cards |
+| PT-10 | Fixed-charge recoverable combat under the same rules across rounds | Conserved ammunition, rescue/retaliation/hoarding and participant agency; compare no-weapon baseline | Tune one parameter at a time; no claim that limited ammunition guarantees cooperation |
+
+SX-01–SX-06 in [social design](../blueprint/social-roles-and-agreements.md), CX-01–CX-06 in [combat design](../blueprint/combat-counterplay-and-recovery.md) and RC-01–RC-08 in the [roster contract](../blueprint/round-roster-and-continuity.md) add concrete acceptance cases. Static planning checks do not pass these gameplay/implementation cases.

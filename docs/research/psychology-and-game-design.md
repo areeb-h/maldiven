@@ -142,3 +142,7 @@ If observed incentives contradict intended incentives, change the rules. Do not 
 
 ## What research does not settle
 It does not choose a voice vendor, optimal map size, stun duration, infiltrator ratio, match length, server region or spending budget. Those decisions require technical spikes, owner constraints and human playtests. All source URLs and access scope above are recorded so later reviewers can challenge the reasoning.
+
+## Coordination and participation extension
+
+The [research addendum](coordination-and-participation.md) adds R09 (Clark/Brennan on grounding) and R10 (Woolley and colleagues on group performance), including inspection scope, transfer limits and PT-07–PT-10 hypotheses. The combined register now has ten sources; these additional sources do not establish that our particular coordination UI or gameplay will succeed.

@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "status": "proposed planning catalogue; not a runtime mission format",
+  "capability_ids": [
+    "shared_carry",
+    "manual_override",
+    "local_inspection",
+    "item_transfer",
+    "bounded_medical_recovery",
+    "repair_progress",
+    "common_radio",
+    "contextual_pings"
+  ],
+  "cards": [
+    {
+      "id": "MIS-01",
+      "name": "Cell relay",
+      "horizon": "H1",
+      "required_in_baseline": true,
+      "start_sector": "engineering",
+      "destination_sector": "reactor",
+      "requires_completed": [],
+      "capabilities": [
+        "shared_carry",
+        "manual_override"
+      ],
+      "decision": "Choose a route and coordinate a replaceable pair of carriers.",
+      "recovery": "Safely park/release the unique cell; replace a carrier and use a validated manual hatch route.",
+      "public_evidence": "Cell location and seated/power state; no allegiance facts."
+    },
+    {
+      "id": "MIS-02",
+      "name": "Cargo inspection",
+      "horizon": "H2",
+      "required_in_baseline": false,
+      "start_sector": "cargo",
+      "destination_sector": "cargo",
+      "requires_completed": [],
+      "capabilities": [
+        "local_inspection"
+      ],
+      "decision": "Decide whether and how to share a narrow case property.",
+      "recovery": "A slower public physical inspection identifies the restricted core when a scanner is unavailable.",
+      "public_evidence": "Inspected case property with source and scope; not the inspector's role."
+    },
+    {
+      "id": "MIS-03",
+      "name": "Medical reserve",
+      "horizon": "H2",
+      "required_in_baseline": false,
+      "start_sector": "cargo",
+      "destination_sector": "medical",
+      "requires_completed": [],
+      "capabilities": [
+        "item_transfer",
+        "bounded_medical_recovery"
+      ],
+      "decision": "Deliver an optional medical kit or retain it for a mobile rescue.",
+      "recovery": "Basic bounded medical recovery remains available without completing the delivery.",
+      "public_evidence": "Delivered supply state; no global player injury tracking."
+    },
+    {
+      "id": "MIS-04",
+      "name": "Coolant bypass",
+      "horizon": "H2",
+      "required_in_baseline": false,
+      "start_sector": "reactor",
+      "destination_sector": "reactor",
+      "requires_completed": [
+        "MIS-01"
+      ],
+      "capabilities": [
+        "repair_progress"
+      ],
+      "decision": "Choose a repair approach after station power returns.",
+      "recovery": "Authoritative progress survives handover; slower manual completion avoids a unique-tool veto.",
+      "public_evidence": "Local repair progress and public completion state."
+    },
+    {
+      "id": "MIS-05",
+      "name": "Door bus repair",
+      "horizon": "H2",
+      "required_in_baseline": false,
+      "start_sector": "engineering",
+      "destination_sector": "security",
+      "requires_completed": [
+        "MIS-01"
+      ],
+      "capabilities": [
+        "repair_progress",
+        "manual_override"
+      ],
+      "decision": "Restore convenient credential access or tolerate slower manual routing.",
+      "recovery": "Timed manual override and tested alternate paths remain available.",
+      "public_evidence": "Door service state; no complete player movement history."
+    },
+    {
+      "id": "MIS-06",
+      "name": "Relay alignment",
+      "horizon": "H2",
+      "required_in_baseline": false,
+      "start_sector": "engineering",
+      "destination_sector": "command",
+      "requires_completed": [
+        "MIS-01"
+      ],
+      "capabilities": [
+        "common_radio",
+        "contextual_pings",
+        "repair_progress"
+      ],
+      "decision": "Restore the common radio while preserving local coordination.",
+      "recovery": "Proximity and contextual pings remain supported; technical loss has separate feedback.",
+      "public_evidence": "Common radio service status; no inferred speaker intent."
+    }
+  ]
+}

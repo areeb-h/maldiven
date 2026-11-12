@@ -1,6 +1,6 @@
 # Drift Station: full experience blueprint
 
-Version 0.2, 2026-11-12. Expanded vision requested by the owner. These are design proposals, not implemented capabilities. The earlier six-player slice remains the first experiment, not a limit on the game's long-term identity.
+Version 0.3, 2026-11-12. Expanded vision requested by the owner. These are design proposals, not implemented capabilities. The earlier six-player slice remains the first experiment, not a limit on the game's long-term identity.
 
 ## The game we are aiming for
 A social space adventure where friends can manipulate a believable station together: carry salvage, exchange equipment, reroute power, control doors, board visiting modules, negotiate access, protect a repair team and escape a disaster. Hidden objectives make some sessions tense; cooperation and playful expression make the space enjoyable even without an infiltrator.
@@ -70,3 +70,9 @@ The 70–120 developer-day allowance in the foundation roadmap does not estimate
 
 ## What 'excellent' means
 People understand the rules, can contribute with different skills, trust the controls and have a story to tell. A feature belongs when it improves that experience under actual group play. Feature count, playtime alone and visual spectacle are insufficient acceptance evidence.
+
+## Playable detail behind the vision
+
+The [social design](social-roles-and-agreements.md) separates private allegiance, voluntary public responsibility and transferable equipment. [Mission design](missions-pacing-and-replay.md) supplies six curated candidates rather than a random task pile. [Spatial design](spatial-design-and-map-families.md) gives each sector an encounter purpose and treats reaction routes as measured constraints. [Combat design](combat-counterplay-and-recovery.md) expands one-weapon counterplay before any arsenal.
+
+The [first-session storyboard](first-session-storyboard.md) specifies the next reviewable mockup. [Content authoring](content-authoring-and-tuning.md) connects the additions to work packages. All remain proposed design, with H1/H2 boundaries stated in each document.

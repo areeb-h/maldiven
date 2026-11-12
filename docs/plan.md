@@ -9,7 +9,7 @@ The current executable remains the 0.2.0 island resource prototype. Multiplayer,
 
 ## Read in this order
 1. [Game design](game-design/drift-station.md): experience, concrete rules, scope and station layout.
-2. [Research and design rationale](research/psychology-and-game-design.md): eight sources, evidence limits and testable applications.
+2. [Research and design rationale](research/psychology-and-game-design.md) plus [coordination addendum](research/coordination-and-participation.md): ten sources across the two registers, evidence limits and testable applications.
 3. [Roadmap](roadmap.md): work packages, dependencies, acceptance gates, planning allowances and stop conditions.
 4. [Playtest protocol](game-design/playtesting.md): hypotheses, measurements and iteration decisions.
 5. [Architecture decisions](adr/README.md): current decisions, proposed technologies and superseded island assumptions.
@@ -40,6 +40,18 @@ This first slice is the foundation of a broader systemic station/social-space vi
 - [Draft protocol/schema examples](specs/room-command.schema.json) and [station topology](specs/station-map.v1.json): machine-readable planning fixtures, not runtime implementations.
 
 See [planning validation](blueprint/planning-validation.md) for the checks actually performed and their limits.
+
+## Added social and content design
+
+- [Social roles, agreements and evidence](blueprint/social-roles-and-agreements.md): allegiance versus jobs/equipment, voluntary coordination, facts versus accusations and muted participation.
+- [Missions, pacing and replay](blueprint/missions-pacing-and-replay.md): six mission candidates, curated presets and decisions that vary between rounds.
+- [Spatial design and map families](blueprint/spatial-design-and-map-families.md): sector encounter purpose, measured reaction opportunities and future map directions.
+- [Combat and counterplay](blueprint/combat-counterplay-and-recovery.md): a proposed first tuning preset, ammunition conservation, rescue and anti-chain rules.
+- [First-session storyboard](blueprint/first-session-storyboard.md): concrete mockup beats, twelve UI states and three review scenes; no interactive mockup built yet.
+- [Round roster and continuity](blueprint/round-roster-and-continuity.md): uniform grace/interruption without an allegiance leak.
+- [Content authoring and tuning](blueprint/content-authoring-and-tuning.md): nine additional work packages and the [mission fixture](specs/mission-cards.v1.json).
+
+These additions clarify the foundation and stage H2/H3 content; they do not add every proposed feature to H1 or change its rough schedule allowance. ADRs 0016–0019 record the proposed choices. The current APK is unchanged.
 
 ## Preserve previous work
 The [island plan](archive/island-plan.md), resource generator and APK build reports remain historical references. Preserve the complete island baseline on an archive branch before further implementation. Keep the repository name and package IDs until naming and migration are deliberately decided. Reuse movement, touch, camera, profiling and build tooling where suitable; tropical scenery is not the station art set.

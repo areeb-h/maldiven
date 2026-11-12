@@ -1,6 +1,6 @@
 # Implementation-ready backlog and expansion ladder
 
-Version 0.2. All tasks below are planned. They are not completed by the existence of this document. The earlier roadmap supplies phase allowances; this file supplies ready-to-pick work and evidence.
+Version 0.3. All tasks below are planned. They are not completed by the existence of this document. The earlier roadmap supplies phase allowances; this file supplies ready-to-pick work and evidence.
 
 ## Foundation critical path
 | Order / task | Deliverable | Prerequisite | Acceptance evidence |
@@ -58,6 +58,10 @@ Before starting a task, record: target experience, source rule/contract, depende
 | EXP-14 | Social expedition | Repeated voluntary return and operating budget | Independent missions sharing a cosmetic hub; no persistent power advantage |
 
 Each experiment receives a scope/estimate and playtest before it becomes a release commitment. Keep the long-term ideas visible instead of silently treating them as work already included in the foundation schedule.
+
+## Additional design work packages
+
+The [content/traceability plan](content-authoring-and-tuning.md) defines nine additional work packages, DES-001 through TST-004 with their explicit IDs and dependencies. RUL-004, CMB-003, INF-004 and MAP-003 clarify existing H1 task acceptance; SOC-004/005 and CNT-001 stage later features. Do not add every expansion to the original 28-task foundation estimate. The [storyboard](first-session-storyboard.md) is the scope for a reviewable mockup, not a completed mockup artifact.
 
 ## Decisions to close through evidence
 | Decision | Owner/evidence | When |

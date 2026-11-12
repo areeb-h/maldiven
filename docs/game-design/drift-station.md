@@ -28,6 +28,10 @@ Prototype win conditions:
 
 The two-crew evacuation minimum is a testable attempt to preserve cooperation. Watch for premature unwinnable states and unfair pressure to abandon friends. Change the rule if it creates passive waiting or unnecessary stalemates.
 
+## Participant continuity
+
+The H1 roster is fixed at briefing. Apply the same initial 60-second reconnect grace to every slot, regardless of allegiance; any unrecovered slot interrupts a still-active round without a competitive winner. No mid-round replacement or active spectator joins. A valid result committed earlier during grace remains final. See the [roster contract](../blueprint/round-roster-and-continuity.md) for extraction occupancy, offline item recovery and exact deadline ties. This clarifies the earlier lifecycle proposal without introducing a faction-specific abort signal.
+
 ## Moment-to-moment loop
 See a need or opportunity → find a person, tool or route → communicate and commit → act together or interfere → observe consequences → revise trust and priorities.
 
@@ -95,3 +99,5 @@ Public matchmaking, persistent accounts, ranked systems, paid progression, proce
 
 ## Expanded design references
 This is the H1 rule specification. The [experience blueprint](../blueprint/vision-and-experience.md) extends the ambition beyond H1. [System design](../blueprint/system-design.md) stages additional tools, power negotiation and director/docking/gravity possibilities. The [interaction contracts](../blueprint/interaction-contracts.md) define proposed concurrency/failure semantics and exact deadline tie policy. None is implemented by the documentation pass.
+
+The [combat specification](../blueprint/combat-counterplay-and-recovery.md) gives an explicitly unvalidated first tuning preset. [Mission/replay design](../blueprint/missions-pacing-and-replay.md), [social design](../blueprint/social-roles-and-agreements.md) and [spatial design](../blueprint/spatial-design-and-map-families.md) add concrete situations and H2/H3 experiments. Later mission cards and public jobs do not silently become part of the H1 rules.

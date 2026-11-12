@@ -1,6 +1,6 @@
 # System design and interaction economy
 
-Version 0.2. Proposal. H1 is the baseline slice; later entries are explicitly staged experiments. All balance numbers remain tuning hypotheses.
+Version 0.3. Proposal. H1 is the baseline slice; later entries are explicitly staged experiments. All balance numbers remain tuning hypotheses.
 
 ## Common simulation vocabulary
 Every interactable has an entity ID, capabilities, authoritative state/revision, interaction range, visible feedback, recovery behaviour and optional public evidence. Players use the same verbs wherever possible: inspect, carry, give, use, operate, interrupt and revive. New content should reuse these contracts.
@@ -59,3 +59,7 @@ Introduce one new decision at a time. An event cannot simultaneously disable voi
 
 ## Abuse and dominant-strategy review
 For every mechanic, ask: Can one player monopolise it? Can it trap someone indefinitely? Does disconnect permanently remove a required item? Can it reveal a secret through error text or audio routing? Can an optimal player ignore everyone? Can a quiet player still act? If an answer threatens the pillars, redesign the mechanic before adding variations.
+
+## Detailed extensions
+
+Public jobs and acknowledgements are [optional H2 social experiments](social-roles-and-agreements.md), not exclusive classes or honesty scores. [Curated missions](missions-pacing-and-replay.md) need capability/recovery checks and independent secret-role randomisation. The [combat preset](combat-counterplay-and-recovery.md) is a versioned tuning proposal, not an implemented balance result. The [roster policy](round-roster-and-continuity.md) applies the same grace/interruption response to every participant.

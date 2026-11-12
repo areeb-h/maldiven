@@ -27,6 +27,8 @@ The [full experience blueprint](blueprint/vision-and-experience.md) retains broa
 
 The [ordered backlog](blueprint/implementation-backlog.md) defines 28 implementation work packages and 14 expansion experiments. Use [interaction contracts](blueprint/interaction-contracts.md), [scenario cases](blueprint/scenarios-and-pre-mortem.md) and [release evidence](blueprint/verification-and-release.md) to define ready/done. P1/P3 estimates must be revised from measured work; an ambitious horizon is not silently included in the current estimate.
 
+The [additional work packages](blueprint/content-authoring-and-tuning.md) add a first-session mockup scope, measured reaction/acoustic routes, evidence presentation, combat conservation and uniform roster handling. These H1 clarifications attach to their existing gates; public jobs, agreement cards and the fuller mission catalogue remain H2 experiments. Four additional playtest comparisons are recorded as PT-07–PT-10. No new schedule certainty or implementation is implied.
+
 ## Work packages
 ### P1: prove the difficult dependencies
 - NET-001: versioned Godot client/server handshake, headless Linux export and bounded join ticket.
