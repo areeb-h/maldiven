@@ -43,3 +43,7 @@ Additional proposed design now covers allegiance versus public jobs/equipment, e
 ## Step 4: Friends Lab phone build and PC server
 
 The [Friends Lab milestone](milestones/2026-11-12-friends-phone.md) adds the separate 0.3.0 Android package, invite/join/retry UI, move/talk touch pointers, explicit microphone permission, certificate-checked ENet DTLS, native PCM capture/playback, server-enforced nearby/radio routing and mute/lifecycle controls. A cross-platform Python PC launcher and detailed [Windows/phone instructions](pc-server-and-phone.md) are supplied. See [current combined evidence](milestones/evidence/friends-phone-2026-11-12.json). Linux loopback checks, native dummy-audio lifecycle/generator checks and APK structure are verified; physical Android, real LAN and Windows-specific checks remain open. This does not close ADR 0007's media/provider decision or the three-phone P1 gate.
+
+## PC host with phone on another network
+
+A [launcher-only tunnel follow-up](milestones/2026-11-12-public-tunnel.md) adds `--public-address` and documents a free Playit UDP route. The existing 0.3.0 APK can use the generated public-IP invite. Four Python endpoint tests and 21 Friends Lab integration checks pass in the scoped evidence; actual Windows/Playit-to-phone connectivity remains to be tested.

@@ -2,7 +2,10 @@
 """Real DTLS Godot processes: admission, PCM routing, playback and lifecycle evidence."""
 import argparse
 import datetime
+import base64
+import html
 import json
+import re
 import shutil
 import socket
 import subprocess
@@ -175,21 +178,29 @@ def exercise(lab, report):
 
     record('A different server certificate fails closed', bad_certificate)
 
-    def launcher_check():
+    def launcher_check(remote=False):
         host = '127.0.0.1' # The build sandbox has no LAN interface/route.
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reservation:
             reservation.bind((host, 0))
             port = reservation.getsockname()[1]
-        state = lab.temporary / 'pc-launcher'
-        with (lab.output / 'launcher.log').open('w') as log:
+        state = lab.temporary / ('pc-public-launcher' if remote else 'pc-launcher')
+        mode = ['--public-address', '8.8.8.8:32100'] if remote else ['--local-only']
+        with (lab.output / ('public-launcher.log' if remote else 'launcher.log')).open('w') as log:
             process = subprocess.Popen([sys.executable, str(ROOT / 'tools' / 'run_friends_server.py'), '--godot', str(lab.engine),
-                '--local-only', '--port', str(port), '--state-dir', str(state), '--no-browser'], stdout=log, stderr=subprocess.STDOUT)
+                *mode, '--port', str(port), '--state-dir', str(state), '--no-browser'], stdout=log, stderr=subprocess.STDOUT)
             try:
                 wait_for(lambda: (state / 'invites.html').exists(), timeout=25)
                 private = json.loads((state / 'admissions.json').read_text())
                 lab.tokens.extend(x['join']['ticket'] for x in private['credentials'])
                 server_info = {'ready': private['ready'], 'credentials': private['credentials'], 'certificate': state / 'server.crt'}
                 assert private['ready']['host'] == host
+                page = (state / 'invites.html').read_text(encoding='utf-8')
+                encoded = html.unescape(re.search(r'<textarea[^>]*>([^<]+)</textarea>', page).group(1))
+                payload = json.loads(base64.b64decode(encoded.removeprefix('MDV1.')))
+                assert payload['host'] == ('8.8.8.8' if remote else host)
+                assert payload['port'] == (32100 if remote else port)
+                assert payload['credential'] == private['credentials'][0]
+                assert payload['certificate'] == (state / 'server.crt').read_text()
                 client = lab.driven(server_info, 'player-1')
                 client.leave_path.touch()
                 client.finish(0)
@@ -203,6 +214,7 @@ def exercise(lab, report):
                     process.wait(timeout=5)
 
     record('PC launcher creates private invites, accepts a loopback client and stops cleanly', launcher_check)
+    record('Tunnel invite advertises a public endpoint while the real DTLS server binds loopback', lambda: launcher_check(remote=True))
     tokens = lab.tokens
     logs = '\n'.join(process.path.read_text() for process in lab.processes)
     assert not any(token in logs for token in tokens)

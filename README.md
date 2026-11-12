@@ -11,7 +11,7 @@ git pull --ff-only
 py -3 tools/run_friends_server.py --godot "C:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
-Keep the server terminal open, install the Friends Lab APK on the phone, and paste a private crew invite from the PC page. Use the same Wi-Fi and headphones first. The guide covers the Windows firewall, spare/expired invites, microphone permission and connection failures. No Android SDK is needed on the PC to host.
+Keep the server terminal open, install the Friends Lab APK on the phone, and paste a private crew invite from the PC page. Use the same Wi-Fi for default LAN mode and headphones first. **Phone on another network?** Follow the [free UDP tunnel setup](docs/pc-server-and-phone.md#phone-on-mobile-data-or-another-wi-fi); the updated launcher supports `--public-address` with the existing APK. The guide covers the Windows firewall, spare/expired invites, microphone permission and connection failures. No Android SDK is needed on the PC to host.
 
 This is a feasibility test room with up to six crew slots, nearby/radio PTT and touch movement. Physical Android audio and Windows/LAN behaviour need your test; the three-phone P1 gate remains open. [Step 4 implementation and evidence](docs/milestones/2026-11-12-friends-phone.md).
 

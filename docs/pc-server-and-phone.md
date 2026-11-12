@@ -1,8 +1,8 @@
 # Run Friends Lab on your PC and Android phone
 
-This is the **0.3.0 Friends Lab**: one shared 3D test room, up to six crew slots, authoritative movement, nearby push-to-talk and room radio. Install it beside the older island app. Your PC runs the server; your phone runs the game. Keep both on the **same home Wi-Fi/LAN** for this step. The PC can use Ethernet on that same router.
+This is the **0.3.0 Friends Lab**: one shared 3D test room, up to six crew slots, authoritative movement, nearby push-to-talk and room radio. Install it beside the older island app. Your PC runs the server; your phone runs the game. The default mode uses the **same home Wi-Fi/LAN**. If the phone is on mobile data or another network, use the [free UDP tunnel setup](#phone-on-mobile-data-or-another-wi-fi) below. The PC can use Ethernet.
 
-This build does not provide internet matchmaking, a public relay, account login, match recovery, weapons or missions. A Windows server walkthrough is provided below; its launcher was exercised on Linux loopback, so Windows execution and actual phone audio still need your test.
+This build does not provide internet matchmaking, a built-in public relay, account login, match recovery, weapons or missions. The PC launcher can advertise a separately configured UDP tunnel to the existing APK. A Windows server walkthrough is provided below; its launcher was exercised on Linux loopback, so Windows execution and actual phone audio still need your test.
 
 ## 1. Prepare the Windows PC once
 
@@ -50,10 +50,48 @@ Remove-NetFirewallRule -DisplayName "Maldiven Friends LAN"
 
 Use the same custom port in the firewall rule if you launch with `--port`. Do not disable the firewall or forward a router port for this LAN test. See [Microsoft's command reference](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule).
 
+## Phone on mobile data or another Wi-Fi
+
+Use this mode when the phone cannot reach the PC's private network. The PC still hosts the game; a third-party tunnel forwards its UDP traffic. **No new APK is needed:** Friends Lab 0.3.0 already accepts a public IPv4 in the private invite. Its old “Same Wi-Fi required” menu text describes the original default mode and can be ignored for a tunnel invite.
+
+As checked on 2026-11-12, [Playit.gg](https://playit.gg/) lists custom **UDP** in its free tier and says no credit card is required. TCP and TCP+UDP tunnels are different products and may require Premium. Use only the free UDP option. No payment or hosted VM is required for these instructions. See the [official supported tunnel list](https://playit.gg/login).
+
+1. On the PC, create a free Playit account and download its [Windows agent](https://playit.gg/download).
+2. Run the agent and follow its account-linking instructions. Keep the agent running.
+3. Create **one custom UDP tunnel**, with one public port. Configure these local forwarding values:
+
+| Setting | Value |
+| --- | --- |
+| Protocol/type | UDP (free), not TCP or TCP+UDP |
+| Local address | `127.0.0.1` |
+| Local port | `24567` |
+| Port count | `1` |
+| Proxy Protocol, if offered | Off; forward the original UDP payload |
+
+4. Copy the tunnel's **public hostname/IP and assigned public port**. This is different from local port 24567. The tunnel might use a public port such as 32100; use the one actually assigned to you.
+5. Update your clone and start the game server, replacing the example address with your actual public allocation:
+
+```powershell
+git pull --ff-only
+py -3 tools/run_friends_server.py --godot "C:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe" --public-address "YOUR-TUNNEL-HOSTNAME:PUBLIC-PORT"
+```
+
+For example, if Playit actually assigned `your-name.gl.ply.gg:32100`, the final argument would be `--public-address "your-name.gl.ply.gg:32100"`. Do not copy that example as a working server address. Do not use a URL with `https://` or a local/private PC address.
+
+The launcher binds the Godot server to **127.0.0.1:24567**, resolves the supplied public hostname to IPv4 once, and creates invites containing the public IP/port. It does not create a tunnel or verify public reachability. Keep **both the game server terminal and Playit agent running**. The agent must be on the same PC as this loopback-bound server. Do not combine `--public-address` with `--host` or `--local-only`.
+
+6. Transfer **Crew 1 / Invite A** privately to your phone. Paste it into **Maldiven Friends Lab** and connect using mobile data or your other Wi-Fi. A second person uses Crew 2, and so on. Only the PC runs Playit; no Playit installation is needed on the phones.
+
+The normal ten-minute expiry/single-use rules still apply. If the public allocation or its resolved IP changes, restart the game launcher with the updated allocation and copy fresh invites. If you choose `--port` to change the local game port, update the tunnel's local port to match; its public port is still independent.
+
+**If connection times out:** check that the agent is online, the tunnel is UDP, its local target is 127.0.0.1:24567, the public port in the launcher matches Playit, and both processes remain open. Allow the agent's network access if Windows prompts. This route does not require a router port-forward or a broad inbound Windows firewall rule; the local agent connects to the local game server. Do not enable the optional Proxy Protocol.
+
+The tunnel forwards the existing certificate-checked DTLS packets. Invites still carry the game server's certificate and single-use ticket; the tunnel does not replace application authentication. Actual Playit routing, latency and physical phone audio remain to be tested on your PC/phone. A local smoke test is not proof that this external route works.
+
 ## 3. Connect the phone
 
 1. Install **`maldiven-friends-0.3.0-arm64.apk`** from the build/download supplied with this milestone. Its name is **Maldiven Friends Lab** and its package is `com.areebh.maldiven.friends`; the island app can stay installed.
-2. Connect the phone to the same Wi-Fi as the PC. For this first check, disconnect VPNs on both devices. Guest Wi-Fi/client isolation can prevent phones from reaching the PC.
+2. For default LAN mode, connect the phone to the same Wi-Fi as the PC. For `--public-address` mode, keep the UDP agent online; the phone can use another network. Unrelated VPNs and guest/client isolation can affect connectivity.
 3. On the PC invite page, click the text area for **Crew 1 / Invite A** and copy the complete `MDV1.` text. Transfer it privately to your phone using your usual method. It includes the server certificate and a one-use admission credential. Do not publish or screenshot it for a public bug report.
 4. Open the phone app, choose **Paste invite**, then **Connect to PC**. You can also paste directly into the text field.
 5. A second phone uses **Crew 2 / Invite A**, and so on. Each person needs a different crew slot. You should see the other crew members in the shared room.

@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-12",
+  "scope": "PC public UDP advertisement; no shipped Android/Godot script changes",
+  "friends_integration": {
+    "timestamp_utc": "2026-11-12T17:18:51.932170+00:00",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    },
+    "build_id": "34e07ad9d1ecfa3c85a5e3ff24cff37d0c0d703c2b1195e0073a8e27fde8b741",
+    "checks": [
+      {
+        "name": "Independent touch pointers, bounded PCM queue and native capture start/stop",
+        "passed": true
+      },
+      {
+        "name": "Invite menu rejects malformed input and recovers for retry without a microphone",
+        "passed": true
+      },
+      {
+        "name": "DTLS admission plus shared authoritative motion",
+        "passed": true
+      },
+      {
+        "name": "Microphone permission denied does not request a grant",
+        "passed": true
+      },
+      {
+        "name": "Audio before a PTT grant is rejected",
+        "passed": true
+      },
+      {
+        "name": "Reliable hold-to-talk grant is acknowledged",
+        "passed": true
+      },
+      {
+        "name": "Nearby PCM reaches the native playback generator",
+        "passed": true
+      },
+      {
+        "name": "Client cannot forge a speaker identity",
+        "passed": true
+      },
+      {
+        "name": "Old room epoch and oversized frames do not reach playback",
+        "passed": true
+      },
+      {
+        "name": "Repeated sequence is rejected",
+        "passed": true
+      },
+      {
+        "name": "Nearby voice is withheld beyond authoritative 8 m range",
+        "passed": true
+      },
+      {
+        "name": "Radio reaches an admitted listener beyond nearby range",
+        "passed": true
+      },
+      {
+        "name": "Receiver mute discards audio locally",
+        "passed": true
+      },
+      {
+        "name": "Release stops capture and fences further audio",
+        "passed": true
+      },
+      {
+        "name": "Background stops PTT; foreground requires a fresh press",
+        "passed": true
+      },
+      {
+        "name": "Audio flood is bounded by server frame-rate limit",
+        "passed": true
+      },
+      {
+        "name": "Leave tears down both admitted sessions",
+        "passed": true
+      },
+      {
+        "name": "A different server certificate fails closed",
+        "passed": true
+      },
+      {
+        "name": "PC launcher creates private invites, accepts a loopback client and stops cleanly",
+        "passed": true
+      },
+      {
+        "name": "Tunnel invite advertises a public endpoint while the real DTLS server binds loopback",
+        "passed": true
+      },
+      {
+        "name": "Logs contain no invitation tickets or raw PCM payloads",
+        "passed": true
+      }
+    ],
+    "scope": "Linux desktop synthetic PCM over real ENet DTLS. No physical microphone/Android/Windows validation.",
+    "players": 2,
+    "passed": true
+  },
+  "public_invite_unit_checks": {
+    "passed": true,
+    "count": 4,
+    "command": "python tools/test_public_invites.py"
+  },
+  "external_playit_route": "not tested; requires owner PC and agent",
+  "windows_native": "not tested here",
+  "apk": "Existing Friends Lab 0.3.0 remains compatible; no rebuild required"
+}

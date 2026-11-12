@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the LAN-only Friends Lab server and create private, single-use phone invites."""
+"""Run Friends Lab on a LAN or behind a separately configured public UDP tunnel."""
 import argparse
 import csv
-import getpass
 import html
 import ipaddress
 import json
 import os
+import re
 import socket
 import subprocess
 import time
@@ -41,13 +41,34 @@ def lan_address(value):
     return str(address)
 
 
+def public_endpoint(value):
+    """Resolve once to IPv4: the shipped phone APK accepts IP literals in invites."""
+    host, separator, port_text = value.rpartition(':')
+    if not separator or ':' in host or not port_text.isascii() or not port_text.isdecimal():
+        raise ValueError('--public-address must be a public IPv4 or hostname followed by :port')
+    port = int(port_text)
+    if not 1 <= port <= 65535:
+        raise ValueError('The public UDP port must be between 1 and 65535')
+    if not re.fullmatch(r'(?=.{1,253}\.?$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.?', host):
+        raise ValueError('Copy only the tunnel hostname or IPv4 and :port, without a URL or path')
+    try:
+        results = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_DGRAM)
+    except socket.gaierror as exc:
+        raise ValueError('Cannot resolve the public tunnel address. Check the address and PC internet connection.') from exc
+    for result in results:
+        address = ipaddress.ip_address(result[4][0])
+        if address.is_global and not address.is_multicast and not address.is_reserved:
+            return str(address), port
+    raise ValueError('The public tunnel must resolve to a globally reachable IPv4 address')
+
+
 def default_state():
     if os.name == 'nt':
         return Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')) / 'Maldiven' / 'FriendsLab'
     return Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local' / 'state')) / 'maldiven-friends'
 
 
-def write_invites(path, host, port, certificate, credentials):
+def write_invites(path, host, port, certificate, credentials, remote=False):
     import base64
     cards = []
     for item in credentials:
@@ -56,11 +77,13 @@ def write_invites(path, host, port, certificate, credentials):
         slot = item['player_id'].replace('player-', '')
         suffix = 'A' if item['issuance'] == 0 else 'B (retry)'
         cards.append('<section><h2>Crew ' + slot + ' · Invite ' + suffix + '</h2><textarea readonly onclick="this.select()">' + html.escape(invite) + '</textarea></section>')
+    connection_note = ('Keep the server terminal and UDP tunnel agent running. Phones can use another network.'
+                       if remote else 'Keep the server terminal open and use the same Wi-Fi.')
     path.write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Maldiven private invites</title><style>body{background:#091722;color:#dfefed;font:18px system-ui;max-width:900px;margin:40px auto;padding:20px}h1{color:#8fe0df}section{background:#112b39;padding:20px;margin:16px 0;border-radius:16px}textarea{box-sizing:border-box;width:100%;height:90px;font:14px monospace}strong{color:#a8e4d0}</style>
 <h1>Maldiven / Friends Lab</h1><p><strong>Private invites — do not publish this page.</strong></p>
 <p>Copy a complete MDV1. invite to your phone, open Maldiven Friends Lab, choose Paste invite, then Connect to PC. Give each person a different crew slot. A and B belong to the same person; B is for retrying after a leave. Both expire 10 minutes after the server starts. Connected sessions stay connected.</p>
-<p>PC address: ''' + html.escape(host) + ' · UDP ' + str(port) + '''. Keep the server terminal open and use the same Wi-Fi. Headphones first. No internet relay or echo cancellation in this experiment.</p>''' + ''.join(cards) + '</html>', encoding='utf-8')
+<p>Connection address: ''' + html.escape(host) + ' · UDP ' + str(port) + '. ' + connection_note + ' Headphones first. No echo cancellation in this experiment.</p>' + ''.join(cards) + '</html>', encoding='utf-8')
     if os.name != 'nt':
         path.chmod(0o600)
 
@@ -68,8 +91,10 @@ def write_invites(path, host, port, certificate, credentials):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--godot', help='Godot 4.7.2 Standard executable; on Windows choose the _console.exe')
-    parser.add_argument('--host', help='PC LAN IPv4 address to bind and include in invites (auto-detected otherwise)')
-    parser.add_argument('--local-only', action='store_true', help='Desktop development only: bind 127.0.0.1; phones cannot reach this room')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--host', help='PC LAN IPv4 address to bind and include in invites (auto-detected otherwise)')
+    mode.add_argument('--local-only', action='store_true', help='Desktop development only: bind 127.0.0.1; phones cannot reach this room directly')
+    mode.add_argument('--public-address', help='Public UDP tunnel hostname:port or IPv4:port; server binds 127.0.0.1 and advertises this endpoint')
     parser.add_argument('--port', type=int, default=24567)
     parser.add_argument('--state-dir', type=Path, default=default_state())
     parser.add_argument('--no-browser', action='store_true')
@@ -78,9 +103,8 @@ def main():
     try:
         if not 1024 <= args.port <= 65535:
             raise ValueError('--port must be between 1024 and 65535')
-        if args.local_only and args.host:
-            raise ValueError('Choose --local-only or --host, not both')
-        host = '127.0.0.1' if args.local_only else lan_address(args.host or local_address())
+        host = '127.0.0.1' if args.local_only or args.public_address else lan_address(args.host or local_address())
+        invite_host, invite_port = public_endpoint(args.public_address) if args.public_address else (host, args.port)
         engine, _ = validate_engine(args.godot or ensure_engine())
         state = args.state_dir.expanduser().resolve()
         if state == ROOT or ROOT in state.parents:
@@ -113,8 +137,11 @@ def main():
                     time.sleep(0.05)
                 admissions = json.loads((state / 'admissions.json').read_text())
                 page = state / 'invites.html'
-                write_invites(page, host, args.port, certificate.read_text(), admissions['credentials'])
+                write_invites(page, invite_host, invite_port, certificate.read_text(), admissions['credentials'], remote=bool(args.public_address))
                 print(f'Friends Lab listening on {host}:{args.port} UDP. Keep this window open.', flush=True)
+                if args.public_address:
+                    print(f'Invites advertise {invite_host}:{invite_port} UDP. Configure your tunnel to forward to {host}:{args.port}.', flush=True)
+                    print('Keep the tunnel agent running too. Public reachability has not been checked by this launcher.', flush=True)
                 if args.local_only:
                     print('Local-only development room: a phone cannot connect to this address.', flush=True)
                 print('Private invite page: ' + str(page), flush=True)
