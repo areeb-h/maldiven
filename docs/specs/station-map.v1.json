@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "status": "proposed topology; not authored geometry",
+  "initial_scale_metres": [
+    70,
+    50
+  ],
+  "scale_status": "tuning hypothesis",
+  "rooms": [
+    {
+      "id": "docking",
+      "name": "Docking"
+    },
+    {
+      "id": "commons",
+      "name": "Commons"
+    },
+    {
+      "id": "command",
+      "name": "Command"
+    },
+    {
+      "id": "security",
+      "name": "Security"
+    },
+    {
+      "id": "cargo",
+      "name": "Cargo"
+    },
+    {
+      "id": "engineering",
+      "name": "Engineering"
+    },
+    {
+      "id": "reactor",
+      "name": "Reactor"
+    },
+    {
+      "id": "medical",
+      "name": "Medical"
+    }
+  ],
+  "corridors": [
+    {
+      "id": "hatch-01",
+      "a": "docking",
+      "b": "commons",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-02",
+      "a": "commons",
+      "b": "command",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-03",
+      "a": "command",
+      "b": "security",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-04",
+      "a": "security",
+      "b": "cargo",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-05",
+      "a": "cargo",
+      "b": "docking",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-06",
+      "a": "cargo",
+      "b": "engineering",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-07",
+      "a": "engineering",
+      "b": "reactor",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-08",
+      "a": "reactor",
+      "b": "medical",
+      "supports_timed_manual_override": true
+    },
+    {
+      "id": "hatch-09",
+      "a": "medical",
+      "b": "commons",
+      "supports_timed_manual_override": true
+    }
+  ],
+  "rules": {
+    "single_corridor_closure_must_preserve_connectivity": true,
+    "multi_closure_requires_runtime_reachability_check": true,
+    "permanent_player_trapping_allowed": false
+  },
+  "objectives": {
+    "main_extraction": "docking",
+    "alternate_extraction": "cargo",
+    "core_origin": "cargo",
+    "power_objective": "reactor",
+    "recovery": "medical"
+  }
+}

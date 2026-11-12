@@ -81,7 +81,7 @@ One deck, approximately 70 by 50 metres as an initial scale. Strong sector names
 
 Public loop: Docking → Commons → Command → Security → Cargo → Docking.
 Service loop: Commons → Command → Security → Cargo → Engineering → Reactor → Medical → Commons.
-The table is the topology source of truth. A blocked door must leave a viable route or a bounded manual recovery. Verify reachability automatically for approved door states.
+The table mirrors the [machine-readable topology](../specs/station-map.v1.json), which is the versioned topology source of truth. Keep both aligned. A blocked door must leave a viable route or a bounded manual recovery. Verify reachability automatically for approved door states.
 
 Measure travel times and encounters. A starting target is 20–40 seconds between distant objectives at ordinary movement speed, with destinations visible before all details are known. Do not polish a layout whose social encounter rate fails.
 
@@ -92,3 +92,6 @@ Sound priorities: speech intelligibility, door/alarm recognition, item feedback 
 
 ## Explicitly deferred
 Public matchmaking, persistent accounts, ranked systems, paid progression, procedural stations, multiple decks, NPC enemies, spaceflight, ship-to-ship combat, many role classes and large weapon rosters. The island executable remains available while station work proceeds.
+
+## Expanded design references
+This is the H1 rule specification. The [experience blueprint](../blueprint/vision-and-experience.md) extends the ambition beyond H1. [System design](../blueprint/system-design.md) stages additional tools, power negotiation and director/docking/gravity possibilities. The [interaction contracts](../blueprint/interaction-contracts.md) define proposed concurrency/failure semantics and exact deadline tie policy. None is implemented by the documentation pass.

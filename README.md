@@ -8,6 +8,9 @@ Android-first Godot project. **Active direction: Drift Station**, a proposed 3D 
 - [Roadmap and milestone gates](docs/roadmap.md)
 - [Psychology and game-design research](docs/research/psychology-and-game-design.md)
 - [Playtest protocol](docs/game-design/playtesting.md)
+- [Full production blueprint](docs/blueprint/vision-and-experience.md)
+- [Implementation backlog and expansion ladder](docs/blueprint/implementation-backlog.md)
+- [Technical contracts and failures](docs/blueprint/interaction-contracts.md)
 - [ADRs](docs/adr/README.md)
 
 ## Current island prototype

@@ -66,3 +66,6 @@ Technical measurements and measurement method:
 Defects / continue-change-stop decision / owner:
 Next single variable to test:
 ```
+
+## Expanded scenario coverage
+Use [SC-01–SC-20](../blueprint/scenarios-and-pre-mortem.md) for difficult interactions and [release evidence](../blueprint/verification-and-release.md) to distinguish rule tests, native-phone checks and human playtests. Machine-readable command examples exercise structural validity only; they do not establish authority, voice privacy or fun.

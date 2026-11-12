@@ -26,7 +26,20 @@ These are product hypotheses informed by research, not claims that academic theo
 ## First complete slice
 One compact station, six private-room players, one infiltrator, proximity voice plus one shared radio channel, transferable access/tool equipment, one shared repair objective, one restricted core, one sabotage, one stun weapon with injury/recovery, and two competing extraction paths. Full match state, reconnect, win/loss and a short debrief are required.
 
-A cooperative rehearsal with no infiltrator precedes deduction tests. Networking and native Android voice must work before station art expansion. Public matchmaking, multiple maps, large role rosters, lethal weapons, permanent elimination, maintenance drones, multiple radio channels, ranked progression and monetisation are deferred.
+This first slice is the foundation of a broader systemic station/social-space vision; see the blueprint below. A cooperative rehearsal with no infiltrator precedes deduction tests. Networking and native Android voice must work before station art expansion. Public matchmaking, multiple maps, large role rosters, lethal weapons, permanent elimination, maintenance drones, multiple radio channels, ranked progression and monetisation are deferred.
+
+## Expanded production blueprint
+- [Vision and experience](blueprint/vision-and-experience.md): signature situations, social lobby, mode family and H0–H4 expansion.
+- [System design](blueprint/system-design.md): power/access/cargo/voice/evidence interactions and future tools.
+- [Technical architecture](blueprint/technical-architecture.md): authority, native voice boundaries, replication and deployment.
+- [Interaction contracts](blueprint/interaction-contracts.md): invariants, concurrency, deadlines and failure recovery.
+- [Mobile, art and audio](blueprint/mobile-art-and-audio.md): two-thumb UX, screens, asset pipeline and measured budgets.
+- [Verification and release](blueprint/verification-and-release.md): layered tests, rollout, rollback and evidence gates.
+- [Scenarios and pre-mortem](blueprint/scenarios-and-pre-mortem.md): 20 difficult cases and narrative playtests.
+- [Implementation backlog](blueprint/implementation-backlog.md): 28 ordered work packages, 14 expansion experiments and decisions to close.
+- [Draft protocol/schema examples](specs/room-command.schema.json) and [station topology](specs/station-map.v1.json): machine-readable planning fixtures, not runtime implementations.
+
+See [planning validation](blueprint/planning-validation.md) for the checks actually performed and their limits.
 
 ## Preserve previous work
 The [island plan](archive/island-plan.md), resource generator and APK build reports remain historical references. Preserve the complete island baseline on an archive branch before further implementation. Keep the repository name and package IDs until naming and migration are deliberately decided. Reuse movement, touch, camera, profiling and build tooling where suitable; tropical scenery is not the station art set.

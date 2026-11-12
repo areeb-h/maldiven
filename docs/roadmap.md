@@ -22,6 +22,11 @@ Allowances below are rough focused developer-days, not calendar commitments or e
 
 P6 art exploration may overlap earlier phases only after voice feasibility and map scale are proven. Eight simulated clients are useful load tests; they cannot replace eight-player voice and human-session validation.
 
+## Expanded scope and execution contracts
+The [full experience blueprint](blueprint/vision-and-experience.md) retains broader ambitions: systemic power negotiation, richer social hangar, cooperative mode, event director, docking, gravity compartments and later boarding/expeditions. These are gated horizons beyond the foundation allowance above.
+
+The [ordered backlog](blueprint/implementation-backlog.md) defines 28 implementation work packages and 14 expansion experiments. Use [interaction contracts](blueprint/interaction-contracts.md), [scenario cases](blueprint/scenarios-and-pre-mortem.md) and [release evidence](blueprint/verification-and-release.md) to define ready/done. P1/P3 estimates must be revised from measured work; an ambitious horizon is not silently included in the current estimate.
+
 ## Work packages
 ### P1: prove the difficult dependencies
 - NET-001: versioned Godot client/server handshake, headless Linux export and bounded join ticket.
@@ -32,7 +37,7 @@ P6 art exploration may overlap earlier phases only after voice feasibility and m
 - OPS-001: measure idle/active room CPU/RAM and voice bandwidth; choose a test region from actual latency to the friend group. No purchase is authorised by this roadmap.
 - DEV-001: reproduce the two horizontal bands on the affected phone, compare Mobile+MSAA and Compatibility and document a supported configuration.
 
-Time-box the voice spike. If Android voice cannot be integrated reliably within the allowance, stop map/content expansion and choose a smaller requirement or a proven integration. The existing Godot WebRTC data-channel extension is not itself a complete voice stack.
+Time-box the voice spike. If the first Android voice experiment fails within the allowance, diagnose the failure, define the next concrete bridge/provider test and re-estimate the spike. Pause dependent content expansion while resolving the capability; preserve the voice pillar unless the owner deliberately changes it. The existing Godot WebRTC data-channel extension is not itself a complete voice stack.
 
 ### P2–P3: make cooperation enjoyable
 - NET-003: item IDs, revisioned ownership and reliable action acknowledgements.

@@ -21,3 +21,6 @@ Run: `godot --headless --path . --script res://tests/movement_smoke.gd`.
 
 ## Active direction: station social game
 The owner selected a space-station social-game direction. The executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. Multiplayer, voice, weapons, session services and station art are not implemented. Preserve the island baseline on archive/island-v0.2.0. The immediate next milestone is the P1 technical feasibility experiment.
+
+## Expanded planning pass
+The production blueprint now covers broader social-space modes, shared station systems, technical modules, transaction/failure invariants, mobile/art/audio production, 20 scenario cases, rollout/recovery, 28 ordered work packages and 14 expansion experiments. Draft JSON command schema/examples and station topology are planning artifacts. New ADRs 0012–0015 remain proposed. No station gameplay, online service, voice integration or new APK was implemented by this expansion.

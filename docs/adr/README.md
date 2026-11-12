@@ -15,5 +15,9 @@ Updated 2026-11-12. Accepted records indicate an agreed direction, not implement
 | [0009](0009-combat-and-recovery.md) | Recoverable conflict and one-weapon scope | Proposed |
 | [0010](0010-evidence-and-playtesting.md) | Research, measurement and player participation | Proposed |
 | [0011](0011-round-and-session-lifecycle.md) | Match lifecycle, reconnect and outcomes | Proposed |
+| [0012](0012-systemic-station-and-expansion.md) | Systemic station and expansion horizons | Proposed |
+| [0013](0013-interaction-protocol-and-invariants.md) | Transactions, protocol and invariants | Proposed |
+| [0014](0014-bounded-event-director.md) | Bounded event director | Proposed for H2 |
+| [0015](0015-experience-and-release-evidence.md) | Experience and release evidence gates | Proposed |
 
 ADRs should state context, choice, alternatives/consequences and validation. Record a replacement rather than erasing a decision that informed prior builds.

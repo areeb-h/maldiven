@@ -1,0 +1,283 @@
+{
+  "valid": [
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-001",
+      "command_seq": 1,
+      "kind": "interact",
+      "payload": {
+        "entity_id": "core-01",
+        "expected_revision": 2,
+        "verb": "pickup"
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-002",
+      "command_seq": 2,
+      "kind": "fire",
+      "payload": {
+        "weapon_id": "stun-01",
+        "shot_seq": 0,
+        "aim": [
+          0,
+          0,
+          -1
+        ]
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-003",
+      "command_seq": 3,
+      "kind": "give",
+      "payload": {
+        "action": "accept",
+        "item_id": "tool-01",
+        "recipient_id": "player-b",
+        "expected_revision": 4,
+        "offer_id": "offer-02"
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-004",
+      "command_seq": 4,
+      "kind": "input",
+      "payload": {
+        "sample_tick": 100,
+        "move_x": 0,
+        "move_y": -1,
+        "yaw": 0,
+        "pitch": -0.2,
+        "sprint": true
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-005",
+      "command_seq": 5,
+      "kind": "ready",
+      "payload": {
+        "is_ready": true
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-006",
+      "command_seq": 6,
+      "kind": "extraction",
+      "payload": {
+        "route_id": "main_shuttle",
+        "action": "arm",
+        "expected_revision": 8
+      }
+    },
+    {
+      "protocol_major": 1,
+      "room_epoch": "room-a.round-3",
+      "command_id": "cmd-007",
+      "command_seq": 7,
+      "kind": "give",
+      "payload": {
+        "action": "offer",
+        "item_id": "tool-01",
+        "recipient_id": "player-b",
+        "expected_revision": 3
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "actor spoof field not permitted",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-001",
+        "command_seq": 1,
+        "kind": "interact",
+        "payload": {
+          "entity_id": "core-01",
+          "expected_revision": 2,
+          "verb": "pickup"
+        },
+        "actor_id": "other-player"
+      }
+    },
+    {
+      "reason": "negative entity revision",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-001",
+        "command_seq": 1,
+        "kind": "interact",
+        "payload": {
+          "entity_id": "core-01",
+          "expected_revision": -1,
+          "verb": "pickup"
+        }
+      }
+    },
+    {
+      "reason": "client cannot supply damage",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-002",
+        "command_seq": 2,
+        "kind": "fire",
+        "payload": {
+          "weapon_id": "stun-01",
+          "shot_seq": 0,
+          "aim": [
+            0,
+            0,
+            -1
+          ],
+          "damage": 999
+        }
+      }
+    },
+    {
+      "reason": "accept must refer to an offer",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-003",
+        "command_seq": 3,
+        "kind": "give",
+        "payload": {
+          "action": "accept",
+          "item_id": "tool-01",
+          "recipient_id": "player-b",
+          "expected_revision": 4
+        }
+      }
+    },
+    {
+      "reason": "unsupported protocol major",
+      "message": {
+        "protocol_major": 2,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-001",
+        "command_seq": 1,
+        "kind": "interact",
+        "payload": {
+          "entity_id": "core-01",
+          "expected_revision": 2,
+          "verb": "pickup"
+        }
+      }
+    },
+    {
+      "reason": "unsupported command kind",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-001",
+        "command_seq": 1,
+        "kind": "declare_win",
+        "payload": {
+          "entity_id": "core-01",
+          "expected_revision": 2,
+          "verb": "pickup"
+        }
+      }
+    },
+    {
+      "reason": "aim must have three bounded components",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-002",
+        "command_seq": 2,
+        "kind": "fire",
+        "payload": {
+          "weapon_id": "stun-01",
+          "shot_seq": 0,
+          "aim": [
+            0,
+            -1
+          ]
+        }
+      }
+    },
+    {
+      "reason": "move axis outside permitted range",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-004",
+        "command_seq": 4,
+        "kind": "input",
+        "payload": {
+          "sample_tick": 100,
+          "move_x": 99,
+          "move_y": -1,
+          "yaw": 0,
+          "pitch": -0.2,
+          "sprint": true
+        }
+      }
+    }
+  ],
+  "semantic_cases": [
+    {
+      "description": "Structurally valid zero aim must be rejected by the server normalisation/aim validator",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-002",
+        "command_seq": 2,
+        "kind": "fire",
+        "payload": {
+          "weapon_id": "stun-01",
+          "shot_seq": 1,
+          "aim": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "description": "A structurally valid pickup from another room must fail range/eligibility checks",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-001",
+        "command_seq": 1,
+        "kind": "interact",
+        "payload": {
+          "entity_id": "core-01",
+          "expected_revision": 2,
+          "verb": "pickup"
+        }
+      }
+    },
+    {
+      "description": "A structurally valid offer from someone who does not own the tool must fail ownership checks",
+      "message": {
+        "protocol_major": 1,
+        "room_epoch": "room-a.round-3",
+        "command_id": "cmd-007",
+        "command_seq": 7,
+        "kind": "give",
+        "payload": {
+          "action": "offer",
+          "item_id": "tool-01",
+          "recipient_id": "player-b",
+          "expected_revision": 3
+        }
+      }
+    }
+  ]
+}
