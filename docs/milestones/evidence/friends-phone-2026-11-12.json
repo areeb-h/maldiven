@@ -1,0 +1,648 @@
+{
+  "milestone": "VOI-001 / Step 4 Friends Lab 0.3.0",
+  "date": "2026-11-12",
+  "scope": "Linux real Godot processes on loopback, synthetic PCM and Dummy audio; exported Android package structural checks. No physical Windows/LAN/Android audio results.",
+  "friends": {
+    "timestamp_utc": "2026-11-12T12:32:10.610337+00:00",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    },
+    "build_id": "8ab48e3ae5e8cca9f7bf61c8c565f5b2a4403c6c543c985908fa8e2da79d3c1c",
+    "checks": [
+      {
+        "name": "Independent touch pointers, bounded PCM queue and native capture start/stop",
+        "passed": true
+      },
+      {
+        "name": "Invite menu rejects malformed input and recovers for retry without a microphone",
+        "passed": true
+      },
+      {
+        "name": "DTLS admission plus shared authoritative motion",
+        "passed": true
+      },
+      {
+        "name": "Microphone permission denied does not request a grant",
+        "passed": true
+      },
+      {
+        "name": "Audio before a PTT grant is rejected",
+        "passed": true
+      },
+      {
+        "name": "Reliable hold-to-talk grant is acknowledged",
+        "passed": true
+      },
+      {
+        "name": "Nearby PCM reaches the native playback generator",
+        "passed": true
+      },
+      {
+        "name": "Client cannot forge a speaker identity",
+        "passed": true
+      },
+      {
+        "name": "Old room epoch and oversized frames do not reach playback",
+        "passed": true
+      },
+      {
+        "name": "Repeated sequence is rejected",
+        "passed": true
+      },
+      {
+        "name": "Nearby voice is withheld beyond authoritative 8 m range",
+        "passed": true
+      },
+      {
+        "name": "Radio reaches an admitted listener beyond nearby range",
+        "passed": true
+      },
+      {
+        "name": "Receiver mute discards audio locally",
+        "passed": true
+      },
+      {
+        "name": "Release stops capture and fences further audio",
+        "passed": true
+      },
+      {
+        "name": "Background stops PTT; foreground requires a fresh press",
+        "passed": true
+      },
+      {
+        "name": "Audio flood is bounded by server frame-rate limit",
+        "passed": true
+      },
+      {
+        "name": "Leave tears down both admitted sessions",
+        "passed": true
+      },
+      {
+        "name": "A different server certificate fails closed",
+        "passed": true
+      },
+      {
+        "name": "PC launcher creates private invites, accepts a loopback client and stops cleanly",
+        "passed": true
+      },
+      {
+        "name": "Logs contain no invitation tickets or raw PCM payloads",
+        "passed": true
+      }
+    ],
+    "scope": "Linux desktop synthetic PCM over real ENet DTLS. No physical microphone/Android/Windows validation.",
+    "players": 2,
+    "passed": true
+  },
+  "admission": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "loopback-ready-and-private-credentials",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "valid-admission",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "duplicate-identity",
+        "passed": true,
+        "seconds": 0.368
+      },
+      {
+        "name": "two-distinct-clients",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "capacity-bound",
+        "passed": true,
+        "seconds": 0.519
+      },
+      {
+        "name": "clean-disconnect",
+        "passed": true,
+        "seconds": 0.381
+      },
+      {
+        "name": "single-use-ticket-replay",
+        "passed": true,
+        "seconds": 0.371
+      },
+      {
+        "name": "fresh-ticket-same-identity",
+        "passed": true,
+        "seconds": 0.165
+      },
+      {
+        "name": "protocol-major-mismatch",
+        "passed": true,
+        "seconds": 0.367
+      },
+      {
+        "name": "protocol-minor-mismatch",
+        "passed": true,
+        "seconds": 0.519
+      },
+      {
+        "name": "fractional-protocol",
+        "passed": true,
+        "seconds": 0.369
+      },
+      {
+        "name": "content-mismatch",
+        "passed": true,
+        "seconds": 0.369
+      },
+      {
+        "name": "rules-mismatch",
+        "passed": true,
+        "seconds": 0.318
+      },
+      {
+        "name": "room-mismatch",
+        "passed": true,
+        "seconds": 0.371
+      },
+      {
+        "name": "epoch-mismatch",
+        "passed": true,
+        "seconds": 0.369
+      },
+      {
+        "name": "unknown-ticket",
+        "passed": true,
+        "seconds": 0.518
+      },
+      {
+        "name": "identity-spoof-field",
+        "passed": true,
+        "seconds": 0.37
+      },
+      {
+        "name": "malformed-json",
+        "passed": true,
+        "seconds": 0.319
+      },
+      {
+        "name": "oversized-auth",
+        "passed": true,
+        "seconds": 0.418
+      },
+      {
+        "name": "non-ascii-auth",
+        "passed": true,
+        "seconds": 0.371
+      },
+      {
+        "name": "rejections-did-not-consume-valid-ticket",
+        "passed": true,
+        "seconds": 0.115
+      },
+      {
+        "name": "silent-auth-timeout",
+        "passed": true,
+        "seconds": 1.447
+      },
+      {
+        "name": "half-finished-auth-releases-identity",
+        "passed": true,
+        "seconds": 2.117
+      },
+      {
+        "name": "unsupported-application-message",
+        "passed": true,
+        "seconds": 0.552
+      },
+      {
+        "name": "simultaneous-identity-reservation",
+        "passed": true,
+        "seconds": 0.73
+      },
+      {
+        "name": "fresh-epoch-on-restart",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "old-ticket-rejected-after-restart",
+        "passed": true,
+        "seconds": 0.372
+      },
+      {
+        "name": "admission-after-restart",
+        "passed": true,
+        "seconds": 0.236
+      },
+      {
+        "name": "accepted-session-outlives-join-timeout",
+        "passed": true,
+        "seconds": 1.668
+      },
+      {
+        "name": "server-stop-cleans-active-and-pending-sessions",
+        "passed": true,
+        "seconds": 0.731
+      },
+      {
+        "name": "server-owned-ticket-expiry",
+        "passed": true,
+        "seconds": 0.472
+      },
+      {
+        "name": "no-credentials-or-engine-errors-in-logs",
+        "passed": true,
+        "seconds": 0.001
+      }
+    ],
+    "source_id": "8ab48e3ae5e8cca9f7bf61c8c565f5b2a4403c6c543c985908fa8e2da79d3c1c",
+    "compatibility": {
+      "protocol_major": 1,
+      "protocol_minor": 0,
+      "content_id": "station-net-lab-001",
+      "rules_id": "admission-only-v1",
+      "room_id": "station-lab"
+    },
+    "started_utc": "2026-11-12T12:32:09.970813+00:00",
+    "scope": "independent Godot server/client processes over IPv4 loopback; local bearer-ticket ledger only; no movement, encryption, internet, phone, voice or match reconnect validation",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    }
+  },
+  "movement": {
+    "status": "passed",
+    "source_id": "8ab48e3ae5e8cca9f7bf61c8c565f5b2a4403c6c543c985908fa8e2da79d3c1c",
+    "checks": [
+      {
+        "name": "two-clients-receive-authoritative-replicas",
+        "passed": true
+      },
+      {
+        "name": "server-floor-contact",
+        "passed": true
+      },
+      {
+        "name": "directional-intent-moves-only-owned-body",
+        "passed": true
+      },
+      {
+        "name": "release-stops-authoritative-motion",
+        "passed": true
+      },
+      {
+        "name": "central-obstacle-blocks-motion",
+        "passed": true
+      },
+      {
+        "name": "client-position-claim",
+        "passed": true
+      },
+      {
+        "name": "other-actor-claim",
+        "passed": true
+      },
+      {
+        "name": "client-delta-claim",
+        "passed": true
+      },
+      {
+        "name": "axis-out-of-range",
+        "passed": true
+      },
+      {
+        "name": "axis-wrong-type",
+        "passed": true
+      },
+      {
+        "name": "sprint-wrong-type",
+        "passed": true
+      },
+      {
+        "name": "sequence-replay",
+        "passed": true
+      },
+      {
+        "name": "sequence-jump",
+        "passed": true
+      },
+      {
+        "name": "wrong-epoch",
+        "passed": true
+      },
+      {
+        "name": "missing-input-times-out-with-bounded-coast",
+        "passed": true
+      },
+      {
+        "name": "focus-policy-clears-movement-intent",
+        "passed": true
+      },
+      {
+        "name": "local-teleport-is-corrected-not-replicated",
+        "passed": true
+      },
+      {
+        "name": "flood-and-diagonal-input-cannot-increase-speed",
+        "passed": true
+      },
+      {
+        "name": "disconnect-removes-remote-avatar",
+        "passed": true
+      },
+      {
+        "name": "fresh-admission-has-one-avatar",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-50-loss-0",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-50-loss-1",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-50-loss-3",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-100-loss-0",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-100-loss-1",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-100-loss-3",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-200-loss-0",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-200-loss-1",
+        "passed": true
+      },
+      {
+        "name": "simulated-motion-rtt-200-loss-3",
+        "passed": true
+      },
+      {
+        "name": "no-engine-errors-or-credential-leaks",
+        "passed": true
+      }
+    ],
+    "profiles": [
+      {
+        "requested_simulated_rtt_ms": 50,
+        "requested_motion_loss_percent": 0,
+        "ack_samples": 41,
+        "input_to_snapshot_p95_ms": 110,
+        "prediction_error_p95_m": 0.102,
+        "counters": {
+          "input_dropped": 0,
+          "input_received": 160,
+          "queue_peak": 10,
+          "snapshot_dropped": 0,
+          "snapshot_sent": 81
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 50,
+        "requested_motion_loss_percent": 1,
+        "ack_samples": 41,
+        "input_to_snapshot_p95_ms": 128,
+        "prediction_error_p95_m": 0.183,
+        "counters": {
+          "input_dropped": 1,
+          "input_received": 161,
+          "queue_peak": 7,
+          "snapshot_dropped": 0,
+          "snapshot_sent": 83
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 50,
+        "requested_motion_loss_percent": 3,
+        "ack_samples": 41,
+        "input_to_snapshot_p95_ms": 112,
+        "prediction_error_p95_m": 0.131,
+        "counters": {
+          "input_dropped": 1,
+          "input_received": 169,
+          "queue_peak": 7,
+          "snapshot_dropped": 2,
+          "snapshot_sent": 82
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 100,
+        "requested_motion_loss_percent": 0,
+        "ack_samples": 46,
+        "input_to_snapshot_p95_ms": 162,
+        "prediction_error_p95_m": 0.06,
+        "counters": {
+          "input_dropped": 0,
+          "input_received": 168,
+          "queue_peak": 8,
+          "snapshot_dropped": 0,
+          "snapshot_sent": 84
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 100,
+        "requested_motion_loss_percent": 1,
+        "ack_samples": 47,
+        "input_to_snapshot_p95_ms": 159,
+        "prediction_error_p95_m": 0.037,
+        "counters": {
+          "input_dropped": 0,
+          "input_received": 168,
+          "queue_peak": 7,
+          "snapshot_dropped": 1,
+          "snapshot_sent": 86
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 100,
+        "requested_motion_loss_percent": 3,
+        "ack_samples": 41,
+        "input_to_snapshot_p95_ms": 167,
+        "prediction_error_p95_m": 0.118,
+        "counters": {
+          "input_dropped": 2,
+          "input_received": 167,
+          "queue_peak": 8,
+          "snapshot_dropped": 1,
+          "snapshot_sent": 82
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 200,
+        "requested_motion_loss_percent": 0,
+        "ack_samples": 44,
+        "input_to_snapshot_p95_ms": 274,
+        "prediction_error_p95_m": 0.215,
+        "counters": {
+          "input_dropped": 0,
+          "input_received": 174,
+          "queue_peak": 20,
+          "snapshot_dropped": 0,
+          "snapshot_sent": 85
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 200,
+        "requested_motion_loss_percent": 1,
+        "ack_samples": 50,
+        "input_to_snapshot_p95_ms": 276,
+        "prediction_error_p95_m": 0.176,
+        "counters": {
+          "input_dropped": 1,
+          "input_received": 190,
+          "queue_peak": 16,
+          "snapshot_dropped": 0,
+          "snapshot_sent": 93
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      },
+      {
+        "requested_simulated_rtt_ms": 200,
+        "requested_motion_loss_percent": 3,
+        "ack_samples": 39,
+        "input_to_snapshot_p95_ms": 347,
+        "prediction_error_p95_m": 0.403,
+        "counters": {
+          "input_dropped": 3,
+          "input_received": 170,
+          "queue_peak": 24,
+          "snapshot_dropped": 1,
+          "snapshot_sent": 90
+        },
+        "method": "server application queues add half target delay to each motion direction and seeded drops; auth/control remain ordinary loopback"
+      }
+    ],
+    "scope": "Godot motion/replica processes on loopback; application-level simulated motion-message delay/loss, not OS transport or phone tests",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    }
+  },
+  "island_baseline": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "clean-import",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "assets",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "movement",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "pack-export",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "pack-startup",
+        "exit_code": 0,
+        "passed": true
+      }
+    ],
+    "source_id": "8ab48e3ae5e8cca9f7bf61c8c565f5b2a4403c6c543c985908fa8e2da79d3c1c",
+    "started_utc": "2026-11-12T12:32:10.053153+00:00",
+    "host": {
+      "system": "Linux",
+      "machine": "x86_64"
+    },
+    "scope": "fresh desktop/headless import, existing regression checks, ZIP pack export and packaged startup; no Android/phone/network/voice validation",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    },
+    "pack": {
+      "sha256": "42956010a51a5198eb8eb8cf730b45bc6a3bdc95c3477c1a8ee7a1e961effab8",
+      "bytes": 280873,
+      "files": 28,
+      "development_files_excluded": true
+    }
+  },
+  "source_id": "8ab48e3ae5e8cca9f7bf61c8c565f5b2a4403c6c543c985908fa8e2da79d3c1c",
+  "total_automated_checks": 87,
+  "packaged_friends_entrypoint": "Build helper exports Friends Pack and starts it as --main-pack without --script; headless smoke, not a device rendering check.",
+  "phone_validation": {
+    "status": "pending owner install and PC/phone acceptance pass",
+    "guide": "docs/pc-server-and-phone.md"
+  },
+  "inspected_frame": {
+    "origin": "actual two-client Friends UI, software GL, Dummy audio, Linux",
+    "sha256": "510078450412756c2da854046ab8847753d95bb4ed0029bdf84938507af18964",
+    "note": "Inspected UI before cosmetic app-icon addition; not an Android screen capture."
+  },
+  "android_apk": {
+    "file_name": "maldiven-friends-0.3.0-arm64.apk",
+    "bytes": 28387291,
+    "sha256": "58f31d957c9e9bdc180500fae2e5f69cb1d5871e76c90336a8300112a0a15d75",
+    "package": "com.areebh.maldiven.friends",
+    "version_code": 3,
+    "version_name": "0.3.0-lab",
+    "minimum_sdk": 24,
+    "target_sdk": 36,
+    "abi": [
+      "arm64-v8a"
+    ],
+    "permissions": [
+      "android.permission.INTERNET",
+      "android.permission.MODIFY_AUDIO_SETTINGS",
+      "android.permission.RECORD_AUDIO"
+    ],
+    "signature_verified": true,
+    "signing_certificate_sha256": "9b7dd5ce7b1d41222675a9cd7ccbaa7f3dec5652169b58bc1b3e0bc08e5cae71",
+    "signing_scope": "Godot debug signing, private friend test only",
+    "zip_alignment_16k": true,
+    "native_libraries": [
+      {
+        "name": "lib/arm64-v8a/libc++_shared.so",
+        "load_segment_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "name": "lib/arm64-v8a/libgodot_android.so",
+        "load_segment_alignment": [
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "packaged_scripts_and_secret_exclusions_verified": true,
+    "engine_export_log_errors": false,
+    "installed_on_device": false,
+    "aapt2_warning": "warn: resource com.godot.game:mipmap/themed_icon for config 'anydpi-v26' is a file reference to 'res/mipmap-anydpi-v26/themed_icon.xml' but no such path exists."
+  }
+}

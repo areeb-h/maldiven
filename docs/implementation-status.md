@@ -23,7 +23,7 @@ Run: `godot --headless --path . --script res://tests/movement_smoke.gd`.
 - See docs/resources.md for resource counts, preview limitations and rebuild instructions.
 
 ## Active direction: station social game
-The owner selected a space-station social-game direction. The main executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. A separate local admission/shared-movement lab is implemented; native voice, tools/weapons, hosted session services, the station map and match rules remain unimplemented. Preserve the island baseline on archive/island-v0.2.0. The P1 technical feasibility gate remains open.
+The owner selected a space-station social-game direction. The main executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. A separate local admission/shared-movement lab is implemented; an isolated native PCM voice/phone candidate is now implemented, while tools/weapons, hosted session services, the station map and match rules remain unimplemented. Preserve the island baseline on archive/island-v0.2.0. The P1 technical feasibility gate remains open.
 
 ## Step 2: local network admission
 
@@ -39,3 +39,7 @@ The production blueprint now covers broader social-space modes, shared station s
 ## Social, mission and experience expansion
 
 Additional proposed design now covers allegiance versus public jobs/equipment, explicit agreement/evidence provenance, six mission candidates, pacing/replay, spatial reaction/audio boundaries, map families, a first combat tuning preset and a twelve-state first-session storyboard. Nine additional work packages clarify H1 acceptance and stage H2 experiments. PT-07–PT-10 plus SX/CX/RC acceptance cases remain to implement/run. Research addendum R09/R10 documents primary-source ideas and limitations. ADRs 0016–0019 are proposed; 0019 supersedes the faction-specific absence response in 0011. The uniform roster policy avoids using abort behaviour as a role detector. No executable, voice integration, interactive mockup or APK changed in this planning pass.
+
+## Step 4: Friends Lab phone build and PC server
+
+The [Friends Lab milestone](milestones/2026-11-12-friends-phone.md) adds the separate 0.3.0 Android package, invite/join/retry UI, move/talk touch pointers, explicit microphone permission, certificate-checked ENet DTLS, native PCM capture/playback, server-enforced nearby/radio routing and mute/lifecycle controls. A cross-platform Python PC launcher and detailed [Windows/phone instructions](pc-server-and-phone.md) are supplied. See [current combined evidence](milestones/evidence/friends-phone-2026-11-12.json). Linux loopback checks, native dummy-audio lifecycle/generator checks and APK structure are verified; physical Android, real LAN and Windows-specific checks remain open. This does not close ADR 0007's media/provider decision or the three-phone P1 gate.

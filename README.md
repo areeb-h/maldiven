@@ -1,6 +1,19 @@
 # Maldiven
 
-Android-first Godot project. **Active direction: Drift Station**, a proposed 3D social-survival game for friends with voice, cooperation, hidden objectives and recoverable conflict. The current executable is still the island 0.2.0 prototype.
+Android-first Godot project. **Active direction: Drift Station**, a proposed 3D social-survival game for friends with voice, cooperation, hidden objectives and recoverable conflict. The root project remains the island 0.2.0 prototype; a separate **0.3.0 Friends Lab APK** now adds shared movement and a native push-to-talk candidate.
+
+## Test with your PC and phone
+
+See **[PC server and Android connection guide](docs/pc-server-and-phone.md)**. From your updated Windows clone, with Python 3.11+ and Godot 4.7.2 Standard extracted:
+
+```powershell
+git pull --ff-only
+py -3 tools/run_friends_server.py --godot "C:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe"
+```
+
+Keep the server terminal open, install the Friends Lab APK on the phone, and paste a private crew invite from the PC page. Use the same Wi-Fi and headphones first. The guide covers the Windows firewall, spare/expired invites, microphone permission and connection failures. No Android SDK is needed on the PC to host.
+
+This is a feasibility test room with up to six crew slots, nearby/radio PTT and touch movement. Physical Android audio and Windows/LAN behaviour need your test; the three-phone P1 gate remains open. [Step 4 implementation and evidence](docs/milestones/2026-11-12-friends-phone.md).
 
 ## Planning
 - [Active plan](docs/plan.md)
@@ -39,4 +52,4 @@ See [development plan](docs/plan.md) and [ADRs](docs/adr/README.md).
 
 Step 2's [local network admission lab](docs/milestones/2026-11-12-network-admission.md) and Step 3's [shared 3D movement](docs/milestones/2026-11-12-shared-movement.md) are implemented in the separate loopback project. Run `python tools/test_network_lab.py` and `python tools/test_movement_lab.py` for the checks. `python tools/run_movement_lab.py --seconds 60` opens a real desktop client with a server and companion; WASD/arrows move, Shift runs and Escape/Leave exits.
 
-Debug-signed 0.2.0 Mobile and Compatibility APKs were exported and structurally verified; see [build report](docs/android-build-0.2.0.md). Phone validation of rendering and controls remains outstanding. Admission and movement are implemented in the separate desktop lab; the island APK has no multiplayer, voice or weapons. Native Android voice feasibility and real-device integration are next; the wider P1 milestone remains open.
+Debug-signed 0.2.0 Mobile and Compatibility APKs were exported and structurally verified; see [build report](docs/android-build-0.2.0.md). Phone validation of rendering and controls remains outstanding. Admission and movement are implemented in the separate desktop lab; the island APK has no multiplayer, voice or weapons. A separate Friends Lab Android/native PCM candidate is now implemented; real-device validation and the wider P1 milestone remain open.

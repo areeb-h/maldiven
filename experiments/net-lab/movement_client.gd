@@ -26,7 +26,7 @@ var max_history := 128
 func start() -> void:
 	super.start()
 	if not finished:
-		var expected: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://movement-compatibility.json"))
+		var expected: Dictionary = mode_compatibility()
 		for key in expected:
 			if join.get(key) != expected[key]:
 				finish("unsupported_client_compatibility", 2)
@@ -34,6 +34,9 @@ func start() -> void:
 		world = World.build(root, DisplayServer.get_name() != "headless")
 		if DisplayServer.get_name() != "headless":
 			build_interface()
+
+func mode_compatibility() -> Dictionary:
+	return JSON.parse_string(FileAccess.get_file_as_string("res://movement-compatibility.json"))
 
 func on_packet(id: int, data: PackedByteArray) -> void:
 	var packet := Common.decode(data, 4096)
@@ -135,7 +138,9 @@ func _physics_process(delta: float) -> bool:
 			var injected: Dictionary = control["raw_input"].duplicate()
 			if not injected.has("room_epoch"):
 				injected["room_epoch"] = join["room_epoch"]
-			api.send_bytes(Common.encode(injected), 1, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE_ORDERED)
+			# Diagnostic one-shot probes need delivery evidence. Real movement remains
+			# unreliable/ordered in send_axis; a lost negative probe proves nothing.
+			api.send_bytes(Common.encode(injected), 1)
 		if control.get("burst", 0) > 0:
 			for count in range(mini(int(control["burst"]), 180)):
 				send_axis(axis, sprint)

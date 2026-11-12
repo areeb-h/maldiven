@@ -1,6 +1,6 @@
 # Drift Station roadmap
 
-Updated: 2026-11-12. Phase gates govern advancement. None of the multiplayer/station milestones below is implemented by the planning commit.
+Updated: 2026-11-12. Phase gates govern advancement. Implementation progress below is separate from the original planning allowances; phase gates still require evidence.
 
 ## Planning assumptions
 One primary developer with AI assistance, Android first, friend-only testing and access to at least three actual Android devices through the owner/test group. Dedicated server and native audio integration are new work. Existing island movement/export work reduces setup effort but does not establish multiplayer, voice or gunplay readiness.
@@ -9,7 +9,7 @@ Allowances below are rough focused developer-days, not calendar commitments or e
 
 ## Dependencies and gates
 
-Execution update: BASE-001 [build foundation](milestones/2026-11-12-baseline.md), NET-001 [local admission](milestones/2026-11-12-network-admission.md) and NET-002 [initial shared 3D motion](milestones/2026-11-12-shared-movement.md) are implemented locally. Current evidence combines 30 movement cases, 32 admission regressions and five island checks. Native voice/device integration is next. Full prediction replay, encrypted/public transport, real-network and physical-phone validation remain open; P1 has not passed.
+Execution update: BASE-001 [build foundation](milestones/2026-11-12-baseline.md), NET-001 [local admission](milestones/2026-11-12-network-admission.md) and NET-002 [initial shared 3D motion](milestones/2026-11-12-shared-movement.md) are implemented locally. Current evidence combines 30 movement cases, 32 admission regressions and five island checks. Step 4 adds the [installable Friends Lab and PC host](milestones/2026-11-12-friends-phone.md): certificate-checked DTLS, native PCM candidate, touch controls and Windows connection instructions. Linux loopback and APK structural evidence are recorded. Physical phone/Windows/LAN validation is next. Full prediction replay, production media/provider selection, public transport/relay and real-network measurements remain open; P1 has not passed.
 
 | Phase | Allowance | Work and concrete deliverable | Exit gate |
 | --- | ---: | --- | --- |

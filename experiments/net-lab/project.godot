@@ -2,6 +2,9 @@ config_version=5
 
 [application]
 config/name="Maldiven Network Lab"
+config/icon="res://icon.svg"
+run/main_loop_type="PhoneLabClient"
+run/main_scene="res://phone_boot.tscn"
 config/features=PackedStringArray("4.7")
 config/use_custom_user_dir=true
 config/custom_user_dir_name="maldiven-net-lab"
@@ -10,10 +13,15 @@ config/custom_user_dir_name="maldiven-net-lab"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+window/handheld/orientation=0
+
+[audio]
+driver/enable_input=true
 
 [rendering]
 renderer/rendering_method="gl_compatibility"
 anti_aliasing/quality/msaa_3d=1
+textures/vram_compression/import_etc2_astc=true
 
 [debug]
 settings/stdout/print_fps=false

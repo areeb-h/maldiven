@@ -39,16 +39,23 @@
   },
   "native_addons": [],
   "voice": {
-    "status": "not selected; requires VOI-001 native-phone experiment"
+    "status": "VOI-001 LAN PCM experiment implemented; production provider/codec/AEC decision open",
+    "capture": "Godot AudioStreamMicrophone + AudioEffectCapture",
+    "playback": "AudioStreamGenerator",
+    "wire": "PCM16 mono 16000 Hz, 320 samples / 20 ms, 664-byte packet",
+    "transport": "ENet DTLS with trusted invitation certificate; server routed",
+    "native_addons_required": false
   },
   "network_lab": {
     "compatibility_manifest": "experiments/net-lab/compatibility.json",
     "movement_compatibility_manifest": "experiments/net-lab/movement-compatibility.json",
-    "stage": "NET-001 admission and NET-002 movement loopback experiments",
+    "stage": "NET-001 admission, NET-002 movement, VOI-001 LAN phone/PCM candidate",
     "simulation_hz": 30,
     "snapshot_hz": 15,
     "bind": "127.0.0.1",
-    "native_addons_required": false
+    "native_addons_required": false,
+    "phone_compatibility_manifest": "experiments/net-lab/phone-compatibility.json",
+    "phone_bind": "Explicit private IPv4 from PC launcher (UDP 24567 by default)"
   },
   "baseline": {
     "content": "island-resources-0.2.0",

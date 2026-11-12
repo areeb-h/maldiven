@@ -17,19 +17,22 @@ func _initialize() -> void:
 	call_deferred("start")
 
 func start() -> void:
-	args = Common.options()
+	args = client_options()
 	if not args.has("--ticket-file") or not args.has("--port"):
 		finish("invalid_options", 2)
 		return
-	credential = Common.decode(FileAccess.get_file_as_bytes(args["--ticket-file"]), 4096)
+	credential = load_credential()
 	if not credential.get("join") is Dictionary or not credential.get("player_id") is String:
 		finish("invalid_ticket_file", 2)
 		return
 	join = credential["join"]
 	hold_msec = int(float(args.get("--hold-seconds", "0.25")) * 1000.0)
 	peer = ENetMultiplayerPeer.new()
-	if peer.create_client("127.0.0.1", int(args["--port"])) != OK:
+	if peer.create_client(server_address(), int(args["--port"])) != OK:
 		finish("connect_failed", 2)
+		return
+	if configure_transport(peer) != OK:
+		finish("secure_transport_setup_failed", 2)
 		return
 	api = get_multiplayer() as SceneMultiplayer
 	api.allow_object_decoding = false
@@ -42,6 +45,18 @@ func start() -> void:
 	api.peer_packet.connect(on_packet)
 	api.multiplayer_peer = peer
 	started_msec = Time.get_ticks_msec()
+
+func server_address() -> String:
+	return "127.0.0.1"
+
+func client_options() -> Dictionary:
+	return Common.options()
+
+func load_credential() -> Dictionary:
+	return Common.decode(FileAccess.get_file_as_bytes(args["--ticket-file"]), 4096)
+
+func configure_transport(_transport: ENetMultiplayerPeer) -> Error:
+	return OK
 
 func on_authenticating(id: int) -> void:
 	if id != 1:

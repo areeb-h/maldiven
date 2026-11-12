@@ -31,7 +31,7 @@ func start() -> void:
 	var ttl := float(args.get("--ticket-ttl", "60"))
 	var auth_timeout := float(args.get("--auth-timeout", "2"))
 	var port := int(args.get("--port", "0"))
-	if not state_dir.is_absolute_path() or max_clients < 1 or max_clients > 6 or not is_finite(ttl) or ttl < 0.2 or ttl > 120.0 or not is_finite(auth_timeout) or auth_timeout < 0.5 or auth_timeout > 5.0 or port < 0 or port > 65535:
+	if not state_dir.is_absolute_path() or max_clients < 1 or max_clients > 6 or not is_finite(ttl) or ttl < 0.2 or ttl > maximum_ticket_ttl() or not is_finite(auth_timeout) or auth_timeout < 0.5 or auth_timeout > 5.0 or port < 0 or port > 65535:
 		fail("invalid_options")
 		return
 	if DirAccess.make_dir_recursive_absolute(state_dir) != OK:
@@ -67,9 +67,12 @@ func start() -> void:
 			join.merge({"kind": "join", "room_epoch": epoch, "ticket": token})
 			credential_records.append({"player_id": player_id, "issuance": issuance, "join": join})
 	peer = ENetMultiplayerPeer.new()
-	peer.set_bind_ip("127.0.0.1")
+	peer.set_bind_ip(bind_address())
 	if peer.create_server(port, 12) != OK:
 		fail("bind_failed")
+		return
+	if configure_transport(peer) != OK:
+		fail("secure_transport_setup_failed")
 		return
 	api = get_multiplayer() as SceneMultiplayer
 	api.allow_object_decoding = false
@@ -82,7 +85,7 @@ func start() -> void:
 	api.peer_packet.connect(on_packet)
 	api.multiplayer_peer = peer
 	var ready := compatibility.duplicate()
-	ready.merge({"event": "server_ready", "room_epoch": epoch, "host": "127.0.0.1", "port": peer.host.get_local_port()})
+	ready.merge({"event": "server_ready", "room_epoch": epoch, "host": bind_address(), "port": peer.host.get_local_port()})
 	var private_state := {"credentials": credential_records, "ready": ready}
 	if Common.write_private(state_dir.path_join("admissions.json"), private_state) != OK or Common.write_private(state_dir.path_join("ready.json"), ready) != OK:
 		fail("state_write_failed")
@@ -91,6 +94,15 @@ func start() -> void:
 
 func allowed_options() -> Array:
 	return ["--state-dir", "--port", "--max-clients", "--ticket-ttl", "--auth-timeout"]
+
+func bind_address() -> String:
+	return "127.0.0.1"
+
+func maximum_ticket_ttl() -> float:
+	return 120.0
+
+func configure_transport(_transport: ENetMultiplayerPeer) -> Error:
+	return OK
 
 func _process(_delta: float) -> bool:
 	if api == null:

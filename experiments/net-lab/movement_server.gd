@@ -24,11 +24,17 @@ func start() -> void:
 		return
 	delay_ms = int(rtt / 2)
 	random.seed = int(options.get("--seed", "20261112"))
-	compatibility = JSON.parse_string(FileAccess.get_file_as_string("res://movement-compatibility.json"))
+	compatibility = mode_compatibility()
 	super.start()
 	if api != null:
 		world = World.build(root, false)
 		Common.event({"event": "motion_ready", "simulation_hz": 30, "snapshot_hz": 15, "simulated_rtt_ms": rtt, "simulated_loss_percent": loss_percent})
+
+func mode_compatibility() -> Dictionary:
+	return JSON.parse_string(FileAccess.get_file_as_string("res://movement-compatibility.json"))
+
+func sample_motion() -> bool:
+	return true
 
 func on_connected(id: int) -> void:
 	super.on_connected(id)
@@ -147,7 +153,7 @@ func _physics_process(delta: float) -> bool:
 		if actors.has(id) and connected.has(id) and not actors[id]["leaving"] and actors[id]["generation"] == message["generation"]:
 			api.send_bytes(message["data"], id, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE_ORDERED)
 			counters["snapshot_sent"] += 1
-	if tick % 2 == 0:
+	if tick % 2 == 0 and sample_motion():
 		Common.event({"event": "motion_sample", "tick": tick, "players": poses, "counters": counters, "rejections": rejections})
 	return false
 
