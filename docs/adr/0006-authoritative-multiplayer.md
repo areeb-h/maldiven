@@ -2,6 +2,8 @@
 
 Date: 2026-11-12. Status: Proposed; transport/security details gated by P1.
 
+Implementation note: [ADR 0020](0020-local-admission-experiment.md) and its [evidence](../milestones/2026-11-12-network-admission.md) establish an isolated loopback admission experiment. Gameplay authority, encrypted internet transport, Android/voice and match reconnect remain unimplemented/open; this does not accept every production detail below.
+
 ## Context
 Doors, tools, core possession, weapons and secret roles require consistent outcomes and controlled disclosure. A friend's phone acting as trusted host creates continuity, battery and authority problems.
 

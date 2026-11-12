@@ -4,7 +4,7 @@ Version 0.3. Task rows describe required work; execution notes below identify im
 
 ## Foundation critical path
 
-Execution: BASE-001's initial desktop/headless baseline is implemented and verified; see the [milestone and evidence](../milestones/2026-11-12-baseline.md). Native voice selection/pinning and Android device checks remain their own open gates. NET-001 is next. All other task rows remain planned unless a linked implementation record states otherwise.
+Execution: BASE-001's [initial desktop/headless baseline](../milestones/2026-11-12-baseline.md) and NET-001's [local admission lab](../milestones/2026-11-12-network-admission.md) are implemented and checked. Native voice selection/pinning, real-network/Android device validation and production admission remain open gates. NET-002 is next. All other task rows remain planned unless a linked implementation record states otherwise.
 
 | Order / task | Deliverable | Prerequisite | Acceptance evidence |
 | --- | --- | --- | --- |

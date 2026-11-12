@@ -41,6 +41,12 @@
   "voice": {
     "status": "not selected; requires VOI-001 native-phone experiment"
   },
+  "network_lab": {
+    "compatibility_manifest": "experiments/net-lab/compatibility.json",
+    "stage": "NET-001 local admission only",
+    "bind": "127.0.0.1",
+    "native_addons_required": false
+  },
   "baseline": {
     "content": "island-resources-0.2.0",
     "export_preset": "Baseline Linux Pack",

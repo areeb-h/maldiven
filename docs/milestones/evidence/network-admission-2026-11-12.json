@@ -1,0 +1,241 @@
+{
+  "format_version": 1,
+  "base_commit": "1ec840e76fdd2309c18dbeb4998a5d7570d9d96d",
+  "network": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "loopback-ready-and-private-credentials",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "valid-admission",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "duplicate-identity",
+        "passed": true,
+        "seconds": 0.628
+      },
+      {
+        "name": "two-distinct-clients",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "capacity-bound",
+        "passed": true,
+        "seconds": 0.876
+      },
+      {
+        "name": "clean-disconnect",
+        "passed": true,
+        "seconds": 0.233
+      },
+      {
+        "name": "single-use-ticket-replay",
+        "passed": true,
+        "seconds": 0.776
+      },
+      {
+        "name": "fresh-ticket-same-identity",
+        "passed": true,
+        "seconds": 0.218
+      },
+      {
+        "name": "protocol-major-mismatch",
+        "passed": true,
+        "seconds": 0.42
+      },
+      {
+        "name": "protocol-minor-mismatch",
+        "passed": true,
+        "seconds": 0.417
+      },
+      {
+        "name": "fractional-protocol",
+        "passed": true,
+        "seconds": 0.371
+      },
+      {
+        "name": "content-mismatch",
+        "passed": true,
+        "seconds": 0.322
+      },
+      {
+        "name": "rules-mismatch",
+        "passed": true,
+        "seconds": 0.443
+      },
+      {
+        "name": "room-mismatch",
+        "passed": true,
+        "seconds": 0.492
+      },
+      {
+        "name": "epoch-mismatch",
+        "passed": true,
+        "seconds": 0.429
+      },
+      {
+        "name": "unknown-ticket",
+        "passed": true,
+        "seconds": 0.422
+      },
+      {
+        "name": "identity-spoof-field",
+        "passed": true,
+        "seconds": 0.371
+      },
+      {
+        "name": "malformed-json",
+        "passed": true,
+        "seconds": 0.51
+      },
+      {
+        "name": "oversized-auth",
+        "passed": true,
+        "seconds": 0.449
+      },
+      {
+        "name": "non-ascii-auth",
+        "passed": true,
+        "seconds": 0.373
+      },
+      {
+        "name": "rejections-did-not-consume-valid-ticket",
+        "passed": true,
+        "seconds": 0.172
+      },
+      {
+        "name": "silent-auth-timeout",
+        "passed": true,
+        "seconds": 1.414
+      },
+      {
+        "name": "half-finished-auth-releases-identity",
+        "passed": true,
+        "seconds": 2.008
+      },
+      {
+        "name": "unsupported-application-message",
+        "passed": true,
+        "seconds": 0.456
+      },
+      {
+        "name": "simultaneous-identity-reservation",
+        "passed": true,
+        "seconds": 0.689
+      },
+      {
+        "name": "fresh-epoch-on-restart",
+        "passed": true,
+        "seconds": 0.0
+      },
+      {
+        "name": "old-ticket-rejected-after-restart",
+        "passed": true,
+        "seconds": 0.478
+      },
+      {
+        "name": "admission-after-restart",
+        "passed": true,
+        "seconds": 0.166
+      },
+      {
+        "name": "accepted-session-outlives-join-timeout",
+        "passed": true,
+        "seconds": 1.589
+      },
+      {
+        "name": "server-stop-cleans-active-and-pending-sessions",
+        "passed": true,
+        "seconds": 0.709
+      },
+      {
+        "name": "server-owned-ticket-expiry",
+        "passed": true,
+        "seconds": 0.318
+      },
+      {
+        "name": "no-credentials-or-engine-errors-in-logs",
+        "passed": true,
+        "seconds": 0.003
+      }
+    ],
+    "source_id": "b1ccedaaafa3ca7ffd13abf3a0afbeb7b0ce2b57d147ab6ff31b621c105447e2",
+    "compatibility": {
+      "protocol_major": 1,
+      "protocol_minor": 0,
+      "content_id": "station-net-lab-001",
+      "rules_id": "admission-only-v1",
+      "room_id": "station-lab"
+    },
+    "started_utc": "2026-11-12T11:18:55.356719+00:00",
+    "scope": "independent Godot server/client processes over IPv4 loopback; local bearer-ticket ledger only; no movement, encryption, internet, phone, voice or match reconnect validation",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    }
+  },
+  "island_regression": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "clean-import",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "assets",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "movement",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "pack-export",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "pack-startup",
+        "exit_code": 0,
+        "passed": true
+      }
+    ],
+    "source_id": "b1ccedaaafa3ca7ffd13abf3a0afbeb7b0ce2b57d147ab6ff31b621c105447e2",
+    "started_utc": "2026-11-12T11:18:55.308448+00:00",
+    "host": {
+      "system": "Linux",
+      "machine": "x86_64"
+    },
+    "scope": "fresh desktop/headless import, existing regression checks, ZIP pack export and packaged startup; no Android/phone/network/voice validation",
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
+    },
+    "pack": {
+      "sha256": "fd8c30d9d22c4757331f680d7d61069b5a7a487f0d2536505ff232ec3c7ec8c7",
+      "bytes": 280857,
+      "files": 28,
+      "development_files_excluded": true
+    }
+  },
+  "runner_checks": {
+    "python_syntax": "passed",
+    "optimized_python_rejected_before_testing": true,
+    "optimized_python_exit_code": 2,
+    "concurrent_network_and_island_checks": "both passed on the recorded host"
+  },
+  "limits": [
+    "IPv4 loopback on Linux x86-64 only",
+    "Opaque local ticket issuer/ledger; no account or HTTPS service",
+    "No shared movement, Android/phone, native voice, encrypted transport or match reconnect verification"
+  ]
+}

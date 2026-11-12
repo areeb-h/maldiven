@@ -37,4 +37,6 @@ Mobile renderer and built-in Jolt are configured. Use `godot --headless --path .
 ## Plan
 See [development plan](docs/plan.md) and [ADRs](docs/adr/README.md).
 
-Debug-signed 0.2.0 Mobile and Compatibility APKs were exported and structurally verified; see [build report](docs/android-build-0.2.0.md). Phone validation of rendering and controls remains outstanding. Station multiplayer, voice and weapons are planning work only. The next station milestone is the network/voice feasibility experiment.
+Step 2's [local network admission lab](docs/milestones/2026-11-12-network-admission.md) is implemented. Run `python tools/test_network_lab.py` for actual headless server/client tests of compatibility, single-use credentials, duplicate identities and lifecycle cleanup. It is an isolated loopback project; shared movement, phone networking and voice are next gates.
+
+Debug-signed 0.2.0 Mobile and Compatibility APKs were exported and structurally verified; see [build report](docs/android-build-0.2.0.md). Phone validation of rendering and controls remains outstanding. Local admission is implemented in the separate lab; the island APK has no multiplayer, voice or weapons. The next execution step is authoritative shared movement; the wider P1 network/voice feasibility milestone remains open.

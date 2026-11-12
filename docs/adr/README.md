@@ -23,5 +23,6 @@ Updated 2026-11-12. Accepted records indicate an agreed direction, not implement
 | [0017](0017-evidence-provenance-and-agreements.md) | Evidence provenance and explicit agreements | Proposed |
 | [0018](0018-curated-mission-variants.md) | Curated mission variants before procedural combinations | Proposed for H2 |
 | [0019](0019-uniform-roster-interruption.md) | Uniform roster grace/interruption without role leak | Proposed H1 clarification |
+| [0020](0020-local-admission-experiment.md) | Isolated local admission and identity boundary | Accepted for the verified local lab only |
 
 ADRs should state context, choice, alternatives/consequences and validation. Record a replacement rather than erasing a decision that informed prior builds.

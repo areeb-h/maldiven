@@ -1,0 +1,19 @@
+config_version=5
+
+[application]
+config/name="Maldiven Network Lab"
+config/features=PackedStringArray("4.7")
+config/use_custom_user_dir=true
+config/custom_user_dir_name="maldiven-net-lab"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+
+[debug]
+settings/stdout/print_fps=false
+
+[physics]
+common/physics_ticks_per_second=30
+
+[threading]
+worker_pool/max_threads=2

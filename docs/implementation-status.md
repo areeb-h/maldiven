@@ -23,7 +23,11 @@ Run: `godot --headless --path . --script res://tests/movement_smoke.gd`.
 - See docs/resources.md for resource counts, preview limitations and rebuild instructions.
 
 ## Active direction: station social game
-The owner selected a space-station social-game direction. The executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. Multiplayer, voice, weapons, session services and station art are not implemented. Preserve the island baseline on archive/island-v0.2.0. The immediate next milestone is the P1 technical feasibility experiment.
+The owner selected a space-station social-game direction. The main executable remains the island 0.2.0 prototype. Active station plan, research, roadmap, playtests and ADRs are under docs/. A separate local admission lab is now implemented; gameplay multiplayer, voice, weapons, hosted session services and station art remain unimplemented. Preserve the island baseline on archive/island-v0.2.0. The P1 technical feasibility gate remains open.
+
+## Step 2: local network admission
+
+NET-001's [loopback server/client lab](milestones/2026-11-12-network-admission.md) now passes 32 actual multi-process integration checks. Implemented: explicit compatibility IDs, server-issued single-use opaque tickets, identity reservation, duplicate/capacity rejection, monotonic expiry, fresh epochs, malformed-packet rejection and lifecycle cleanup. Five island baseline checks pass for the same inputs and its export excludes the experiment. See the [combined evidence](milestones/evidence/network-admission-2026-11-12.json). No Android/network/voice/gameplay readiness is inferred; NET-002 shared authoritative movement is next.
 
 ## Expanded planning pass
 The production blueprint now covers broader social-space modes, shared station systems, technical modules, transaction/failure invariants, mobile/art/audio production, 20 scenario cases, rollout/recovery, 28 ordered work packages and 14 expansion experiments. Draft JSON command schema/examples and station topology are planning artifacts. New ADRs 0012–0015 remain proposed. No station gameplay, online service, voice integration or new APK was implemented by this expansion.
