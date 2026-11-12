@@ -20,4 +20,4 @@ Mobile renderer and built-in Jolt are configured. Use `godot --headless --path .
 ## Plan
 See [development plan](docs/plan.md) and [ADRs](docs/adr/README.md).
 
-Next: install matching export toolchain, validate a real Android APK, tune movement/camera on device, then replace the blockout with the designed island. Saves, sound, animated character art and graphics settings are not implemented yet.
+A debug-signed ARM64 Android APK has been exported and structurally verified; see [Android build and testing](docs/android-build.md). Next: install and test it on the phone, tune movement/camera, then replace the blockout with the designed island. Saves, sound, animated character art and graphics settings are not implemented yet.
