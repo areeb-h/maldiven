@@ -12,15 +12,15 @@ extends Node3D
 ##   +X*side the palm normal: side = +1 (right hand) palm faces +X, side = -1 (left
 ##           hand) palm faces -X. Either way the palm faces the body and the back of
 ##           the hand faces outward, matching CrewModel (character's left = +X).
-## The cuff spans y = +0.010 .. -0.032 (metal ring on top meets the forearm ribs);
-## the middle fingertip reaches y = -0.168 when open.
+## The cuff spans y = +0.012 .. -0.030 (metal ring on top meets the forearm ribs);
+## the middle fingertip reaches y = -0.148 when open. Palm 9.4 cm wide at the knuckles.
 ##
 ## Usage:
 ##   var hand := CrewHand.build(color, -1)        # left hand
 ##   model.bones[CrewBody.L_HAND].add_child(hand) # transform stays IDENTITY
 ##   hand.set_pose("grip_large")                  # spring-blended, no popping
 ##   hand.set_motion(speed, delta)                # every frame: idle life + inertia
-##   item.transform = hand.get_grip_anchor("cell")# held item exactly in the palm
+##   item.reparent(hand.grip_node("cell"), false)  # held item exactly in the palm
 ##
 ## Joint frames (all bones): local X = flexion hinge (positive rotation curls toward the
 ## palm), local Y = toward the parent joint (the digit points along -Y), local Z = the
@@ -33,7 +33,15 @@ const BONE_COUNT := 17
 const BONE_NAMES: Array[String] = ["Wrist", "Palm", "Index1", "Index2", "Index3", "Middle1", "Middle2", "Middle3",
 	"Ring1", "Ring2", "Ring3", "Pinky1", "Pinky2", "Pinky3", "Thumb1", "Thumb2", "Thumb3"]
 const PARENTS: Array[int] = [-1, 0, 1, 2, 3, 1, 5, 6, 1, 8, 9, 1, 11, 12, 1, 14, 15]
-## Fingers besides the thumb. 4 won the side-by-side test (see build_with_fingers).
+## The suit shader fades the ghost below ~0.78 m of model-space height (the legs turn
+## into a wisp). The glove's palette is lifted by this much and the mesh instance
+## lowered by the same amount, so world positions are unchanged but the shader sees
+## the glove above the fade.
+const MODEL_Y_BIAS := 1.0
+## Fingers besides the thumb. Both layouts were rendered side by side on the crew body
+## (build_with_fingers): at gameplay distance (~5-8 px hands) they are identical, while in
+## close-ups (lobby, key art, emotes, grips) four fingers read as a premium glove and
+## wrap items believably; three read cartoonish. Cost: 1362 vs 1208 triangles.
 const FINGERS := 4
 const POSES: Array[String] = ["relaxed", "open", "fist", "grip_large", "grip_core", "grip_gun", "grip_gun_trigger",
 	"point", "thumbs_up", "wave", "push", "brace", "limp", "ghost"]
@@ -79,20 +87,20 @@ const _POSE_DATA := {
 	"open": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(-0.04, 0.02, 0.02, 0.17), Vector4(-0.04, 0.02, 0.02, 0.05), Vector4(-0.03, 0.02, 0.02, -0.08), Vector4(-0.02, 0.03, 0.03, -0.22)],
 		"t": [-0.1, 0.05, 0.42, -0.05, 0.0]},
 	"relaxed": {"w": Vector3(0.12, 0.0, -0.04), "f": [Vector4(0.24, 0.36, 0.22, 0.06), Vector4(0.3, 0.44, 0.26, 0.0), Vector4(0.36, 0.5, 0.3, -0.05), Vector4(0.44, 0.58, 0.34, -0.1)],
-		"t": [0.12, 0.12, 0.3, 0.16, 0.18]},
-	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.30, 1.30, 0.0), Vector4(1.11, 1.54, 0.90, 0.0), Vector4(1.04, 1.60, 0.80, -0.02), Vector4(0.67, 1.51, 0.95, -0.05)],
-		"t": [-0.01, 0.47, 0.47, 0.37, 1.13]},
-	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.22, 0.28, 0.24, 0.07), Vector4(0.24, 0.28, 0.24, 0.01), Vector4(0.26, 0.28, 0.24, -0.05), Vector4(0.3, 0.3, 0.26, -0.11)],
-		"t": [-0.08, 0.16, 0.5, 0.06, 0.12]},
-	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.18, 0.22, 0.2, 0.2), Vector4(0.2, 0.22, 0.2, 0.06), Vector4(0.22, 0.22, 0.2, -0.08), Vector4(0.26, 0.24, 0.2, -0.24)],
-		"t": [-0.12, 0.12, 0.6, 0.08, 0.12]},
-	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(1.12, 1.42, 0.7, 0.0), Vector4(1.2, 1.42, 0.68, -0.03), Vector4(1.3, 1.4, 0.66, -0.07)],
-		"t": [0.42, 0.55, 0.12, 0.42, 0.34]},
-	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(1.12, 1.42, 0.7, 0.0), Vector4(1.2, 1.42, 0.68, -0.03), Vector4(1.3, 1.4, 0.66, -0.07)],
-		"t": [0.42, 0.55, 0.12, 0.42, 0.34]},
-	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.42, 1.72, 0.92, 0.0), Vector4(1.5, 1.74, 0.9, -0.02), Vector4(1.54, 1.74, 0.88, -0.05)],
-		"t": [0.55, 0.62, 0.0, 0.42, 0.3]},
-	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.42, 1.72, 0.92, 0.0), Vector4(1.46, 1.74, 0.92, 0.0), Vector4(1.5, 1.74, 0.9, -0.02), Vector4(1.54, 1.74, 0.88, -0.05)],
+		"t": [0.33, 0.11, 0.2, 0.2, 0.22]},
+	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.24, 0.30, 0.0), Vector4(1.34, 1.51, 0.59, 0.0), Vector4(1.22, 1.37, 0.99, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
+		"t": [-0.66, 1.0, 0.2, 1.2, 1.04]},
+	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.23, 0.39, 0.13, 0.07), Vector4(0.15, 0.34, 0.14, 0.01), Vector4(0.14, 0.33, 0.16, -0.05), Vector4(0.19, 0.50, 0.14, -0.11)],
+		"t": [-0.44, 0.10, 0.26, -0.20, -0.06]},
+	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.73, 0.73, 0.16, 0.20), Vector4(0.87, 0.67, 0.23, 0.06), Vector4(0.82, 0.66, 0.22, -0.08), Vector4(0.69, 0.54, 0.15, -0.24)],
+		"t": [0.43, 0.09, 0.72, 0.08, 0.12]},
+	"grip_gun": {"w": Vector3(-0.45, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(-0.01, 1.73, 1.30, 0.0), Vector4(-0.05, 1.72, 1.30, -0.03), Vector4(-0.13, 1.49, 1.22, -0.07)],
+		"t": [-0.70, 0.35, -0.20, 0.42, 0.60]},
+	"grip_gun_trigger": {"w": Vector3(-0.45, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(-0.01, 1.73, 1.30, 0.0), Vector4(-0.05, 1.72, 1.30, -0.03), Vector4(-0.13, 1.49, 1.22, -0.07)],
+		"t": [-0.70, 0.35, -0.20, 0.42, 0.60]},
+	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.0, 1.25, 0.30, 0.0), Vector4(1.35, 1.21, 1.06, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
+		"t": [0.05, 0.89, 0.41, 1.2, 0.64]},
+	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.24, 0.30, 0.0), Vector4(1.34, 1.51, 0.59, 0.0), Vector4(1.22, 1.37, 0.99, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
 		"t": [-0.32, -0.15, 0.32, -0.12, -0.1]},
 	"wave": {"w": Vector3(-0.15, 0.0, 0.0), "f": [Vector4(0.02, 0.06, 0.04, 0.1), Vector4(0.0, 0.05, 0.04, 0.03), Vector4(0.02, 0.06, 0.04, -0.04), Vector4(0.05, 0.08, 0.05, -0.12)],
 		"t": [-0.1, 0.05, 0.45, 0.0, 0.05]},
@@ -114,26 +122,29 @@ const _POSE_LIFE := {
 	"point": [0.4, "", 0.0], "thumbs_up": [0.4, "", 0.0], "wave": [0.5, "", 0.0], "push": [0.2, "", 0.0],
 	"brace": [0.3, "", 0.0], "limp": [0.3, "", 0.0], "ghost": [0.0, "", 0.0], "curl": [0.8, "", 0.6],
 }
+## Uniform scale the Props blaster takes in the hand (see _GRIP_ANCHORS["gun"]).
+const GUN_SCALE := 0.62
 ## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
 ## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
-## toward the palm normal, then rolled by `roll` about the palm normal; item -Z (the
-## gun's barrel) runs along the fingers.
+## toward the palm normal, then rolled by `roll` about the palm normal. The gun's
+## barrel (item -Z) runs along the fingers; cell and core are yawed (`yaw`) so their
+## front (+Z) faces where the fingers point, i.e. forward when carried.
 ## `scale` is the item's uniform scale in the hand.
 const _GRIP_ANCHORS := {
 	# Power cell (Props casing radius 0.16, glow band 0.168): held from the side over the
 	# upper glow band, palm on the casing, fingers wrapping round the curve.
-	"cell": {"tilt": 0.0, "scale": 1.0, "pivot": Vector3(0.0, 0.39, 0.0), "center": Vector3(0.1866, -0.063, 0.0)},
+	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.39, 0.0), "center": Vector3(0.1866, -0.063, 0.0)},
 	# Core (cage radius 0.235, field 0.24): cradled from below-side, palm turned 35 deg up.
-	"core": {"tilt": 0.61, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2585, -0.064, 0.0)},
+	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2585, -0.064, 0.0)},
 	# Blaster: grip in the palm, barrel along the extended index finger. The Props
 	# blaster grip is 11 cm deep (a 7.4 cm palm cannot close round it), so the held
 	# blaster is shown at pistol scale.
 	# `roll` (about the palm normal) squares the raked grip to the knuckle line, which
 	# cants the barrel 16 deg toward the thumb like a real pistol hold.
-	"gun": {"tilt": 0.0, "roll": -0.28, "scale": 0.72, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0485, -0.045, 0.0)},
+	"gun": {"tilt": 0.0, "roll": -0.28, "scale": GUN_SCALE, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0435, -0.0424, 0.012)},
 }
-## Uniform scale the blaster takes in the hand (see _GRIP_ANCHORS).
-const GUN_SCALE := 0.72
+## Grip pose whose wrist angle each anchor is measured with.
+const _ANCHOR_POSE := {"cell": "grip_large", "core": "grip_core", "gun": "grip_gun"}
 
 static var _mesh_cache := {}
 static var _tri_cache := {}
@@ -154,7 +165,6 @@ var _local_rest: Array[Transform3D] = []
 var _bind_inv: Array[Transform3D] = []
 var _palette: Array[Projection] = []
 var _xf: Array[Transform3D] = []
-var _rest_basis: Array[Basis] = []
 
 # Pose springs: (flex, twist, spread) per bone, critically damped toward _target.
 var _pose := "relaxed"
@@ -183,8 +193,10 @@ var _fidget_timer := 5.0
 var _rng := RandomNumberGenerator.new()
 var _phase := 0.0
 
-# Secondary motion: per-finger base + tip springs and a shared spread spring, driven
-# by the wrist's acceleration in hand space.
+# Secondary motion, driven by the wrist's acceleration in hand space: per digit a base
+# (MCP) spring and a delayed tip spring [0..9] react to palm-normal acceleration; a
+# swing-drag spring [10] trails the hand behind the arm swing and a fan spring [11]
+# follows it a beat later on the finger spread (overlapping action).
 var _prev_p := Vector3.ZERO
 var _prev_vel := Vector3.ZERO
 var _motion_ready := 0
@@ -235,7 +247,6 @@ func _setup(p_color: Color, p_side: int, fingers: int) -> void:
 		var parent_g: Transform3D = rest_xf[p] if p >= 0 else Transform3D.IDENTITY
 		_local_rest.append(parent_g.affine_inverse() * g)
 		_bind_inv.append(g.affine_inverse())
-		_rest_basis.append(g.basis)
 		_xf.append(g)
 		var n := Node3D.new()
 		n.name = BONE_NAMES[i]
@@ -250,14 +261,15 @@ func _setup(p_color: Color, p_side: int, fingers: int) -> void:
 	_x.resize(BONE_COUNT * 3)
 	_v.resize(BONE_COUNT * 3)
 	_out.resize(BONE_COUNT * 3)
-	_lag.resize(10)
-	_lag_v.resize(10)
+	_lag.resize(12)
+	_lag_v.resize(12)
 	_mat = CrewMaterials.instance("suit", color)
 	mesh_instance = MeshInstance3D.new()
 	mesh_instance.name = "Glove"
 	mesh_instance.mesh = hand_mesh(side, finger_count)
 	mesh_instance.material_override = _mat
-	mesh_instance.custom_aabb = AABB(Vector3(-0.16, -0.26, -0.16), Vector3(0.32, 0.3, 0.32))
+	mesh_instance.position = Vector3(0.0, -MODEL_Y_BIAS, 0.0)
+	mesh_instance.custom_aabb = AABB(Vector3(-0.16, MODEL_Y_BIAS - 0.26, -0.16), Vector3(0.32, 0.3, 0.32))
 	add_child(mesh_instance)
 	_target = _dofs("relaxed")
 	_x = _target.duplicate()
@@ -316,8 +328,9 @@ func set_motion(speed: float, delta: float) -> void:
 	_step(speed, delta)
 
 
-## Where a held item's root should sit, in this hand's local space: "cell", "core" or
-## "gun". Parent the item to the hand (or multiply by the hand's global transform).
+## Where a held item's root should sit, in this hand's local space, with the wrist
+## at its grip pose: "cell", "core" or "gun" (the gun anchor carries GUN_SCALE).
+## Prefer grip_node(): it rides on the Palm joint, so the item follows the wrist.
 func get_grip_anchor(kind: String) -> Transform3D:
 	if not _GRIP_ANCHORS.has(kind):
 		push_warning("CrewHand: unknown grip anchor " + kind)
@@ -325,14 +338,40 @@ func get_grip_anchor(kind: String) -> Transform3D:
 	return grip_anchor(kind, side)
 
 
+## A Node3D on the Palm joint at the grip anchor ("cell", "core" or "gun"), created
+## on first use. Parent the held item to it with an identity transform.
+func grip_node(kind: String) -> Node3D:
+	var node_name := "Grip_" + kind
+	var palm := joints[PALM]
+	var existing := palm.get_node_or_null(node_name) as Node3D
+	if existing != null:
+		return existing
+	var n := Node3D.new()
+	n.name = node_name
+	var g: Transform3D = _rest_frames(side, finger_count)[PALM]
+	n.transform = g.affine_inverse() * _anchor_in_palm(kind, side)
+	palm.add_child(n)
+	return n
+
+
 ## Static form of get_grip_anchor for a side, usable before any hand exists.
 static func grip_anchor(kind: String, p_side: int) -> Transform3D:
+	var g: Transform3D = _rest_frames(p_side, FINGERS)[PALM]
+	var pose: Dictionary = _POSE_DATA[_ANCHOR_POSE.get(kind, "grip_gun")]
+	var w: Vector3 = pose.w
+	var m := -1.0 if p_side < 0 else 1.0
+	var rot := Basis(Vector3(0, 0, 1), w.z * m) * Basis(Vector3(0, 1, 0), w.y * m) * Basis(Vector3(1, 0, 0), w.x)
+	return g * Transform3D(rot, Vector3.ZERO) * g.affine_inverse() * _anchor_in_palm(kind, p_side)
+
+
+## The anchor in hand space with the wrist straight (moves with the Palm joint).
+static func _anchor_in_palm(kind: String, p_side: int) -> Transform3D:
 	var spec: Dictionary = _GRIP_ANCHORS.get(kind, _GRIP_ANCHORS["gun"])
 	var th: float = spec.tilt
 	var sc: float = spec.scale
 	var y := Vector3(sin(th), 0.0, cos(th))
 	var z := Vector3(0.0, 1.0, 0.0)
-	var rot := Basis(Vector3(1, 0, 0), float(spec.get("roll", 0.0))) * Basis(y.cross(z), y, z)
+	var rot := Basis(Vector3(1, 0, 0), float(spec.get("roll", 0.0))) * Basis(y.cross(z), y, z) * Basis(Vector3.UP, float(spec.get("yaw", 0.0)))
 	var pivot: Vector3 = spec.pivot
 	var center: Vector3 = spec.center
 	var xf := Transform3D(rot.scaled_local(Vector3(sc, sc, sc)), center - rot * (pivot * sc))
@@ -480,7 +519,17 @@ func _secondary(dt: float) -> void:
 			var a1 := -w1 * w1 * (_lag[5 + f] - _lag[f]) - 2.0 * 0.5 * w1 * _lag_v[5 + f]
 			_lag_v[5 + f] += a1 * h
 			_lag[5 + f] += _lag_v[5 + f] * h
-	for i in 10:
+		# Swing drag: the hand trails the arm's swing (deviation away from the
+		# acceleration along the knuckle line) and the fingers fan after it a beat later.
+		var wd := TAU * 3.6
+		var ad := -wd * wd * _lag[10] - 2.0 * 0.38 * wd * _lag_v[10] - la.z * 3.2
+		_lag_v[10] += ad * h
+		_lag[10] += _lag_v[10] * h
+		var wf := TAU * 2.8
+		var af := -wf * wf * (_lag[11] - _lag[10] * 0.9) - 2.0 * 0.45 * wf * _lag_v[11]
+		_lag_v[11] += af * h
+		_lag[11] += _lag_v[11] * h
+	for i in 12:
 		_lag[i] = clampf(_lag[i], -0.35, 0.35)
 
 
@@ -554,6 +603,7 @@ func _compose() -> void:
 		_add(b, 0, lag_base)
 		_add(b + 1, 0, lag_tip * 0.8)
 		_add(b + 2, 0, lag_tip * 0.6)
+		_add(b, 2, _lag[11] * mm * (0.55 + 0.15 * f))
 		# Wave: the wrist swings and the fingers follow a beat behind.
 		if _wave_w > 0.001:
 			var wv := sin(_time * TAU * 1.7 - 0.9 - f * 0.3)
@@ -584,6 +634,8 @@ func _compose() -> void:
 		_add(PALM, 2, 0.42 * sin(_time * TAU * 1.7) * _wave_w)
 		_add(THUMB1, 2, 0.06 * sin(_time * TAU * 1.7 - 1.2) * _wave_w)
 	_add(PALM, 0, breath * 0.012 * sin(t * TAU * 0.27 + 1.2))
+	_add(PALM, 2, _lag[10] * mm)
+	_add(THUMB1, 2, _lag[11] * mm * 0.4)
 	_compose_fidget(spec_list)
 	# Trigger squeeze: the index snaps onto the trigger and back.
 	if _trigger_t >= 0.0:
@@ -669,11 +721,12 @@ func _set_lerp(bone: int, dof: int, value: float, w: float) -> void:
 
 
 func _upload() -> void:
+	var lift := Transform3D(Basis.IDENTITY, Vector3(0.0, MODEL_Y_BIAS, 0.0))
 	_xf[0] = joints[0].transform
-	_palette[0] = Projection(_xf[0] * _bind_inv[0])
+	_palette[0] = Projection(lift * _xf[0] * _bind_inv[0])
 	for i in range(1, BONE_COUNT):
 		_xf[i] = _xf[PARENTS[i]] * joints[i].transform
-		_palette[i] = Projection(_xf[i] * _bind_inv[i])
+		_palette[i] = Projection(lift * _xf[i] * _bind_inv[i])
 	_mat.set_shader_parameter("bones", _palette)
 	if _ghost_mat != null:
 		_ghost_mat.set_shader_parameter("bones", _palette)
@@ -775,7 +828,7 @@ static func _build_mesh(p_side: int, fingers: int) -> ArrayMesh:
 	var k := CrewMeshKit.new()
 	var rest := _rest_frames(1, fingers)
 	_cuff(k)
-	_palm(k, fingers)
+	_palm(k)
 	for spec in _FINGER_SPECS[fingers]:
 		_finger(k, spec, rest)
 	_thumb(k, rest)
@@ -827,7 +880,7 @@ static func _cuff(k: CrewMeshKit) -> void:
 
 ## Palm block (satin graphite), curved back-of-hand armour plate with an accent strip,
 ## rubber grip panel, satin wrist sleeve.
-static func _palm(k: CrewMeshKit, fingers: int) -> void:
+static func _palm(k: CrewMeshKit) -> void:
 	k.set_part(PALM, CrewMaterials.FABRIC, 0.7)
 	k.lathe(PackedVector2Array([Vector2(0.034, -0.022), Vector2(0.0425, -0.011), Vector2(0.0455, 0.0075)]),
 		Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.0)), 12, Vector2(0.8, 0.98))
@@ -855,17 +908,6 @@ static func _palm(k: CrewMeshKit, fingers: int) -> void:
 	k.rounded_box(Vector3(0.0158, -0.046, 0.0005), Vector3(0.07, 0.05, 0.0024), 0.0, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)), 1, Vector3i(3, 2, 1))
 	k.deform = Callable()
 	k.skip_back = false
-
-
-## Soft dome: base ellipse (rx across, rz along `up`) on a plane facing `normal`, height h.
-static func _dome(k: CrewMeshKit, center: Vector3, normal: Vector3, up: Vector3, size: Vector3, cols := 8, edge := 0.0, deform := Callable()) -> void:
-	var y := normal.normalized()
-	var z := (up - y * up.dot(y)).normalized()
-	var x := y.cross(z)
-	var prof := PackedVector2Array([Vector2(1.0, -0.2 * size.y), Vector2(0.99, 0.45 * size.y), Vector2(0.8, 0.88 * size.y), Vector2(0.0, size.y)])
-	k.deform = deform
-	k.lathe(prof, Transform3D(Basis(x, y, z), center), cols, Vector2(size.x, size.z), 0.0, TAU, PackedFloat32Array([edge, edge, 0.0, 0.0]))
-	k.deform = Callable()
 
 
 ## Palmar grip pad: the rubber half bulges between the joint creases.

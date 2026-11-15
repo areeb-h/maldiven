@@ -46,6 +46,9 @@ var room_light_colors: Array[Color] = []
 var labels: Array[Label3D] = []
 var label_colors: Array[Color] = []
 var probes: Array[ReflectionProbe] = []
+## Every free-standing prop the builder placed: {"name", "center", "size", "yaw"}
+## (visual bounds). tests/art_smoke.gd checks each has a matching collider.
+var props: Array[Dictionary] = []
 var sun: DirectionalLight3D
 var fill: DirectionalLight3D
 var env: Environment

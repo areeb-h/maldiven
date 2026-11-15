@@ -18,6 +18,7 @@ const ROOMS := {
 	"engineering": {"name": "Engineering", "center": Vector2(62, 0), "size": Vector2(12, 12), "color": Color("f2d43d")},
 	"reactor": {"name": "Reactor", "center": Vector2(62, 20), "size": Vector2(14, 12), "color": Color("9b5cff")},
 	"medical": {"name": "Medical", "center": Vector2(0, 20), "size": Vector2(14, 12), "color": Color("5fd35f")},
+	"observation": {"name": "Observation", "center": Vector2(31, 21), "size": Vector2(16, 12), "color": Color("ff6fae")},
 	"airlock": {"name": "Airlock", "center": Vector2(-12.5, 0), "size": Vector2(5, 5), "color": Color("ff7a3d")},
 }
 
@@ -32,7 +33,8 @@ const CORRIDORS := {
 	"docking-cargo": {"a": "docking", "b": "cargo", "center": Vector2(30, 0), "size": Vector2(6, 3)},
 	"cargo-engineering": {"a": "cargo", "b": "engineering", "center": Vector2(51.5, 0), "size": Vector2(9, 3)},
 	"engineering-reactor": {"a": "engineering", "b": "reactor", "center": Vector2(62, 10), "size": Vector2(3, 8)},
-	"reactor-medical": {"a": "reactor", "b": "medical", "center": Vector2(31, 20), "size": Vector2(48, 3)},
+	"medical-observation": {"a": "medical", "b": "observation", "center": Vector2(15, 20), "size": Vector2(16, 3)},
+	"observation-reactor": {"a": "observation", "b": "reactor", "center": Vector2(47, 20), "size": Vector2(16, 3)},
 	"medical-commons": {"a": "medical", "b": "commons", "center": Vector2(0, 10.5), "size": Vector2(3, 7)},
 	"commons-airlock": {"a": "commons", "b": "airlock", "center": Vector2(-9, 0), "size": Vector2(2, 3)},
 }
@@ -55,6 +57,17 @@ const SOCKETS := {
 ## Shuttle hull occupies the north part of Docking; pod sits in Cargo's SE corner.
 const SHUTTLE_HULL := {"center": Vector2(20, -4.2), "size": Vector2(9, 3.4)}
 const POD_HULL := {"center": Vector2(45.5, 4.5), "size": Vector2(2.6, 2.6)}
+
+## Raised decks (walkable, never under a socket, approach point or item spawn).
+## rect: Rect2 on the XZ plane; height: deck top in metres. Ramps rise from the
+## floor to the deck along one side: side n/s/w/e of the rect, `from`..`to`
+## along that side, `length` out from it (gentle: <= ~12 degrees).
+const PLATFORMS := {
+	"observation_deck": {"room": "observation", "rect": Rect2(23, 15, 16, 3), "height": 0.24,
+		"ramps": [{"side": "s", "from": 24.6, "to": 27.2, "length": 1.2}, {"side": "s", "from": 34.8, "to": 37.4, "length": 1.2}]},
+	"cargo_dock": {"room": "cargo", "rect": Rect2(33, 3, 4.6, 4), "height": 0.24,
+		"ramps": [{"side": "e", "from": 3.6, "to": 6.4, "length": 1.2}]},
+}
 
 ## Starting items. Cells start loose on the floor; the core starts in the vault.
 const ITEMS := {
@@ -87,6 +100,43 @@ static func spawn_point(index: int, count: int) -> Vector3:
 	var angle := TAU * float(index) / float(maxi(count, 1))
 	var offset := Vector2(cos(angle), sin(angle)) * PLAYER_SPAWN_RADIUS
 	return to_world(PLAYER_SPAWN_CENTER + offset)
+
+
+## Ramp footprint as a Rect2 plus the direction (unit Vector2) it climbs.
+static func ramp_rect(platform_id: String, index: int) -> Array:
+	var spec: Dictionary = PLATFORMS[platform_id]
+	var r: Rect2 = spec.rect
+	var ramp: Dictionary = spec.ramps[index]
+	var length: float = ramp.length
+	match String(ramp.side):
+		"n":
+			return [Rect2(ramp.from, r.position.y - length, ramp.to - ramp.from, length), Vector2(0, 1)]
+		"s":
+			return [Rect2(ramp.from, r.end.y, ramp.to - ramp.from, length), Vector2(0, -1)]
+		"w":
+			return [Rect2(r.position.x - length, ramp.from, length, ramp.to - ramp.from), Vector2(1, 0)]
+		_:
+			return [Rect2(r.end.x, ramp.from, length, ramp.to - ramp.from), Vector2(-1, 0)]
+
+
+## Walkable floor height at a flat point: deck tops and ramp slopes, else 0.
+static func floor_height(point: Vector3) -> float:
+	var flat := Vector2(point.x, point.z)
+	for platform_id in PLATFORMS:
+		var spec: Dictionary = PLATFORMS[platform_id]
+		var h: float = spec.height
+		if (spec.rect as Rect2).has_point(flat):
+			return h
+		for i in range((spec.ramps as Array).size()):
+			var rr: Array = ramp_rect(platform_id, i)
+			var rect: Rect2 = rr[0]
+			if rect.has_point(flat):
+				var up: Vector2 = rr[1]
+				var length: float = spec.ramps[i].length
+				# Distance travelled up the ramp from its foot.
+				var foot := rect.get_center() - up * (length * 0.5)
+				return h * clampf((flat - foot).dot(up) / length, 0.0, 1.0)
+	return 0.0
 
 
 ## Room containing a world point, or "" when in a corridor/outside.

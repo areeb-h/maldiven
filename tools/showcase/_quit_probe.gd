@@ -26,7 +26,8 @@ func _go() -> void:
 		RenderingServer.camera_attributes_set_dof_blur_bokeh_shape(RenderingServer.DOF_BOKEH_CIRCLE)
 	if "cam" in mode:
 		var c := Camera3D.new()
-		c.attributes = CameraAttributesPractical.new()
+		if not "noattr" in mode:
+			c.attributes = CameraAttributesPractical.new()
 		holder.add_child(c)
 		c.current = true
 	await process_frame

@@ -104,8 +104,20 @@ func _initialize() -> void:
 		var al := left.get_grip_anchor(kind)
 		var ar := right.get_grip_anchor(kind)
 		_check(al.origin.is_finite() and ar.origin.is_finite(), "anchor %s finite" % kind)
-		_check(absf(ar.basis.determinant() - 1.0) < 1e-4 and absf(al.basis.determinant() - 1.0) < 1e-4, "anchor %s is a rotation" % kind)
+		_check(ar.basis.determinant() > 0.0 and al.basis.determinant() > 0.0 and ar.basis.get_scale().is_equal_approx(Vector3.ONE * ar.basis.get_scale().x), "anchor %s is a uniform-scaled rotation" % kind)
 		_check(al.origin.is_equal_approx(ar.origin * Vector3(-1, 1, 1)), "anchor %s mirrored" % kind)
+
+	# grip_node rides the Palm joint and matches get_grip_anchor once the grip pose settles.
+	right.micro_motion = 0.0
+	right.position = Vector3.ZERO
+	for kind in CrewHand.ANCHORS:
+		right.set_pose({"cell": "grip_large", "core": "grip_core", "gun": "grip_gun"}[kind], 0.0)
+		right.set_motion(0.0, DT)
+		var gn := right.grip_node(kind)
+		var local := right.get_joint_transform(CrewHand.PALM) * gn.transform
+		_check(gn.get_parent() == right.joints[CrewHand.PALM], "grip_node %s on the Palm joint" % kind)
+		_check(local.origin.distance_to(right.get_grip_anchor(kind).origin) < 1e-3, "grip_node %s matches get_grip_anchor" % kind)
+	right.micro_motion = 1.0
 
 	# Mirror symmetry of the joints in a fist (micro-motion off: it is desynced per hand).
 	for h in [left, right]:
