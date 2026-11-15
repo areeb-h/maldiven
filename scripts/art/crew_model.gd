@@ -12,14 +12,24 @@ signal footstep(side: int)
 const WALK_SPEED := 3.4
 const RUN_SPEED := 6.2
 const ANKLE_H := 0.09
+## Gun recoil kick duration (s) and the shove wrist extension (rad).
+const RECOIL_TIME := 0.16
+const SHOVE_WRIST := -0.75
+## Where the gun grip sits while aiming (root space) and the support hand offset
+## from it (gun space).
+const AIM_GRIP := Vector3(-0.075, 1.36, 0.47)
+const AIM_SUPPORT := Vector3(0.055, -0.035, -0.035)
 
 var color := Color.WHITE
 var variant := 0
 var number := 0
 ## Where a carried object sits (between the hands, ~0.95 m up, ~0.46 m forward).
 var carry_anchor: Node3D
-## Child of the right hand at the grip. +Z = barrel direction when aiming, +Y = up.
+## The right glove's gun grip node: parent the gun here with an identity transform.
+## +Z = barrel (canted 14 degrees from the fingers, levelled while aiming), +Y = up.
 var hand_anchor: Node3D
+## Gloves (CrewHand) on the LeftHand / RightHand bones: [left, right].
+var hands: Array[CrewHand] = []
 var body: MeshInstance3D
 var visor: MeshInstance3D
 var bones: Array[Node3D] = []
@@ -91,6 +101,9 @@ var _fidget_t := -1.0
 var _fidget_kind := 0
 var _lamp := 0.3
 var _lamp_target := 0.3
+var _held := ""
+var _recoil_t := -1.0
+var _hand_pose: Array[String] = ["", ""]
 var _last_params := {}
 
 
@@ -134,10 +147,12 @@ func _setup(p_color: Color, p_variant: int, p_number: int) -> void:
 	carry_anchor.name = "CarryAnchor"
 	carry_anchor.position = Vector3(0, 0.95, 0.46)
 	add_child(carry_anchor)
-	hand_anchor = Node3D.new()
-	hand_anchor.name = "HandAnchor"
-	hand_anchor.transform = Transform3D(Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0)), Vector3(0.03, -0.06, 0.01))
-	bones[CrewBody.R_HAND].add_child(hand_anchor)
+	for side in [-1, 1]:
+		var glove := CrewHand.build(color, side)
+		glove.name = "LeftGlove" if side < 0 else "RightGlove"
+		bones[CrewBody.L_HAND if side < 0 else CrewBody.R_HAND].add_child(glove)
+		hands.append(glove)
+	hand_anchor = hands[1].grip_node("gun")
 	set_number(p_number)
 	_blink_timer = randf_range(2.0, 4.5)
 	_fidget_timer = randf_range(6.0, 10.0)
@@ -175,6 +190,10 @@ func set_motion(speed: float, on_floor: bool, carrying: bool, stunned: bool, del
 		_hit_t += delta
 		if _hit_t > 0.8:
 			_hit_t = -1.0
+	if _recoil_t >= 0.0:
+		_recoil_t += delta
+		if _recoil_t > RECOIL_TIME:
+			_recoil_t = -1.0
 	_update_fidget(delta)
 	var g := _gait(_speed)
 	var before := _phase
@@ -191,6 +210,7 @@ func set_motion(speed: float, on_floor: bool, carrying: bool, stunned: bool, del
 	_oxygen = move_toward(_oxygen, 0.55 if carrying else 1.0, delta * (0.04 if carrying else 0.12))
 	_pose(g)
 	_springs(delta)
+	_update_hands(delta)
 	_upload()
 
 
@@ -234,12 +254,28 @@ func set_ghost(on: bool) -> void:
 	var shadow := GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if on else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body.cast_shadow = shadow
 	visor.cast_shadow = shadow
+	for glove in hands:
+		glove.mesh_instance.cast_shadow = shadow
 	_last_params.clear()
 	_auto_expression()
 
 
 func set_aiming(on: bool) -> void:
 	_aiming = on
+
+
+## What the character holds: "" (nothing), "cell", "core" or "gun". Carried items
+## ("cell" / "core") are gripped by their handles at carry_anchor while set_motion's
+## `carrying` is true (an unspecified carry grips like "cell"); "gun" sits in the right
+## glove at hand_anchor.
+func set_held_item(kind: String) -> void:
+	_held = kind
+
+
+## Call on every shot: trigger squeeze on the right glove and a short recoil kick.
+func on_shot() -> void:
+	hands[1].trigger_pull()
+	_recoil_t = 0.0
 
 
 func is_ghost() -> bool:
@@ -369,6 +405,9 @@ func _set_param(key: String, value: float) -> void:
 	_suit_mat.set_shader_parameter(key, value)
 	if _ghost_mat != null:
 		_ghost_mat.set_shader_parameter(key, value)
+	if key == "hit_flash" or key == "distress":
+		for glove in hands:
+			glove.set_suit_param(key, value)
 
 
 func _set_vec(key: String, value: Vector2) -> void:
@@ -393,6 +432,44 @@ func _upload() -> void:
 	_suit_mat.set_shader_parameter("bones", _palette)
 	if _ghost_mat != null:
 		_ghost_mat.set_shader_parameter("bones", _palette)
+
+
+# --- gloves ---------------------------------------------------------------------------
+
+## Picks each glove's pose from the character state and steps its finger motion.
+func _update_hands(delta: float) -> void:
+	for side in 2:
+		var pose := _glove_pose(side)
+		if pose != _hand_pose[side]:
+			_hand_pose[side] = pose
+			hands[side].set_pose(pose, 0.06 if pose == "push" or pose == "brace" else 0.15)
+		hands[side].set_motion(_speed, delta)
+
+
+## side 0 = left glove, 1 = right glove.
+func _glove_pose(side: int) -> String:
+	if _ghost:
+		return "ghost"
+	if _down or _down_w > 0.5:
+		return "limp"
+	if _stun_w > 0.3 or (_hit_t >= 0.0 and _hit_t < 0.45):
+		return "brace"
+	if _shove_t >= 0.0 and _shove_t < 0.3:
+		return "push"
+	if _aiming:
+		return "grip_gun_trigger" if side == 1 else "grip_large"
+	if _carry_w > 0.5:
+		return "grip_core" if _held == "core" else "grip_large"
+	if side == 1 and _held == "gun":
+		return "grip_gun"
+	if _fidget_t >= 0.0 and _fidget_kind == 1 and side == 1:
+		return "fist"
+	return "relaxed"
+
+
+## Wrist transform (root space) that puts this glove's grip anchor on `item_xf`.
+func _wrist_for(side: int, kind: String, item_xf: Transform3D) -> Transform3D:
+	return item_xf * hands[side].get_grip_anchor(kind).affine_inverse()
 
 
 # --- secondary motion ---------------------------------------------------------------
@@ -664,9 +741,19 @@ func _pose(g: Vector3) -> void:
 		if _ghost_w > 0.0:
 			var drift := Basis.from_euler(Vector3(-0.25 + 0.1 * sin(t * 1.1 + s), 0.0, s * (0.45 + 0.08 * sin(t * 1.3))))
 			fk_up = Basis(fk_up.get_rotation_quaternion().slerp(drift.get_rotation_quaternion(), _ghost_w))
-		# IK targets in root space.
-		var carry_t := carry_anchor.position + Vector3(s * 0.15, 0.06, -0.1)
-		var aim_t := Vector3(-0.07, 1.42, 0.5) if side == 1 else Vector3(-0.025, 1.38, 0.44)
+		# IK targets (root space). Carry and aim place the wrist so the glove's grip
+		# anchor lands on the item; shove and fidgets only place the wrist.
+		var carry_kind := "core" if _held == "core" else "cell"
+		var carry_wrist := _wrist_for(side, carry_kind, carry_anchor.transform)
+		var fwd_h := Vector3(chest_xf.basis.z.x, 0.0, chest_xf.basis.z.z).normalized()
+		var gun_xf := Transform3D(Basis(Vector3.UP.cross(fwd_h), Vector3.UP, fwd_h), AIM_GRIP)
+		var recoil := 0.0
+		if _recoil_t >= 0.0:
+			recoil = sin(clampf(_recoil_t / RECOIL_TIME, 0.0, 1.0) * PI)
+		gun_xf = gun_xf.rotated_local(Vector3.RIGHT, -0.35 * recoil).translated_local(Vector3(0, 0, -0.03 * recoil))
+		var aim_wrist := _wrist_for(1, "gun", gun_xf)
+		if side == 0:
+			aim_wrist = Transform3D(aim_wrist.basis, gun_xf * AIM_SUPPORT)
 		var shove_t := Vector3(s * 0.14, 1.25, 0.08).lerp(Vector3(s * 0.15, 1.28, 0.56), clampf(thrust, 0.0, 1.2))
 		var fid_t := Vector3.ZERO
 		var fw := 0.0
@@ -686,45 +773,28 @@ func _pose(g: Vector3) -> void:
 		var fore_b := fk_fore
 		var hand_b := Basis.from_euler(Vector3(-0.1 - 0.15 * mw, 0.0, 0.0))
 		if ik_w > 0.001 and total > 0.0:
-			var target2 := (carry_t * cw + aim_t * aw + shove_t * sw + fid_t * fw) / total
+			var target2 := (carry_wrist.origin * cw + aim_wrist.origin * aw + shove_t * sw + fid_t * fw) / total
 			var lt := chest_xf.affine_inverse() * target2
 			var pole2 := chest_xf.basis.inverse() * Vector3(s * 0.8, -0.6, -0.5).lerp(Vector3(s * 0.35, -1.0, 0.0), aw / maxf(total, 0.001))
 			var ik2 := _two_bone(B[up].position, lt, pole2, 0.295, 0.27, -1.0)
 			up_b = Basis(fk_up.get_rotation_quaternion().slerp(ik2[0].get_rotation_quaternion(), ik_w))
 			fore_b = Basis(fk_fore.get_rotation_quaternion().slerp(ik2[1].get_rotation_quaternion(), ik_w))
 			var push := clampf(thrust, 0.0, 1.0) * shove
-			var wrist := Basis.from_euler(Vector3(-1.1 * push / maxf(ik_w, 0.01), 0.0, s * 0.15 * cw))
+			var wrist := Basis.from_euler(Vector3(SHOVE_WRIST * push / maxf(ik_w, 0.01), 0.0, 0.0))
 			if fw > 0.0 and _fidget_kind == 2:
-				wrist = Basis.from_euler(Vector3(0.0, 0.0, 0.0)) * Basis(Vector3.UP, -1.2)
+				wrist = Basis(Vector3.UP, -1.2)
 			hand_b = Basis(hand_b.get_rotation_quaternion().slerp(wrist.get_rotation_quaternion(), ik_w))
+			# Carry / aim: orient the glove so the grip anchor matches the item.
+			var held_w := (cw + aw) / total * ik_w
+			if held_w > 0.001:
+				var want_world := carry_wrist.basis.slerp(aim_wrist.basis, aw / maxf(cw + aw, 0.001))
+				var fore_root := chest_xf.basis * up_b * fore_b
+				var want_hand := (fore_root.inverse() * want_world).orthonormalized()
+				hand_b = Basis(hand_b.get_rotation_quaternion().slerp(want_hand.get_rotation_quaternion(), held_w))
 		B[up].basis = up_b
 		B[fore].basis = fore_b
-		if side == 1 and _aim_w > 0.001:
-			# Level the gun: barrel along the chest's horizontal forward, top up.
-			var fwd_h := Vector3(chest_xf.basis.z.x, 0.0, chest_xf.basis.z.z).normalized()
-			var yb := -fwd_h
-			var level := Basis(yb.cross(Vector3.UP), yb, Vector3.UP)
-			var fore_root := chest_xf.basis * up_b * fore_b
-			var want_hand := (fore_root.inverse() * level).orthonormalized()
-			hand_b = Basis(hand_b.get_rotation_quaternion().slerp(want_hand.get_rotation_quaternion(), _aim_w * ik_w))
 		B[hand].basis = hand_b
 		B[up].position.y += 0.004 * breath * (1.0 - mw)
-		# Fingers: relaxed curl, wrap round carried items and the grip, flat for a shove.
-		var curl := lerpf(0.35, 0.6, rw)
-		curl = lerpf(curl, 0.75, _carry_w)
-		if side == 1:
-			curl = lerpf(curl, 1.35, _aim_w)
-		else:
-			curl = lerpf(curl, 0.9, _aim_w)
-		curl = lerpf(curl, -0.05, clampf(thrust, 0.0, 1.0) * shove)
-		curl = lerpf(curl, 1.1, absf(hit) * 0.7)
-		curl = lerpf(curl, 0.5 + 0.45 * sin(t * 7.0 + s), stun)
-		curl = lerpf(curl, 0.15, _ghost_w)
-		if fid > 0.0 and _fidget_kind == 1 and side == 1:
-			curl = lerpf(curl, 1.2, fid)
-		var fingers := CrewBody.L_FINGERS if side == 0 else CrewBody.R_FINGERS
-		B[fingers].basis = Basis(Vector3.BACK, -s * curl)
-		B[fingers + 1].basis = Basis.from_euler(Vector3(-curl * 0.45, 0.0, -s * curl * 0.55))
 
 	# --- full-body states: downed / carried ---
 	if _down_w > 0.001:
@@ -753,8 +823,6 @@ func _downed_pose(t: float) -> Array[Transform3D]:
 	out[CrewBody.R_ARM].basis = Basis.from_euler(Vector3(-0.35, 0.0, -0.32))
 	out[CrewBody.R_FORE].basis = Basis.from_euler(Vector3(-1.45, 0.0, 0.0)) * Basis(Vector3.UP, 0.9)
 	out[CrewBody.R_HAND].basis = Basis.from_euler(Vector3(0.2, 0.0, 0.0))
-	for f in [CrewBody.L_FINGERS, CrewBody.R_FINGERS]:
-		out[f].basis = Basis(Vector3.BACK, (-0.3 if f == CrewBody.L_FINGERS else 0.3))
 	# Left leg straight, right knee bent and fallen outward.
 	out[CrewBody.L_LEG].basis = Basis.from_euler(Vector3(-0.12, 0.0, 0.12))
 	out[CrewBody.L_SHIN].basis = Basis.from_euler(Vector3(0.18, 0.0, 0.0))
@@ -783,7 +851,7 @@ func _carried_pose(t: float) -> Array[Transform3D]:
 	out[CrewBody.R_FORE].basis = Basis.from_euler(Vector3(-1.5, 0.0, 0.0)) * Basis(Vector3.UP, -0.9)
 	for leg in [CrewBody.L_LEG, CrewBody.R_LEG]:
 		var s := 1.0 if leg == CrewBody.L_LEG else -1.0
-		out[leg].basis = Basis.from_euler(Vector3(-1.3 + 0.08 * s, 0.0, s * 0.1))
+		out[leg].basis = Basis.from_euler(Vector3(-0.55 + 0.06 * s, 0.0, s * 0.1))
 		out[leg + 1].basis = Basis.from_euler(Vector3(1.45 - sway * s, 0.0, 0.0))
 		out[leg + 2].basis = Basis.from_euler(Vector3(0.5, 0.0, 0.0))
 	return out

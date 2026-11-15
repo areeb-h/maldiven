@@ -16,10 +16,13 @@ func _initialize() -> void:
 		"test_throw_respects_walls", "test_shove_drops_body", "test_mirror_flight_and_downed",
 		"test_last_crew_leaving_ends_round", "test_blackout_hides_names", "test_setup_resets_state",
 		"test_shove_cooldown_in_snapshot", "test_dragged_body_kept_out_of_walls",
+		"test_drop_makes_item_loose", "test_physics_throw_and_hit", "test_thrown_item_cools",
+		"test_respawn_lost_item", "test_downed_lies_along_the_fall", "test_mirror_item_physics_fields",
+		"test_vented_item_drifts_then_returns", "test_shove_blocked_by_walls", "test_knocked_loose_flies",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (30 tests)")
+		print("PASS: rules (39 tests)")
 	quit(1 if failures else 0)
 
 
@@ -359,6 +362,8 @@ func test_airlock_respawns_items() -> void:
 	var ids := crew_ids(rules)
 	rules.items.cell_1.pos = StationLayout.to_world(StationLayout.ROOMS.airlock.center)
 	cycle_airlock(rules, ids[0])
+	check(float(rules.items.cell_1.lost) >= 0.0, "vented cell drifts in space first")
+	rules.tick(StationRules.VENT_DRIFT_SECONDS + 0.05)
 	check(StationLayout.room_at(rules.items.cell_1.pos) == "engineering", "vented cell returns to spawn")
 	check(rules.phase != StationRules.Phase.RESULT, "empty vent doesn't end round")
 	check(rules.available_action(ids[0]).is_empty() or rules.available_action(ids[0]).get("action") != "airlock", "airlock on cooldown")
@@ -391,7 +396,10 @@ func test_throw_respects_walls() -> void:
 	rules.request_interact(id)
 	face(rules, id, Vector3(-5, 0, 24), Vector3(-30, 0, 24))  # towards the outer wall
 	rules.request_shove(id)
-	check(StationLayout.is_walkable(rules.items.cell_2.flight.to), "landing stays inside the station")
+	for i in range(40):
+		rules.tick(0.05)
+	check(rules.items.cell_2.flight.is_empty(), "throw landed")
+	check(StationLayout.is_walkable(rules.items.cell_2.pos), "landing stays inside the station")
 
 
 func test_shove_drops_body() -> void:
@@ -479,3 +487,139 @@ func test_dragged_body_kept_out_of_walls() -> void:
 	rules.request_interact(ids[2])
 	rules.set_pose(ids[2], Vector3(0, 0, 4.9), 0.0)  # walking into the wall
 	check(rules.players[ids[1]].pos.z <= 5.0, "dragged body stays out of the wall")
+
+
+# --- physics-facing rules ------------------------------------------------------
+
+func physics_round() -> StationRules:
+	var rules := make_round()
+	rules.physics_driven = true
+	return rules
+
+
+func pick(rules: StationRules, id: int, item_id: String) -> void:
+	var pos: Vector3 = rules.items[item_id].pos
+	go(rules, id, Vector2(pos.x, pos.z))
+	check(rules.request_interact(id) and rules.items[item_id].holder == id, "picked " + item_id)
+
+
+func test_drop_makes_item_loose() -> void:
+	var rules := physics_round()
+	var id: int = crew_ids(rules)[0]
+	pick(rules, id, "cell_1")
+	var epoch: int = rules.items.cell_1.epoch
+	rules.set_pose(id, Vector3(62, 0, -3), 0.0)
+	check(rules.request_interact(id), "drop")
+	var item: Dictionary = rules.items.cell_1
+	check(item.holder == 0 and item.socket == "" and item.epoch == epoch + 1, "dropped item is loose with a new epoch")
+	check(item.pos.distance_to(Vector3(62, StationRules.HAND_HEIGHT, -3 + StationRules.HAND_REACH)) < 0.01, "dropped from the hands")
+	check(item.moving and item.flight.is_empty(), "a drop is moving but harmless")
+
+
+func test_physics_throw_and_hit() -> void:
+	var rules := physics_round()
+	var ids := crew_ids(rules)
+	pick(rules, ids[0], "cell_1")
+	face(rules, ids[0], Vector3(62, 0, -4), Vector3(62, 0, 4))
+	rules.set_pose(ids[1], Vector3(62, 0, 1.0), 0.0)
+	rules.request_shove(ids[0])
+	var item: Dictionary = rules.items.cell_1
+	check(not item.flight.is_empty() and int(item.flight.by) == ids[0], "thrown item is hot")
+	check(item.vel.z > 7.0 and item.vel.y > 2.0, "thrown along the facing with lift")
+	rules.tick(0.3)
+	check(not item.flight.is_empty(), "physics mode doesn't fly the arc in the rules")
+	check(not rules.item_hit("cell_1", ids[0], Vector3.BACK), "can't hit yourself")
+	check(rules.item_hit("cell_1", ids[1], Vector3(0, -1, 5)), "a hot item hits a standing player")
+	check(rules.players[ids[1]].stunned_until > rules.elapsed + 1.0, "hit stuns like before")
+	check(item.flight.is_empty(), "one victim per throw")
+	check(not rules.item_hit("cell_1", ids[2], Vector3.BACK), "a cooled item can't hit")
+	var shoved := rules.drain_events().filter(func(e): return e.type == "shoved")
+	check(shoved.size() == 1 and shoved[0].get("item", false) and absf(shoved[0].dir.y) < 0.001, "hit event is flat and marked as an item hit")
+
+
+func test_thrown_item_cools() -> void:
+	var rules := physics_round()
+	var id: int = crew_ids(rules)[0]
+	pick(rules, id, "cell_1")
+	rules.request_shove(id)
+	rules.cool_item("cell_1")
+	check(rules.items.cell_1.flight.is_empty(), "physics can cool a thrown item")
+	rules.tick(StationRules.SHOVE_COOLDOWN)
+	pick(rules, id, "cell_1")
+	rules.request_shove(id)
+	rules.tick(StationRules.THROW_HOT_MAX + 0.1)
+	check(rules.items.cell_1.flight.is_empty(), "a thrown item is never hot for long")
+
+
+func test_respawn_lost_item() -> void:
+	var rules := physics_round()
+	var id: int = crew_ids(rules)[0]
+	var epoch: int = rules.items.cell_1.epoch
+	rules.items.cell_1.pos = Vector3(200, -50, 0)
+	rules.respawn_item("cell_1")
+	check(StationLayout.room_at(rules.items.cell_1.pos) == "engineering" and rules.items.cell_1.epoch == epoch + 1, "lost item returns to its spawn")
+	pick(rules, id, "cell_1")
+	rules.respawn_item("cell_1")
+	check(rules.items.cell_1.holder == id, "a held item is never respawned")
+
+
+func test_downed_lies_along_the_fall() -> void:
+	var rules := physics_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.request_shoot(ids[0])
+	var p: Dictionary = rules.players[ids[1]]
+	check(p.pos.distance_to(Vector3(0, 0, 6 + StationRules.DOWN_SLUMP)) < 0.01, "slumps away from the shooter")
+	var head := -Vector3(sin(p.yaw), 0, cos(p.yaw))  # the model lies head along -Z
+	check(head.distance_to(Vector3(0, 0, 1)) < 0.01, "head points the way it fell")
+	var downed := rules.drain_events().filter(func(e): return e.type == "downed")
+	check(downed.size() == 1 and downed[0].dir.distance_to(Vector3(0, 0, 1)) < 0.01, "downed event carries the fall")
+
+
+func test_mirror_item_physics_fields() -> void:
+	var rules := physics_round()
+	var id: int = crew_ids(rules)[0]
+	pick(rules, id, "cell_1")
+	rules.request_shove(id)
+	rules.items.cell_1.rot = Quaternion(Vector3.RIGHT, 0.7)
+	var mirror := StationRules.new()
+	mirror.apply_snapshot(rules.public_snapshot(), id, StationRules.CREW)
+	var item: Dictionary = mirror.items.cell_1
+	check(item.epoch == rules.items.cell_1.epoch and item.moving and not item.flight.is_empty(), "mirror knows the item is loose, moving and hot")
+	check(item.rot.is_equal_approx(Quaternion(Vector3.RIGHT, 0.7)), "mirror has the rotation")
+	check(mirror.available_action(id).get("item", "") != "cell_1", "no picking up a hot item")
+
+
+func test_vented_item_drifts_then_returns() -> void:
+	var rules := physics_round()
+	var ids := crew_ids(rules)
+	rules.items.cell_2.pos = StationLayout.to_world(StationLayout.ROOMS.airlock.center, 0.3)
+	cycle_airlock(rules, ids[0])
+	go(rules, ids[1], Vector2(rules.items.cell_2.pos.x, rules.items.cell_2.pos.z))
+	check(rules.available_action(ids[1]).get("item", "") != "cell_2", "a vented item can't be grabbed")
+	rules.tick(StationRules.VENT_DRIFT_SECONDS + 0.05)
+	check(StationLayout.room_at(rules.items.cell_2.pos) == "medical" and float(rules.items.cell_2.lost) < 0.0, "back at its dock")
+
+
+func test_shove_blocked_by_walls() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	rules.set_pose(ids[0], Vector3(0, 0, 0), 0.0)
+	rules.set_pose(ids[1], Vector3(0, 0, 1.5), 0.0)
+	var wall := func(_from: Vector3, _to: Vector3) -> bool: return false
+	check(rules.request_shove(ids[0], wall) == 0, "no shoving through a wall")
+	var swings := rules.drain_events().filter(func(e): return e.type == "swing")
+	check(swings.size() == 1, "the swing still happens (it knocks props)")
+
+
+func test_knocked_loose_flies() -> void:
+	var rules := physics_round()
+	var ids := crew_ids(rules)
+	pick(rules, ids[1], "cell_1")
+	rules.set_pose(ids[1], Vector3(62, 0, 0), 0.0)
+	rules.set_pose(ids[0], Vector3(62, 0, -1), 0.0)
+	check(rules.request_shove(ids[0]) == ids[1], "shove the carrier")
+	var item: Dictionary = rules.items.cell_1
+	check(item.holder == 0 and item.vel.z > 2.0 and item.vel.y > 2.0, "the cell pops out along the push")

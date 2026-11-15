@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Drift Station checks: import, rules unit tests, art smoke test and two real
-networked bot rounds (1 host + 2 clients over loopback ENet).
+"""Drift Station checks: import, rules unit tests, art/physics smoke tests and three
+real networked bot rounds (1 host + 2 clients over loopback ENet).
 
 Usage: python tools/test_station.py [--godot PATH] [--skip-net]
 """
@@ -64,6 +64,19 @@ def net_round(engine, plan, players=3, seed=11, timeout=150, host_infiltrator=Fa
         problems.append('roles: ' + repr(roles))
     if plan == 'infiltrator' and not any('BOT_SHOVE ok' in out for _, out in logs):
         problems.append('expected a successful shove of the core carrier')
+    if plan == 'crew':
+        rests = []
+        for _, out in logs:
+            rests += [l.split() for l in out.splitlines() if l.startswith('BOT_THROW_REST')]
+        if len(rests) != players or any(r[5] != 'True' for r in rests):
+            problems.append('throw replication: expected every peer to see the thrown cell at rest: ' + repr(rests))
+        else:
+            points = [tuple(float(v) for v in r[2:5]) for r in rests]
+            spread = max(sum((a - b) ** 2 for a, b in zip(p, q)) ** 0.5 for p in points for q in points)
+            if spread > 0.1:
+                problems.append(f'throw replication: peers disagree by {spread:.3f} m: {points}')
+            else:
+                print(f'  thrown cell agrees on {players} peers within {spread * 100:.1f} cm')
     if plan == 'eject':
         if not any('reason=The infiltrator was spaced.' in r for r in results):
             problems.append('expected the infiltrator to be spaced')
@@ -87,6 +100,9 @@ def main():
                            ('crew_model_smoke', 'PASS: crew model'), ('vfx_smoke', 'PASS: vfx smoke')]:
         if (ROOT / 'tests' / f'{script}.gd').exists():
             run(engine, script.replace('_', ' '), ['--script', f'res://tests/{script}.gd'], marker)
+    # Fixed 60 Hz steps, as fast as the machine runs: many simulated seconds.
+    run(engine, 'physics smoke', ['--fixed-fps', '60', '--script', 'res://tests/physics_smoke.gd'], 'PASS: physics smoke',
+        timeout=300)
     if not args.skip_net:
         net_round(engine, 'crew')
         net_round(engine, 'infiltrator')

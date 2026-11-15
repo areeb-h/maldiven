@@ -90,8 +90,13 @@ func _run() -> void:
 	var plan: String = args.get("bot-plan", "crew")
 	# Everyone restores power: cell i goes to reactor socket i.
 	var cells := ["cell_1", "cell_2", "cell_3"]
+	var throw_check: bool = plan == "crew" and ids.size() >= 2
+	if throw_check and my_index != 1:
+		_observe_throw(world, "cell_2")  # runs alongside this bot's own deliveries
 	for index in range(cells.size()):
 		if index % ids.size() == my_index:
+			if throw_check and cells[index] == "cell_2":
+				await _throw_and_check(world, "cell_2")
 			await _deliver(world, cells[index], "reactor_%d" % (index + 1))
 	while world.rules.phase < StationRules.Phase.EXTRACTION:
 		await _wait(0.2)
@@ -150,6 +155,9 @@ func _run() -> void:
 			if world.rules.items.core.holder == 0:
 				_say("was shoved, recovering core")
 				await _wait(StationRules.STUN_SECONDS + 0.5)
+				# The core flew out of their hands: let it come to rest first.
+				var rested: bool = await _until(func(): return not world.rules.items.core.moving, 6.0)
+				_say("core at rest: %s at %s" % [rested, world.rules.items.core.pos])
 				await _pickup_floor(world, "core")
 			await _insert(world, "core", "pod")
 		else:
@@ -205,6 +213,7 @@ func _until(condition: Callable, seconds := 4.0) -> bool:
 
 
 func _pickup_floor(world: StationWorld, item_id: String) -> void:
+	await _until(func(): return not world.rules.items[item_id].moving and world.rules.items[item_id].flight.is_empty(), 6.0)
 	var at: Vector3 = world.rules.item_position(item_id)
 	var room := StationLayout.room_at(at)
 	var look := INF
@@ -258,3 +267,36 @@ func _shove_core_carrier(world: StationWorld) -> void:
 	_act("shove")
 	var ok: bool = await _until(func(): return world.rules.items.core.holder == 0)
 	print("BOT_SHOVE ", "ok" if ok else "missed")
+
+
+## Physics replication check: this bot picks the item up, throws it across the
+## room and reports where it came to rest on its own screen.
+func _throw_and_check(world: StationWorld, item_id: String) -> void:
+	await _pickup_floor(world, item_id)
+	var from: Vector3 = world.local.position
+	var toward := Vector3(1.0, 0.0, -0.75).normalized()
+	await _teleport(world, from, atan2(toward.x, toward.z) - PI)
+	_act("shove")
+	var thrown: bool = await _until(func(): return world.rules.items[item_id].holder == 0, 3.0)
+	_say("threw %s: %s" % [item_id, thrown])
+	await _wait(0.5)
+	await _report_rest(world, item_id)
+	await _wait(1.6)  # give the other bots time to report before picking it up again
+
+
+## Every other bot watches the same throw from its own view.
+func _observe_throw(world: StationWorld, item_id: String) -> void:
+	var started := Time.get_ticks_msec()
+	while world.rules.items[item_id].flight.is_empty() and Time.get_ticks_msec() - started < 60000:
+		await _wait(0.05)
+	await _report_rest(world, item_id)
+
+
+func _report_rest(world: StationWorld, item_id: String) -> void:
+	var item_rest := func() -> bool:
+		var item: Dictionary = world.rules.items[item_id]
+		return item.holder == 0 and item.flight.is_empty() and not item.moving
+	var rested: bool = await _until(item_rest, 8.0)
+	await _wait(0.6)  # the client's 100 ms interpolation buffer and the settle burst
+	var at: Vector3 = world.rules.items[item_id].pos
+	print("BOT_THROW_REST %s %.3f %.3f %.3f %s" % [item_id, at.x, at.y, at.z, rested])

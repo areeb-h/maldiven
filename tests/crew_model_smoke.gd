@@ -24,15 +24,17 @@ func _initialize() -> void:
 	_check(models[4].body.mesh == first.body.mesh, "body mesh is shared between players of a variant")
 	_check(models[1].body.mesh != first.body.mesh, "variants have their own meshes")
 	_check(first.carry_anchor != null and first.carry_anchor.get_parent() == first, "carry_anchor exists")
-	_check(first.hand_anchor != null and first.hand_anchor.get_parent().name == "RightHand", "hand_anchor on right hand")
-	for n in ["LeftLeg", "RightLeg", "LeftArm", "RightArm", "Hips", "Spine", "Chest", "Neck", "Head", "LeftForearm", "LeftHand", "LeftShin", "LeftFoot", "LeftFingers", "RightThumb", "Antenna", "Backpack"]:
+	_check(first.hands.size() == 2 and first.hands[0].get_parent().name == "LeftHand" and first.hands[1].get_parent().name == "RightHand", "gloves on both hand bones")
+	_check(first.hand_anchor != null and first.hand_anchor == first.hands[1].grip_node("gun"), "hand_anchor is the right glove's gun grip")
+	for n in ["LeftLeg", "RightLeg", "LeftArm", "RightArm", "Hips", "Spine", "Chest", "Neck", "Head", "LeftForearm", "LeftHand", "LeftShin", "LeftFoot", "Antenna", "Backpack"]:
 		_check(first.find_child(n, true, false) is Node3D, "pivot %s exists" % n)
 	var tris := 0
 	var calls := 0
 	for v in CrewBody.VARIANTS:
 		var tc := CrewBody.triangle_counts(v)
-		print("crew: variant %d: %d body + %d visor triangles" % [v, tc.x, tc.y])
-		_check(tc.x + tc.y <= MAX_TRIS, "variant %d triangle budget (%d)" % [v, tc.x + tc.y])
+		var gloves := 2 * CrewHand.triangle_count()
+		print("crew: variant %d: %d body + %d visor + %d glove triangles" % [v, tc.x, tc.y, gloves])
+		_check(tc.x + tc.y + gloves <= MAX_TRIS, "variant %d triangle budget (%d)" % [v, tc.x + tc.y + gloves])
 	for node in first.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
 		calls += mi.mesh.get_surface_count()
@@ -87,11 +89,24 @@ func _initialize() -> void:
 		m.play_shove()
 		m.play_hit()
 		m.set_flashlight_on(true)
+		m.set_held_item("gun")
 		m.set_aiming(true)
 	for f in 30:
 		for m in models:
 			m.set_motion(1.0, true, false, false, dt)
+			if f % 10 == 0:
+				m.on_shot()
 	_check_finite(first, "shove/hit/aim")
+	_check(first.hands[1].get_pose() == "grip_gun_trigger", "aiming glove pose (%s)" % first.hands[1].get_pose())
+	for kind in ["cell", "core"]:
+		first.set_aiming(false)
+		first.set_held_item(kind)
+		for f in 40:
+			first.set_motion(1.0, true, true, false, dt)
+		_check_finite(first, "carry " + kind)
+		var want := "grip_core" if kind == "core" else "grip_large"
+		_check(first.hands[0].get_pose() == want and first.hands[1].get_pose() == want, "carry %s glove pose" % kind)
+	first.set_held_item("")
 	first.set_flashlight_on(false)
 	first.set_aiming(false)
 	first.set_downed(true)

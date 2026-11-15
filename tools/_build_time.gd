@@ -10,7 +10,7 @@ func _initialize() -> void:
 		var m: Mesh = (mi as MeshInstance3D).mesh
 		var n := 0
 		for s in m.get_surface_count():
-			n += m.surface_get_array_len(s) / 3
+			n += (m.surface_get_arrays(s)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
 		tris += n
 		if n > 15000: print(mi.get_parent().name, "/", mi.name, " ", n)
 	print("TRIS ", tris, " props ", (st as ArtStationFX).props.size(), " shapes ", st.find_children("*", "CollisionShape3D", true, false).size())
