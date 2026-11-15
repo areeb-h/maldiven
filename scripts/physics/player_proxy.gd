@@ -58,22 +58,24 @@ func step(delta: float, lead: float, yaw: float, space: PhysicsDirectSpaceState3
 	var flat_vel := Vector3(_pose_vel.x, 0.0, _pose_vel.z)
 	var target := _pose_pos + flat_vel * ahead if mode == "standing" else _pose_pos
 	var gap := target.distance_to(global_position)
+	var next := target
 	if gap > TELEPORT or not _ready_to_push:
 		collision_layer = 0
-		global_position = target
 		_ghost_until_clear = true
 		_ready_to_push = true
 	else:
 		# Feed-forward the reported velocity, then ease out the remaining error:
 		# no steady-state lag, no velocity spikes when a late pose lands.
 		var predicted := global_position + (flat_vel * delta if mode == "standing" else Vector3.ZERO)
-		global_position = predicted.lerp(target, 1.0 - exp(-delta * FOLLOW_RATE))
+		next = predicted.lerp(target, 1.0 - exp(-delta * FOLLOW_RATE))
+	var basis := Basis.IDENTITY
 	if mode == "lying":
-		global_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, PI / 2.0)
-		_shape.position = Vector3(0, LYING_RADIUS, 0)
+		basis = Basis(Vector3.UP, yaw)
+		_shape.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(0, LYING_RADIUS, 0))
 	else:
-		global_basis = Basis.IDENTITY
-		_shape.position = Vector3(0, HEIGHT * 0.5, 0)
+		_shape.transform = Transform3D(Basis.IDENTITY, Vector3(0, HEIGHT * 0.5, 0))
+	# One transform write: kinematic bodies move (and push) with this motion.
+	global_transform = Transform3D(basis, next)
 	if _ghost_until_clear:
 		if _overlaps(space):
 			collision_layer = 0
@@ -94,7 +96,7 @@ func set_mode(next: String) -> void:
 func capsule_segment() -> Array:
 	## [bottom, top, radius] of the capsule's inner segment in world space.
 	if mode == "lying":
-		var along := global_basis.y * (_lying.height * 0.5 - LYING_RADIUS)
+		var along := (global_basis * _shape.basis).y * (_lying.height * 0.5 - LYING_RADIUS)
 		var centre := global_position + Vector3(0, LYING_RADIUS, 0)
 		return [centre - along, centre + along, LYING_RADIUS]
 	return [global_position + Vector3(0, RADIUS, 0), global_position + Vector3(0, HEIGHT - RADIUS, 0), RADIUS]

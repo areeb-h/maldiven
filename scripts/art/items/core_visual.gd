@@ -2,11 +2,11 @@ class_name CoreVisual
 extends Node3D
 ## The station core, the precious objective: a swirling cyan plasma orb inside a
 ## rounded cage of brushed-metal ribs with a glossy equator band, on a graphite
-## cradle with a lit collar. Two emitter rings precess around the cage, a soft
-## halo shell blooms the orb and one small omni light tints whoever carries it.
+## cradle with a lit collar. Two emitter rings precess around the cage, the orb's
+## bright limb blooms through glow and one small omni light tints whoever carries it.
 ## Silhouette: a glowing ball in a cage, nothing like the tall cell canister.
 ## Origin at the bottom centre; ~0.62 m tall, ~0.6 m across the rings.
-## Draw calls: body, rings, halo (3).
+## Draw calls: body + rings (2); the VFX layer adds its own halo and motes.
 
 const CYAN := Color(0.25, 0.95, 1.0)
 const SHELL := Color(0.9, 0.91, 0.9)
@@ -17,7 +17,6 @@ const RING_R := 0.272
 
 static var _body_mesh: ArrayMesh
 static var _ring_mesh: ArrayMesh
-static var _halo_mesh: ArrayMesh
 
 var rings: Node3D
 var light: OmniLight3D
@@ -90,7 +89,7 @@ static func body_mesh() -> ArrayMesh:
 		Transform3D.IDENTITY, 12, Vector2.ONE, 0.0, TAU, PackedFloat32Array([0.4, 0.8, 0.6, 0.3, 0]))
 	# Plasma orb.
 	k.part(ItemKit.ORB)
-	k.ellipsoid(c, Vector3(ORB_R, ORB_R, ORB_R), Basis.IDENTITY, 16, 9)
+	k.ellipsoid(c, Vector3(ORB_R, ORB_R, ORB_R), Basis.IDENTITY, 15, 8)
 	# Six rounded meridian ribs from the lower hub to the top cap.
 	k.part(ItemKit.METAL)
 	for i in 6:
@@ -100,11 +99,11 @@ static func body_mesh() -> ArrayMesh:
 		for j in 7:
 			var lat := lerpf(-1.18, 1.22, float(j) / 6.0)
 			pts.append(c + dir * cos(lat) * CAGE_R + Vector3(0, sin(lat) * CAGE_R, 0))
-		k.tube(pts, 0.0115, 5, 9)
+		k.tube(pts, 0.0115, 5, 8)
 	# Glossy equator band with four cyan running lights.
 	k.part(ItemKit.SHELL_A)
 	k.lathe(PackedVector2Array([Vector2(CAGE_R - 0.004, -0.026), Vector2(CAGE_R + 0.02, -0.016), Vector2(CAGE_R + 0.02, 0.008), Vector2(CAGE_R - 0.004, 0.018)]),
-		Transform3D(Basis.IDENTITY, c), 26, Vector2.ONE, 0.0, TAU, PackedFloat32Array([0.7, 0.2, 0.2, 0.7]))
+		Transform3D(Basis.IDENTITY, c), 22, Vector2.ONE, 0.0, TAU, PackedFloat32Array([0.7, 0.2, 0.2, 0.7]))
 	k.part(ItemKit.GLOW_B)
 	for i in 4:
 		var a2 := TAU * float(i) / 4.0
@@ -142,7 +141,7 @@ static func ring_mesh() -> ArrayMesh:
 		var tilt := Basis(Vector3.BACK, 0.42 if i == 0 else -0.42) * Basis(Vector3.RIGHT, 0.3 if i == 0 else -0.3)
 		var r := RING_R - float(i) * 0.016
 		k.part(ItemKit.GLOW_B, 0.9)
-		k.ring(Vector3.ZERO, r, 0.0055, tilt, 30, 4)
+		k.ring(Vector3.ZERO, r, 0.0055, tilt, 24, 4)
 		k.part(ItemKit.METAL)
 		for j in 2:
 			var a := PI * float(j) + float(i) * PI * 0.5
@@ -151,13 +150,3 @@ static func ring_mesh() -> ArrayMesh:
 	_ring_mesh = k.to_mesh()
 	return _ring_mesh
 
-
-## Soft additive halo shell just outside the orb (blooms its silhouette).
-static func halo_mesh() -> ArrayMesh:
-	if _halo_mesh != null:
-		return _halo_mesh
-	var k := ItemKit.new()
-	k.part(ItemKit.FX_HALO)
-	k.ellipsoid(Vector3(0, ORB_Y, 0), Vector3(1, 1, 1) * (ORB_R + 0.032), Basis.IDENTITY, 16, 8)
-	_halo_mesh = k.to_mesh()
-	return _halo_mesh

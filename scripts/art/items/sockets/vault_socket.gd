@@ -76,5 +76,6 @@ static func build(b: SocketKit.Build) -> void:
 	SocketKit.cyl_collider(b, Vector3(0, DECK * 0.5, 0), 0.66, DECK)
 	SocketKit.box_collider(b, Vector3(0, 1.3, -0.74), Vector3(0.36, 2.6, 0.24))
 	b.seat = Transform3D(Basis.IDENTITY, Vector3(0, DECK, 0))
-	b.label_at = Vector3(0, CROWN + 0.42, -0.1)
+	# Below the crown, just in front of the cage (the wall sign sits above the crown).
+	b.label_at = Vector3(0, 1.96, 0.42)
 	b.label_width = 1.15

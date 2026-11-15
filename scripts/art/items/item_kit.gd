@@ -174,10 +174,3 @@ static func count(node: Node) -> Vector2i:
 		for c in n.get_children():
 			stack.append(c)
 	return Vector2i(tris, surfaces)
-
-static var dbg := false
-func _end(xf: Transform3D) -> void:
-	var before := triangle_count()
-	super._end(xf)
-	if dbg:
-		print("  mat %d +%d" % [mat, triangle_count() - before])

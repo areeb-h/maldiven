@@ -16,7 +16,7 @@ extends Node3D
 const B := preload("res://scripts/art/crew_body.gd")
 const MAX_SPEED := 22.0
 const MAX_SPIN := 28.0
-const SETTLE_SPEED := 0.14
+const SETTLE_SPEED := 0.16
 const SETTLE_HOLD := 0.35
 
 ## bone -> parent segment bone (-1 root), mass, shapes [kind, size, local offset, (basis)]
@@ -264,6 +264,14 @@ func _physics_process(delta: float) -> void:
 		var vel := pelvis.linear_velocity
 		vel.y = 0.0
 		pelvis.apply_central_force(pull * tether_strength - vel * tether_strength * 0.25)
+	# Once the fall is over, joints stiffen a little (muscle tone): the body
+	# comes to rest instead of rocking on round parts.
+	if age > 1.1:
+		var k := clampf((age - 1.1) / 0.6, 0.0, 1.0)
+		for bone in parts:
+			var body: RigidBody3D = parts[bone]
+			body.angular_damp = lerpf(1.6, 6.0, k)
+			body.linear_damp = lerpf(0.08, 1.2, k)
 	_still = _still + delta if fastest < SETTLE_SPEED else 0.0
 	settled = _still >= SETTLE_HOLD
 	if autonomous:

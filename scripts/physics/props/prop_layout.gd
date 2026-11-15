@@ -39,7 +39,7 @@ const PROPS := [
 	["chair", Vector2(-4.2, 17.75), -PI / 2.0, "medical"],
 	["cart", Vector2(5.2, 15.4), 0.2, "medical"],
 	["canister", Vector2(6.3, 24.6), 0.0, "medical"],
-	["crate_small", Vector2(24.0, 21.0), 0.3, "reactor"],
+	["crate_small", Vector2(36.3, 19.6), 0.3, "observation"],
 ]
 
 ## Extra bot/test standing spots that must stay clear (metres, XZ).

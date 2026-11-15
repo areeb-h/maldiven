@@ -581,9 +581,11 @@ func _update_objective(rules: StationRules, my_id: int) -> void:
 func _set_phase(icon_name: String, text: String, color: Color, filled: int, total := 3) -> void:
 	_phase_icon.icon = icon_name
 	_phase_icon.color = color
-	_phase_label.text = text
-	_phase_label.add_theme_color_override("font_color", color)
-	_progress.add_theme_color_override("font_color", color)
+	if _phase_label.text != text:
+		# Theme overrides re-layout the panel, so only touch them on change.
+		_phase_label.text = text
+		_phase_label.add_theme_color_override("font_color", color)
+		_progress.add_theme_color_override("font_color", color)
 	var show_pips := filled >= 0
 	_pips.visible = show_pips
 	_progress.visible = show_pips
@@ -781,7 +783,8 @@ func flash_alert(text: String, kind: String) -> void:
 
 ## "ok", "downed" or "dead", with seconds until a downed player gets up.
 func set_life_state(state: String, down_left: float) -> void:
-	if state != _life:
+	var changed := state != _life
+	if changed:
 		_life = state
 		reset_pointers()
 		if state == "ok":
@@ -793,15 +796,18 @@ func set_life_state(state: String, down_left: float) -> void:
 			UiMotion.card_in(_status)
 	match state:
 		"downed":
-			_status_icon.icon = "downed"
-			_status_icon.color = UiStyle.AMBER
-			_status_title.text = "YOU'RE DOWN"
-			_status_title.add_theme_color_override("font_color", UiStyle.AMBER)
+			if changed:
+				_status_icon.icon = "downed"
+				_status_icon.color = UiStyle.AMBER
+				_status_title.text = "YOU'RE DOWN"
+				_status_title.add_theme_color_override("font_color", UiStyle.AMBER)
 			_status_detail.text = "A crewmate can drag you to Medical  ·  up in %ds" % int(ceil(maxf(down_left, 0.0)))
 			_status_fraction = clampf(down_left / StationRules.DOWN_SECONDS, 0.0, 1.0)
 			_status_bar.visible = true
 			_status_bar.queue_redraw()
 		"dead":
+			if not changed:
+				return
 			_status_icon.icon = "ghost"
 			_status_icon.color = UiStyle.GHOST
 			_status_title.text = "YOU WERE SPACED"
@@ -821,6 +827,9 @@ func _process(delta: float) -> void:
 	var target := Color(1.0 - cold * 0.6, 1.0 - red * 0.85 - cold * 0.4, 1.0 - red * 0.85, 0.85 + red * 0.15 + cold * 0.15)
 	_vignette.modulate = _vignette.modulate.lerp(target, 1.0 - exp(-delta * 8.0))
 	_update_timer_look(delta)
+	if _role_word.modulate.a > 0.0:
+		_role_word.offset_top = _top_panel.size.y + UiStyle.S1
+		_role_word.offset_bottom = _role_word.offset_top
 	_fit(_menu)
 	_fit(_result)
 	_fit(_status, -112.0, true)
@@ -835,11 +844,12 @@ func _process(delta: float) -> void:
 func _update_timer_look(delta: float) -> void:
 	_timer_beat += delta
 	var hot := 1.0 if _seconds_shown >= 0 and _seconds_shown < 60 else 0.0
-	_timer_heat = move_toward(_timer_heat, hot, delta / 0.4)
-	var color := UiStyle.TEXT.lerp(UiStyle.DANGER, _timer_heat)
-	_timer.add_theme_color_override("font_color", color)
-	_timer_icon.color = UiStyle.MUTED.lerp(UiStyle.DANGER, _timer_heat)
-	_timer_box.border_color = Color(1, 1, 1, 0.1).lerp(UiStyle.with_alpha(UiStyle.DANGER, 0.7), _timer_heat)
+	var heat := move_toward(_timer_heat, hot, delta / 0.4)
+	if heat != _timer_heat or _seconds_shown < 0:
+		_timer_heat = heat
+		_timer.add_theme_color_override("font_color", UiStyle.TEXT.lerp(UiStyle.DANGER, _timer_heat))
+		_timer_icon.color = UiStyle.MUTED.lerp(UiStyle.DANGER, _timer_heat)
+		_timer_box.border_color = Color(1, 1, 1, 0.1).lerp(UiStyle.with_alpha(UiStyle.DANGER, 0.7), _timer_heat)
 	# Below 60 s: a once-a-second pulse, bigger below 30 s.
 	var amount := 0.0
 	if _seconds_shown >= 0 and _seconds_shown < 60:

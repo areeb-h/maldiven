@@ -12,6 +12,9 @@ const INTERP_DELAY := 0.1  # s of buffering on clients
 const MAX_SAMPLES := 12
 const MAX_EXTRAPOLATE := 0.08  # s: bridge a lost packet, never more
 const SNAP_DISTANCE := 4.0  # m between consecutive samples = a teleport
+## Jolt has no rolling resistance: without some spin damping a cell or barrel
+## on its side would roll across the deck forever.
+const ROLL_DAMP := 1.1
 
 var net_id := 0
 var kind := ""
@@ -31,6 +34,7 @@ var teleported := false
 var dirty := true  # changed since the last reliable keyframe
 var spaced_until := -1.0  # host physics time when an ejected prop respawns
 var idle_time := 0.0  # seconds asleep somewhere unreachable
+var clearing := Vector3.ZERO  # keep-clear slide direction while it rests in a doorway / on an approach point
 var was_sleeping := true
 var hot_by := 0  # thrower peer while an item is dangerous
 var _exceptions := []  # [body, until]
@@ -59,7 +63,7 @@ func configure(p_net_id: int, desc: Dictionary, p_authority: bool) -> void:
 	continuous_cd = true
 	can_sleep = true
 	linear_damp = desc.get("damp", 0.05)
-	angular_damp = 0.35
+	angular_damp = desc.get("spin_damp", ROLL_DAMP)
 	for entry in desc.shapes:
 		var cs := CollisionShape3D.new()
 		cs.shape = entry[0]
@@ -111,7 +115,7 @@ func eject(velocity: Vector3, spin: Vector3) -> void:
 func restore() -> void:
 	gravity_scale = 1.0
 	linear_damp = spec.get("damp", 0.05)
-	angular_damp = 0.35
+	angular_damp = spec.get("spin_damp", ROLL_DAMP)
 	spaced_until = -1.0
 	_apply_layers(hot_by != 0)
 

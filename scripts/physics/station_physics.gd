@@ -341,11 +341,17 @@ func _tick_bodies(delta: float) -> void:
 				if falloff > 0.0:
 					body.sleeping = false
 					body.apply_central_force(airlock_dir(pos) * body.mass * AIRLOCK_PULL * pull * falloff + Vector3.UP * body.mass * 1.2 * pull * falloff)
-			_check_lost(body, delta)
+			if _check_lost(body, delta):
+				continue  # teleported home: its old pose must not overwrite the rules
 			if body.is_prop:
 				_check_bump(body)
-				if keep_clear and (asleep or body.linear_velocity.length() < 0.3):
+				if keep_clear:
 					_keep_clear(body)
+				if body.clearing != Vector3.ZERO and body.linear_velocity.length() < 0.8:
+					# Just beat friction: a slow, smooth slide out of the zone.
+					var friction: float = body.spec.get("friction", 0.6)
+					body.sleeping = false
+					body.apply_central_force(body.clearing * body.mass * (friction * 9.8 + 1.6))
 			else:
 				_tick_item(body)
 		body.prev_velocity = body.linear_velocity
@@ -431,18 +437,20 @@ func _check_bump(body: NetBody) -> void:
 			emit_event.call({"type": "bumped", "target": id, "dir": dir, "strength": strength})
 
 
-## Props at rest never block a doorway or a socket's approach point.
+## Props at rest never block a doorway or a socket's approach point: one that
+## stops in such a zone slides gently out of it.
 func _keep_clear(body: NetBody) -> void:
+	body.clearing = Vector3.ZERO
+	if body.linear_velocity.length() > 1.0:
+		return  # still being pushed or flying: judge it once it slows
 	var hit := PropLayout.intrusion(Vector2(body.global_position.x, body.global_position.z), body.bound_radius * 0.8, true)
 	if hit.is_empty() or float(hit.depth) < 0.03:
 		return
-	var dir := Vector3(hit.dir.x, 0.0, hit.dir.y)
-	body.sleeping = false
-	body.apply_central_impulse(dir * body.mass * minf(0.7, 0.3 + float(hit.depth)))
+	body.clearing = Vector3(hit.dir.x, 0.0, hit.dir.y)
 
 
 ## Fell out of the world, or came to rest somewhere nobody can reach: return it.
-func _check_lost(body: NetBody, delta: float) -> void:
+func _check_lost(body: NetBody, delta: float) -> bool:
 	var pos := body.global_position
 	var out := pos.y < -4.0 or pos.y > 12.0 or pos.x < -40.0 or pos.x > 100.0 or absf(pos.z) > 50.0
 	if not out and body.sleeping:
@@ -450,12 +458,15 @@ func _check_lost(body: NetBody, delta: float) -> void:
 		body.idle_time = 0.0 if reachable else body.idle_time + delta
 		out = body.idle_time > UNREACHABLE_SECONDS
 	if not out:
-		return
+		return false
 	if body.is_prop:
 		body.restore()
 		body.place(body.home)
-	elif rules.items.has(body.item_id) and rules.items[body.item_id].lost < 0.0:
+		return true
+	if rules.items.has(body.item_id) and rules.items[body.item_id].lost < 0.0:
 		rules.respawn_item(body.item_id)
+		return true
+	return false
 
 
 ## Shoves knock props and loose items around in a cone in front of the shover.

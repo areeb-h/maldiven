@@ -79,6 +79,17 @@ func _steps(count: int) -> void:
 		await physics_frame
 
 
+## A point inside the body's collider (the mean of its shapes' centres).
+func _shape_centre(body: NetBody) -> Vector3:
+	var sum := Vector3.ZERO
+	var n := 0
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			sum += (child as CollisionShape3D).position
+			n += 1
+	return sum / maxf(1.0, float(n))
+
+
 func _body(item_id: String) -> NetBody:
 	return phys.item_body(item_id)
 
@@ -142,10 +153,11 @@ func test_no_tunnelling() -> void:
 		var at: Vector3 = cases[index][0]
 		rules._make_loose(item_id, at, Quaternion.IDENTITY, cases[index][1])
 		await _steps(1)
-		var prev := body.global_transform * Vector3(0, 0.2, 0)
+		var centre := _shape_centre(body)
+		var prev := body.global_transform * centre
 		for frame in range(150):
 			await _steps(1)
-			var now := body.global_transform * Vector3(0, 0.2, 0)
+			var now := body.global_transform * centre
 			if prev.distance_to(now) > 0.0005:
 				var query := PhysicsRayQueryParameters3D.create(prev, now, PhysicsLayers.WORLD)
 				query.hit_back_faces = false
@@ -173,7 +185,8 @@ func test_item_sync() -> void:
 	rules._make_loose("cell_2", Vector3(c.x, 1.0, c.y), Quaternion.IDENTITY, Vector3(3, 2, 1))
 	await _steps(4)
 	var body := _body("cell_2")
-	check(rules.items.cell_2.pos.distance_to(body.global_position) < 0.001, "loose item position written into the rules every tick")
+	# Written every tick (it may trail the body by the step in flight).
+	check(rules.items.cell_2.pos.distance_to(body.global_position) < body.linear_velocity.length() * DT * 1.5 + 0.001, "loose item position written into the rules every tick")
 	check(rules.items.cell_2.moving, "moving while it flies")
 	var settled := false
 	for i in range(360):
@@ -190,6 +203,7 @@ func test_item_sync() -> void:
 	# Fell out of the world: back to its dock.
 	rules._make_loose("cell_2", Vector3(0, -8, 80), Quaternion.IDENTITY, Vector3.ZERO)
 	await _steps(4)
+	print("  debug oow: ", rules.items.cell_2.pos, " body ", _body("cell_2").global_position, " ep ", rules.items.cell_2.epoch, "/", _body("cell_2").epoch, " lost ", rules.items.cell_2.lost)
 	check(StationLayout.room_at(rules.items.cell_2.pos) == "medical", "an item out of the world respawns")
 	# A thrown item hits a standing player (proxy) and stuns them.
 	var victim := 2
@@ -204,9 +218,12 @@ func test_item_sync() -> void:
 	var hit := false
 	for i in range(60):
 		await _steps(1)
+		if i % 3 == 0:
+			print("  debug fly %d: %s v %s hot %s" % [i, _body("cell_2").global_position, _body("cell_2").linear_velocity, rules.items.cell_2.flight])
 		if rules.players[victim].stunned_until > rules.elapsed:
 			hit = true
 			break
+	print("  debug hit: thrown ", rules.items.cell_2.flight, " pos ", rules.items.cell_2.pos, " proxy ", phys.proxies[victim].global_position, " layer ", phys.proxies[victim].collision_layer, " phase ", rules.phase, " holder ", rules.items.cell_2.holder)
 	check(hit, "a thrown cell hitting a standing player's capsule stuns them")
 	await _steps(120)
 	check(rules.items.cell_2.flight.is_empty(), "the thrown cell cooled down")
@@ -218,29 +235,28 @@ func test_item_sync() -> void:
 
 
 func test_proxy_pushes() -> void:
-	var crate: NetBody = null
+	var barrel: NetBody = null
 	for body in phys.props:
-		if body.kind == "crate" and StationLayout.room_at(body.global_position) == "docking":
-			crate = body
-	check(crate != null, "a crate in Docking")
-	if crate == null:
+		if body.kind == "barrel" and StationLayout.room_at(body.global_position) == "docking":
+			barrel = body
+	check(barrel != null, "a barrel in Docking")
+	if barrel == null:
 		return
-	var start := crate.global_position
-	var walk_from := start + Vector3(-1.6, 0, 0)
-	walk_from.y = 0.0
+	var start := barrel.global_position
+	var walk_from := Vector3(start.x - 1.6, 0.0, start.z)
 	rules.players[1].pos = walk_from
-	phys.on_pose(1, walk_from, Vector3.ZERO)
 	await _steps(10)
 	walking[1] = Vector3(3.0, 0, 0)
-	for i in range(60):
+	for i in range(80):
 		rules.players[1].pos = walk_from + Vector3(3.0 * DT * i, 0, 0)
 		await _steps(1)
 	walking.erase(1)
-	var moved := crate.global_position - start
-	check(moved.x > 0.5, "a walking player's proxy pushes a crate (moved %.2f m)" % moved.x)
-	check(crate.global_position.y > -0.05 and crate.global_position.y < 0.3, "the pushed crate stays on the floor")
+	var moved := barrel.global_position - start
+	check(moved.x > 1.5, "a walking player's proxy pushes a barrel (moved %.2f m)" % moved.x)
+	check(absf(moved.z) < 0.4 and barrel.global_position.y > -0.05, "the pushed barrel stays on the floor and on course")
 	rules.players[1].pos = Vector3(-33, 0, 40)
-	crate.place(crate.home)
+	await _steps(30)
+	barrel.place(barrel.home)
 	await _steps(120)
 
 
@@ -337,6 +353,12 @@ func test_ragdoll() -> void:
 		# Joints hold: the thigh stays attached at the hip.
 		var hip_world: Vector3 = rd.parts[CrewBody.HIPS].global_transform * (CrewBody.JOINTS[CrewBody.L_LEG] - CrewBody.JOINTS[CrewBody.HIPS])
 		stretch = maxf(stretch, hip_world.distance_to(rd.parts[CrewBody.L_LEG].global_position))
+		if frame % 30 == 0:
+			var fast := ""
+			for bone in rd.parts:
+				if rd.parts[bone].linear_velocity.length() > 0.14:
+					fast += "%s:%.2f " % [CrewBody.BONE_NAMES[bone], rd.parts[bone].linear_velocity.length()]
+			print("  debug rd %d: %s" % [frame, fast])
 		if rd.settled and settled_at < 0.0:
 			settled_at = frame * DT
 	check(finite and not rd.is_broken(), "ragdoll stays finite")
