@@ -100,10 +100,22 @@ func rename_room(next: String) -> void:
 	roster_changed.emit()
 
 
+## Join a station by address: "192.168.1.20", a Tailscale IP or MagicDNS name,
+## or a public tunnel such as "abc.playit.gg:12345" (see NetAddress).
+## Returns ERR_INVALID_PARAMETER for unparseable text, ERR_CANT_RESOLVE when a
+## hostname doesn't resolve.
 func join(address: String, player_name: String) -> Error:
+	var target := NetAddress.parse(address, PORT)
+	if not target.ok:
+		return ERR_INVALID_PARAMETER
+	var host: String = target.host
+	if not host.is_valid_ip_address():
+		host = IP.resolve_hostname(host, IP.TYPE_ANY)
+		if host.is_empty():
+			return ERR_CANT_RESOLVE
 	leave()
 	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_client(address.strip_edges(), PORT)
+	var error := peer.create_client(host, int(target.port))
 	if error != OK:
 		return error
 	multiplayer.multiplayer_peer = peer

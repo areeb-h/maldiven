@@ -325,7 +325,7 @@ func _build_home() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", UiStyle.S2)
 	box.add_child(row)
-	_ip_edit = _field("192.168.1.20", _load_setting("last_address"))
+	_ip_edit = _field("192.168.1.20  or  name.playit.gg:12345", _load_setting("last_address"))
 	_ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ip_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL
 	_ip_edit.text_submitted.connect(func(text): _join(text))
@@ -667,35 +667,28 @@ func _join(address: String) -> void:
 	if clean.is_empty():
 		_show_banner("error", "Type the host's IP address", "It's on the host's lobby screen, like 192.168.1.20.")
 		return
-	if not _looks_like_address(clean):
-		_show_banner("error", "That isn't an IP address", "It's four numbers with dots, like 192.168.1.20.")
+	var parsed := NetAddress.parse(clean, Net.PORT)
+	if not parsed.ok:
+		_show_banner("error", "That address doesn't look right", NetAddress.explain(parsed.error))
 		return
 	_save_setting("name", _name_edit.text.strip_edges())
 	_save_setting("last_address", clean)
-	if Net.join(clean, _name_edit.text) != OK:
+	var result := Net.join(clean, _name_edit.text)
+	if result == ERR_CANT_RESOLVE:
+		_show_banner("error", "Couldn't find %s" % parsed.host, "Check the spelling, and that this phone has internet (or Tailscale) on.")
+		return
+	if result != OK:
 		_show_banner("error", "Couldn't start joining", "Check the address and try again.")
 		return
 	_connecting = true
 	_show_banner("busy", "Connecting to %s…" % clean)
 
 
-func _looks_like_address(text: String) -> bool:
-	if text == "localhost":
-		return true
-	var parts := text.split(".")
-	if parts.size() != 4:
-		return false
-	for part in parts:
-		if not part.is_valid_int() or int(part) < 0 or int(part) > 255:
-			return false
-	return true
-
-
 ## Turn Net's messages into a short title and one plain sentence.
 func _friendly(message: String) -> Array:
 	var lower := message.to_lower()
 	if lower.contains("could not reach"):
-		return ["Couldn't reach that station", "Check the IP, and that both devices are on the same Wi-Fi."]
+		return ["Couldn't reach that station", "Check the address. On Wi-Fi, both devices need the same network; over Tailscale, both need Tailscale on; with a tunnel, include the :port."]
 	if lower.contains("shut down the server"):
 		return ["The station server shut down", "The host stopped the server. Ask them to start it again."]
 	if lower.contains("closed the station"):

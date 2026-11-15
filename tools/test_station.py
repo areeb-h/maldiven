@@ -108,7 +108,7 @@ def main():
     run(engine, 'rules unit tests', ['--script', 'res://tests/rules_test.gd'], 'PASS: rules')
     for script, marker in [('art_smoke', 'PASS: art smoke'), ('audio_smoke', 'PASS: audio smoke'),
                            ('crew_model_smoke', 'PASS: crew model'), ('crew_hand_smoke', 'PASS: crew hand'), ('items_smoke', 'PASS: items'), ('vfx_smoke', 'PASS: vfx smoke'),
-                           ('icons_smoke', 'PASS: icons')]:
+                           ('icons_smoke', 'PASS: icons'), ('net_address_test', 'PASS: net address')]:
         if (ROOT / 'tests' / f'{script}.gd').exists():
             run(engine, script.replace('_', ' '), ['--script', f'res://tests/{script}.gd'], marker)
     # Fixed 60 Hz steps, as fast as the machine runs: many simulated seconds.
