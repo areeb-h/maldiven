@@ -24,10 +24,20 @@ const GUN_RANGE := 18.0
 const GUN_CONE := 0.38  # radians either side of facing (aim assist)
 const GUN_COOLDOWN := 0.8
 const DOWN_SECONDS := 25.0
-const THROW_DISTANCE := 7.5
-const THROW_SECONDS := 0.55
+const DOWN_SLUMP := 0.4  # m a downed body ends up along its fall
+# Throws are physical: the item leaves the thrower's hands with this velocity
+# (about 7 m on flat floor before it bounces). Heavier items fly a little shorter.
+const THROW_SPEED := 8.4
+const THROW_LIFT := 3.4
+const THROW_SPEED_SCALE := {"cell": 1.0, "core": 0.9, "gun": 1.12}
+const THROW_HOT_MAX := 2.5  # s: a thrown item stops being dangerous after this
+const THROW_HIT_SPEED := 3.0  # m/s: anything slower doesn't stun
 const THROW_STUN := 1.6
-const THROW_HIT_RADIUS := 0.95
+const THROW_HIT_RADIUS := 0.95  # rules-only fallback (no physics attached)
+const GRAVITY := 9.8
+const HAND_REACH := 0.45  # m in front of the body where held items sit
+const HAND_HEIGHT := 0.75  # item origin (its bottom) when held at the hands
+const VENT_DRIFT_SECONDS := 3.0  # vented items drift this long, then return to their dock
 const AIRLOCK_WARNING := 3.5
 const AIRLOCK_COOLDOWN := 20.0
 const GHOST_SPEED := 1.35
@@ -43,7 +53,12 @@ var elapsed := 0.0
 ## peer id -> {name, color, role (host only), pos, yaw, holding, body, carried_by,
 ##             state, down_until, shove_ready, stunned_until}
 var players := {}
-## item id -> {kind, holder (peer id or 0), pos: Vector3, socket: String, ammo, flight}
+## item id -> {kind, holder (peer id or 0), pos: Vector3, rot: Quaternion, vel: Vector3,
+##             socket: String, ammo, flight ({} or {by, start}: thrown and dangerous),
+##             moving (physics awake), lost (elapsed time it returns after venting, or -1),
+##             epoch (bumped whenever it becomes loose or teleports)}
+## A loose item (holder 0, no socket) is a physics body on the host; the host
+## writes its pose back into pos/rot/vel/moving every physics tick.
 var items := {}
 ## socket id -> item id or ""
 var socket_items := {}
@@ -63,6 +78,10 @@ var events: Array = []
 ## Host only, optional: func(from: Vector3, to: Vector3) -> Vector3 that pulls a
 ## dragged body's position back out of walls. Unset in tests and on clients.
 var wall_clamp := Callable()
+## Host only: true when StationPhysics simulates loose items (and reports hits,
+## cooling and positions). False in pure rule tests: thrown items then follow a
+## simple ballistic arc with a distance hit test.
+var physics_driven := false
 
 
 func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -94,7 +113,9 @@ func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
 		socket_items[socket_id] = ""
 	for item_id in StationLayout.ITEMS:
 		items[item_id] = {"kind": StationLayout.ITEMS[item_id].kind, "holder": 0, "pos": Vector3.ZERO,
-			"socket": "", "ammo": GUN_AMMO if StationLayout.ITEMS[item_id].kind == "gun" else 0, "flight": {}}
+			"rot": Quaternion.IDENTITY, "vel": Vector3.ZERO, "socket": "",
+			"ammo": GUN_AMMO if StationLayout.ITEMS[item_id].kind == "gun" else 0, "flight": {},
+			"moving": false, "lost": -1.0, "epoch": 0}
 		_respawn_item(item_id)
 	phase = Phase.BRIEFING
 	elapsed = 0.0
@@ -115,10 +136,51 @@ func _respawn_item(item_id: String) -> void:
 	item.holder = 0
 	item.socket = ""
 	item.flight = {}
+	item.lost = -1.0
+	item.vel = Vector3.ZERO
+	item.rot = Quaternion.IDENTITY
+	item.moving = false
+	item.epoch = int(item.epoch) + 1
 	if spec.has("socket"):
 		_seat(item_id, item, spec.socket)
 	else:
 		item.pos = StationLayout.to_world(spec.pos, 0.0)
+
+
+## Host physics: an item fell out of the world or came to rest out of reach.
+func respawn_item(item_id: String) -> void:
+	if not items.has(item_id) or int(items[item_id].holder) != 0 or items[item_id].socket != "":
+		return
+	_respawn_item(item_id)
+	_log("The %s rolled out of reach; a drone returned it to its dock." % _item_name(items[item_id]))
+
+
+## The item becomes a loose physics body at `at`, moving with `vel`.
+func _make_loose(item_id: String, at: Vector3, rot: Quaternion, vel: Vector3) -> void:
+	var item: Dictionary = items[item_id]
+	item.holder = 0
+	item.socket = ""
+	item.flight = {}
+	item.rot = rot
+	item.epoch = int(item.epoch) + 1
+	if physics_driven:
+		item.pos = at
+		item.vel = vel
+		item.moving = true
+	else:
+		# No simulation: it lands straight under the hands.
+		item.pos = Vector3(at.x, 0.0, at.z)
+		item.vel = Vector3.ZERO
+		item.moving = false
+
+
+## Where a carried item sits in front of a player (kept out of walls).
+func _hands_position(id: int) -> Vector3:
+	var player: Dictionary = players[id]
+	var target: Vector3 = player.pos + _forward(player.yaw) * HAND_REACH + Vector3(0, HAND_HEIGHT, 0)
+	if wall_clamp.is_valid():
+		target = wall_clamp.call(player.pos, target)
+	return target
 
 
 # --- Queries -----------------------------------------------------------------
@@ -214,20 +276,9 @@ func _forward(yaw: float) -> Vector3:
 
 func item_position(item_id: String) -> Vector3:
 	var item: Dictionary = items[item_id]
-	if not item.flight.is_empty():
-		return _flight_position(item.flight)
 	if item.holder != 0 and players.has(item.holder):
 		return players[item.holder].pos + Vector3(0, 1.1, 0)
 	return item.pos
-
-
-func _flight_position(flight: Dictionary) -> Vector3:
-	var t := clampf((elapsed - float(flight.start)) / float(flight.dur), 0.0, 1.0)
-	var from: Vector3 = flight.from
-	var to: Vector3 = flight.to
-	var point := from.lerp(to, t)
-	point.y += sin(t * PI) * 1.6
-	return point
 
 
 func _socket_pos(socket_id: String) -> Vector3:
@@ -296,7 +347,7 @@ func available_action(id: int) -> Dictionary:
 	var best_distance := INTERACT_RANGE
 	for item_id in items:
 		var item: Dictionary = items[item_id]
-		if item.holder != 0 or not item.flight.is_empty():
+		if item.holder != 0 or not item.flight.is_empty() or float(item.lost) >= 0.0:
 			continue
 		if item.socket != "" and socket_locked(item.socket):
 			continue
@@ -385,13 +436,15 @@ func _seat(item_id: String, item: Dictionary, socket_id: String) -> void:
 	socket_items[socket_id] = item_id
 
 
-func _drop(id: int) -> void:
+## The held item leaves the player's hands as a loose body. `vel` throws it
+## (knocked loose by a shove, a hit or a fall); zero just lets it go.
+func _drop(id: int, vel := Vector3.ZERO) -> void:
 	var player: Dictionary = players[id]
 	if player.holding == "":
 		return
-	var item: Dictionary = items[player.holding]
-	item.holder = 0
-	item.pos = Vector3(player.pos.x, 0.0, player.pos.z)
+	var item_id: String = player.holding
+	var gentle := vel if not vel.is_zero_approx() else _forward(player.yaw) * 0.6
+	_make_loose(item_id, _hands_position(id), Quaternion(Vector3.UP, float(player.yaw)), gentle)
 	player.holding = ""
 
 
@@ -471,8 +524,10 @@ func request_shove(id: int, has_los := Callable()) -> int:
 	player.shove_ready = elapsed + SHOVE_COOLDOWN
 	var forward := _forward(player.yaw)
 	if player.holding != "":
-		_throw(id, has_los)
+		_throw(id)
 		return 0
+	# The swing itself: the physics layer knocks props and loose items in front.
+	events.append({"type": "swing", "by": id, "at": player.pos, "dir": forward})
 	var target := 0
 	var best := SHOVE_RANGE
 	for other_id in players:
@@ -486,6 +541,9 @@ func request_shove(id: int, has_los := Callable()) -> int:
 		# Generous cone: anyone roughly in front, or practically touching.
 		if distance > 0.6 and forward.dot(offset.normalized()) < 0.2:
 			continue
+		# Never through a wall.
+		if has_los.is_valid() and not has_los.call(player.pos + Vector3(0, 1.2, 0), players[other_id].pos + Vector3(0, 1.2, 0)):
+			continue
 		best = distance
 		target = other_id
 	if target == 0:
@@ -493,74 +551,110 @@ func request_shove(id: int, has_los := Callable()) -> int:
 	var victim: Dictionary = players[target]
 	victim.stunned_until = elapsed + STUN_SECONDS
 	var dropped: String = victim.holding
+	var push: Vector3 = victim.pos - player.pos
+	push.y = 0
+	if push.length() < 0.01:
+		push = forward
+	push = push.normalized()
 	if dropped != "":
-		_drop(target)
+		# Knocked out of their hands: it pops forward and up, in the push direction.
+		_drop(target, push * 3.0 + Vector3.UP * 2.6)
 		_log("%s shoved %s, who dropped the %s." % [player.name, victim.name, _item_name(items[dropped])])
 	elif victim.body != 0:
 		_log("%s shoved %s, who dropped %s." % [player.name, victim.name, players[victim.body].name])
 		_release_body(target)
 	else:
 		_log("%s shoved %s." % [player.name, victim.name])
-	var push: Vector3 = victim.pos - player.pos
-	push.y = 0
-	if push.length() < 0.01:
-		push = forward
-	events.append({"type": "shoved", "target": target, "by": id, "dir": push.normalized()})
+	events.append({"type": "shoved", "target": target, "by": id, "dir": push})
 	return target
 
 
-func _throw(id: int, has_los: Callable) -> void:
+func _throw(id: int) -> void:
 	var player: Dictionary = players[id]
 	var item_id: String = player.holding
 	var item: Dictionary = items[item_id]
-	var forward := _forward(player.yaw)
-	var start: Vector3 = player.pos + Vector3(0, 1.1, 0)
-	var landing: Vector3 = player.pos
-	var distance := THROW_DISTANCE
-	while distance > 0.4:
-		var candidate: Vector3 = player.pos + forward * distance
-		var clear := StationLayout.is_walkable(candidate)
-		if clear and has_los.is_valid():
-			clear = has_los.call(start, candidate + Vector3(0, 1.0, 0))
-		if clear:
-			landing = candidate
-			break
-		distance -= 0.5
-	landing.y = 0.0
+	var scale: float = THROW_SPEED_SCALE.get(item.kind, 1.0)
+	var vel := (_forward(player.yaw) * THROW_SPEED + Vector3.UP * THROW_LIFT) * scale
+	_make_loose(item_id, _hands_position(id), Quaternion(Vector3.UP, float(player.yaw)), vel)
 	player.holding = ""
-	item.holder = 0
-	item.pos = landing
-	item.flight = {"from": start, "to": landing, "start": elapsed, "dur": THROW_SECONDS, "by": id}
+	item.flight = {"by": id, "start": elapsed}
+	if not physics_driven:
+		item.pos = _hands_position(id)  # the fallback arc starts at the hands too
+		item.vel = vel
+		item.moving = true
 	_log("%s threw the %s." % [player.name, _item_name(item)])
-	events.append({"type": "thrown", "item": item_id, "by": id})
+	events.append({"type": "thrown", "item": item_id, "by": id, "vel": vel})
 
 
-func _tick_flights() -> void:
+## Host physics: a thrown item hit a standing player. Same stun and drop as a
+## shove (longer stun), at most one victim per throw. Returns true if it counted.
+func item_hit(item_id: String, target: int, direction: Vector3) -> bool:
+	if not items.has(item_id) or not players.has(target):
+		return false
+	var item: Dictionary = items[item_id]
+	if item.flight.is_empty() or int(item.flight.by) == target or players[target].state != OK:
+		return false
+	var flight: Dictionary = item.flight
+	item.flight = {}
+	var victim: Dictionary = players[target]
+	victim.stunned_until = maxf(float(victim.stunned_until), elapsed + THROW_STUN)
+	var dir := Vector3(direction.x, 0.0, direction.z)
+	dir = dir.normalized() if dir.length() > 0.01 else _forward(float(victim.yaw))
+	if victim.holding != "":
+		_drop(target, dir * 2.0 + Vector3.UP * 2.2)
+	_release_body(target)
+	var thrower: String = players[flight.by].name if players.has(flight.by) else "Someone"
+	_log("%s hit %s with the %s." % [thrower, victim.name, _item_name(item)])
+	events.append({"type": "shoved", "target": target, "by": flight.by, "dir": dir, "item": true})
+	return true
+
+
+## Host physics: a thrown item slowed down and is harmless again.
+func cool_item(item_id: String) -> void:
+	if items.has(item_id):
+		items[item_id].flight = {}
+
+
+func _tick_flights(delta: float) -> void:
 	for item_id in items:
 		var item: Dictionary = items[item_id]
 		if item.flight.is_empty():
 			continue
-		var flight: Dictionary = item.flight
-		var at := _flight_position(flight)
-		for other_id in players:
-			var other: Dictionary = players[other_id]
-			if other_id == flight.by or other.state != OK:
-				continue
-			if _flat_distance(at, other.pos) < THROW_HIT_RADIUS:
-				other.stunned_until = elapsed + THROW_STUN
-				if other.holding != "":
-					_drop(other_id)
-				_release_body(other_id)
-				item.pos = Vector3(at.x, 0.0, at.z)
-				item.flight = {}
-				var thrower: String = players[flight.by].name if players.has(flight.by) else "Someone"
-				_log("%s hit %s with the %s." % [thrower, other.name, _item_name(item)])
-				events.append({"type": "shoved", "target": other_id, "by": flight.by,
-					"dir": (Vector3(flight.to) - Vector3(flight.from)).normalized()})
-				break
-		if not item.flight.is_empty() and elapsed >= float(flight.start) + float(flight.dur):
+		if not physics_driven:
+			_fallback_flight(item_id, item, delta)
+		if not item.flight.is_empty() and elapsed - float(item.flight.start) > THROW_HOT_MAX:
 			item.flight = {}
-			events.append({"type": "fx", "kind": "drop", "at": item.pos})
+
+
+## Rules-only throws (tests, or no physics attached): a ballistic arc that stops
+## at walls and the floor, with a simple distance hit test.
+func _fallback_flight(item_id: String, item: Dictionary, delta: float) -> void:
+	var vel: Vector3 = item.vel
+	vel.y -= GRAVITY * delta
+	var next: Vector3 = item.pos + vel * delta
+	if not StationLayout.is_walkable(next):
+		next = Vector3(item.pos.x, next.y, item.pos.z)
+		vel = Vector3(0.0, minf(vel.y, 0.0), 0.0)
+	var landed := next.y <= 0.0
+	if landed:
+		next.y = 0.0
+		vel = Vector3.ZERO
+	item.pos = next
+	item.vel = vel
+	for other_id in players:
+		var other: Dictionary = players[other_id]
+		if other_id == item.flight.by or other.state != OK:
+			continue
+		if _flat_distance(next, other.pos) < THROW_HIT_RADIUS and next.y < 2.0:
+			if item_hit(item_id, other_id, item.vel if item.vel.length() > 0.1 else next - other.pos):
+				item.pos = Vector3(next.x, 0.0, next.z)
+				item.vel = Vector3.ZERO
+				item.moving = false
+				return
+	if landed:
+		item.flight = {}
+		item.moving = false
+		events.append({"type": "fx", "kind": "drop", "at": item.pos})
 
 
 # --- Gun ---------------------------------------------------------------------
@@ -613,23 +707,32 @@ func request_shoot(id: int, has_los := Callable()) -> int:
 	if target != 0:
 		end = players[target].pos + Vector3(0, 1.2, 0)
 		_log("%s shot %s." % [shooter.name, players[target].name])
-		_down(target)
+		_down(target, players[target].pos - shooter.pos)
 	else:
 		_log("%s fired and missed." % shooter.name)
 	events.append({"type": "shot", "by": id, "from": eye, "to": end, "target": target})
 	return target
 
 
-func _down(id: int) -> void:
+## Knocked down, falling along `fall` (away from the shooter). The body lies
+## where it lands: a little along the fall, head pointing the way it fell.
+func _down(id: int, fall := Vector3.ZERO) -> void:
 	var player: Dictionary = players[id]
+	var dir := Vector3(fall.x, 0.0, fall.z)
+	dir = dir.normalized() if dir.length() > 0.01 else -_forward(float(player.yaw))
 	if player.holding != "":
-		_drop(id)
+		_drop(id, dir * 1.4 + Vector3.UP * 1.6)
 	_release_body(id)
 	player.state = DOWNED
 	player.down_until = elapsed + DOWN_SECONDS
-	player.pos = Vector3(player.pos.x, 0.0, player.pos.z)
+	var feet := Vector3(player.pos.x, 0.0, player.pos.z)
+	var lie := feet + dir * DOWN_SLUMP
+	if wall_clamp.is_valid():
+		lie = wall_clamp.call(feet, lie)
+	player.pos = Vector3(lie.x, 0.0, lie.z)
+	player.yaw = atan2(dir.x, dir.z) + PI  # the model lies head-first along -Z
 	_alert("Someone is down" if is_blackout() else "%s is down" % player.name, "down")
-	events.append({"type": "downed", "target": id, "at": player.pos})
+	events.append({"type": "downed", "target": id, "at": player.pos, "dir": dir, "yaw": player.yaw})
 
 
 # --- Airlock -----------------------------------------------------------------
@@ -660,9 +763,10 @@ func _vent() -> void:
 		_kill(id)
 	for item_id in items:
 		var item: Dictionary = items[item_id]
-		if item.holder == 0 and item.socket == "" and in_airlock(item.pos):
-			_respawn_item(item_id)
-			_log("The %s was blown into space and drifted back to its dock." % _item_name(item))
+		if item.holder == 0 and item.socket == "" and float(item.lost) < 0.0 and in_airlock(item.pos):
+			item.lost = elapsed + VENT_DRIFT_SECONDS
+			item.flight = {}
+			_log("The %s was blown into space; a drone will bring it back to its dock." % _item_name(item))
 	if spaced.is_empty():
 		_log("The airlock vented an empty chamber.")
 		_alert("Airlock vented — chamber was empty", "airlock")
@@ -672,9 +776,7 @@ func _vent() -> void:
 func _kill(id: int) -> void:
 	var player: Dictionary = players[id]
 	if player.holding != "":
-		var item_id: String = player.holding
-		_drop(id)
-		_respawn_item(item_id)
+		_drop(id)  # loose in the chamber: the vent blows it out with everything else
 	_release_body(id)
 	if player.carried_by != 0 and players.has(player.carried_by):
 		players[player.carried_by].body = 0
@@ -748,8 +850,12 @@ func tick(delta: float) -> void:
 	if phase == Phase.BRIEFING and elapsed >= BRIEFING_SECONDS:
 		phase = Phase.STABILISE
 		_alert("Restore power: bring 3 cells to the Reactor", "info")
-	_tick_flights()
+	_tick_flights(delta)
 	_tick_airlock(delta)
+	for item_id in items:
+		var item: Dictionary = items[item_id]
+		if float(item.lost) >= 0.0 and elapsed >= float(item.lost):
+			_respawn_item(item_id)
 	if phase == Phase.RESULT:
 		return
 	for id in players:
@@ -817,10 +923,10 @@ func public_snapshot() -> Dictionary:
 		var item: Dictionary = items[item_id]
 		var flight := {}
 		if not item.flight.is_empty():
-			flight = {"from": item.flight.from, "to": item.flight.to,
-				"age": elapsed - float(item.flight.start), "dur": item.flight.dur, "by": item.flight.by}
+			flight = {"age": elapsed - float(item.flight.start), "by": item.flight.by}
 		public_items[item_id] = {"kind": item.kind, "holder": item.holder, "pos": item.pos,
-			"socket": item.socket, "ammo": item.ammo, "flight": flight}
+			"rot": item.rot, "socket": item.socket, "ammo": item.ammo, "flight": flight,
+			"moving": item.moving, "lost": float(item.lost) >= 0.0, "epoch": item.epoch}
 	var snap := {
 		"phase": phase, "elapsed": elapsed, "players": public_players, "items": public_items,
 		"shuttle_left": shuttle_left, "pod_left": pod_left,
@@ -872,10 +978,11 @@ func apply_snapshot(snap: Dictionary, own_id: int, own_role: String) -> void:
 		var item: Dictionary = snap.items[item_id]
 		var flight := {}
 		if not item.flight.is_empty():
-			flight = {"from": item.flight.from, "to": item.flight.to,
-				"start": elapsed - float(item.flight.age), "dur": item.flight.dur, "by": int(item.flight.by)}
+			flight = {"start": elapsed - float(item.flight.age), "by": int(item.flight.by)}
 		items[item_id] = {"kind": item.kind, "holder": int(item.holder), "pos": item.pos,
-			"socket": item.socket, "ammo": int(item.ammo), "flight": flight}
+			"rot": item.get("rot", Quaternion.IDENTITY), "vel": Vector3.ZERO, "socket": item.socket,
+			"ammo": int(item.ammo), "flight": flight, "moving": bool(item.get("moving", false)),
+			"lost": elapsed if item.get("lost", false) else -1.0, "epoch": int(item.get("epoch", 0))}
 	socket_items = {}
 	for socket_id in StationLayout.SOCKETS:
 		socket_items[socket_id] = ""

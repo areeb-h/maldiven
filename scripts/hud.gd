@@ -213,17 +213,7 @@ func _center(card: Control, height := 0.0) -> void:
 
 ## Safe-area margins in logical px: max(inset, 24) at the sides, 16 top, 20 bottom.
 func _update_safe_area() -> void:
-	var inset := Rect2()
-	if OS.has_feature("mobile"):
-		var window := Vector2(DisplayServer.window_get_size())
-		var logical := get_viewport_rect().size
-		if window.x > 0.0 and logical.x > 0.0:
-			var k := window / logical
-			var safe := Rect2(DisplayServer.get_display_safe_area())
-			var screen := Vector2(DisplayServer.screen_get_size())
-			inset = Rect2(safe.position / k, (screen - safe.end) / k)
-	_margin = Rect2(maxf(inset.position.x, 24.0), maxf(inset.position.y, 16.0),
-		maxf(inset.size.x, 24.0), maxf(inset.size.y, 20.0))
+	_margin = UiStyle.safe_margins(self)
 	_safe_root.offset_left = _margin.position.x
 	_safe_root.offset_top = _margin.position.y
 	_safe_root.offset_right = -_margin.size.x
