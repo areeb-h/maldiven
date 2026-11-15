@@ -313,6 +313,20 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 .qr__code path { fill: #050b14; }
 .qr figcaption { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
 
+.hint {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin-top: 14px; padding: 12px 14px;
+  border-radius: 10px; border: 1px solid rgba(255, 225, 77, 0.4);
+  background: rgba(255, 225, 77, 0.07);
+  color: #fff3b8; text-align: left; cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+.hint:hover { background: rgba(255, 225, 77, 0.13); }
+.hint .icon { color: var(--amber); }
+.hint u { text-underline-offset: 3px; color: var(--amber); font-weight: 700; }
+.btn.has-alert::after { content: ""; position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
 /* --- Round card ------------------------------------------------------------------- */
 
 .round-clock { text-align: right; }
