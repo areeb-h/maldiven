@@ -74,7 +74,10 @@ func run() -> void:
 		var c: Vector2 = spec.center
 		for room_key in ["a", "b"]:
 			var rc: Vector2 = StationLayout.ROOMS[spec[room_key]].center
-			var axis := Vector2(signf(rc.x - c.x), 0) if spec.size.x > spec.size.y else Vector2(0, signf(rc.y - c.y))
+			var ca: Vector2 = StationLayout.ROOMS[spec.a].center
+			var cb: Vector2 = StationLayout.ROOMS[spec.b].center
+			var along_x := absf(ca.x - cb.x) > absf(ca.y - cb.y)
+			var axis := Vector2(signf(rc.x - c.x), 0) if along_x else Vector2(0, signf(rc.y - c.y))
 			var half: float = (spec.size.x if axis.x != 0 else spec.size.y) * 0.5
 			var target := c + axis * (half + 1.0)
 			var hit := _ray(space, Vector3(c.x, 1.2, c.y), Vector3(target.x, 1.2, target.y))
@@ -158,13 +161,31 @@ func run() -> void:
 			fail("%s ambient too dark: %s" % [state, ambient])
 		print("power %s ok: lights lit %d, ambient %.2f" % [state, lit, ambient])
 
+	# Airlock cycle.
+	for state in ["warning", "venting", "idle", "venting"]:
+		StationBuilder.set_airlock_state(station, state)
+		for i in range(5):
+			await process_frame
+	await create_timer(2.4).timeout
+	if fx.airlock_state != "idle":
+		fail("airlock must return to idle after venting, is " + fx.airlock_state)
+	if fx.airlock_doors.size() != 2:
+		fail("airlock needs two outer door leaves")
+
 	# Items, crew, flashlight.
-	for kind in ["cell", "core"]:
+	for kind in ["cell", "core", "gun"]:
 		var item: Node3D = Props.make_item(kind)
 		world.add_child(item)
 		var box := _aabb(item)
-		if absf(box.position.y) > 0.03 or box.size.y < 0.45 or box.size.y > 0.85:
-			fail("item %s bounds %s: origin must be bottom centre, ~0.6 m tall" % [kind, box])
+		var longest := maxf(box.size.y, maxf(box.size.x, box.size.z))
+		if absf(box.position.y) > 0.03 or longest < 0.35 or longest > 0.85:
+			fail("item %s bounds %s: origin must be bottom centre, ~0.5-0.6 m" % [kind, box])
+		if kind == "gun":
+			if not item.has_method("set_ammo"):
+				fail("gun needs set_ammo")
+			else:
+				for n in [0, 1, 2, 3, 5, -1]:
+					item.call("set_ammo", n)
 		item.queue_free()
 	var crew: Node3D = Props.make_crew_visual(Color(0.9, 0.3, 0.3))
 	world.add_child(crew)

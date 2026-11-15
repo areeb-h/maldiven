@@ -50,6 +50,11 @@ var _menu: PanelContainer
 var _hint: Label
 var _alert_time := 0.0
 var _touch := true
+var _life := "ok"
+var _has_gun := false
+var _ammo := 0
+var _gun_ready := 1.0
+var _status: Label
 
 
 func _ready() -> void:
@@ -73,6 +78,11 @@ func _ready() -> void:
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_hint)
 	_anchor(_hint, 0.5, 1.0, Rect2(-420, -44, 840, 30))
+	_status = UiStyle.outlined(UiStyle.label("", "head", 26, UiStyle.TEXT), 10)
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_status)
+	_anchor(_status, 0.5, 1.0, Rect2(-420, -190, 840, 90))
 	_dim = ColorRect.new()
 	_dim.color = Color(0.01, 0.02, 0.05, 0.6)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -299,7 +309,7 @@ func set_role(next_role: String) -> void:
 	else:
 		_briefing_body.text = "Bring 3 power cells to the Reactor. When the vault in Command opens, load the core into the shuttle in Docking. One of you is lying."
 	if not _touch:
-		_hint.text = "WASD move  ·  Shift run  ·  RMB look  ·  E use  ·  F shove%s  ·  Space jump" % ("  ·  Q blackout" if infiltrator else "")
+		_hint.text = "WASD move  ·  Shift run  ·  RMB look  ·  E use  ·  F shove/throw  ·  LMB/R shoot%s  ·  Space jump" % ("  ·  Q blackout" if infiltrator else "")
 	queue_redraw()
 
 
@@ -328,7 +338,12 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 		_:
 			_objective.text = ""
 	var countdown_active := phase != StationRules.Phase.RESULT
-	if rules.pod_left >= 0.0 and countdown_active:
+	if rules.airlock_state == "warning" and countdown_active:
+		_countdown_caption.text = "AIRLOCK VENTING"
+		_countdown.text = "%d" % int(ceil(rules.airlock_left))
+		_countdown.add_theme_color_override("font_color", UiStyle.AMBER)
+		_danger = 0.8
+	elif rules.pod_left >= 0.0 and countdown_active:
 		_countdown_caption.text = "CARGO POD LAUNCH"
 		_countdown.text = "%d" % int(ceil(rules.pod_left))
 		_countdown.add_theme_color_override("font_color", UiStyle.INFILTRATOR)
@@ -346,6 +361,9 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 	_interact_enabled = not action.is_empty() and action.get("action") != "none"
 	var me: Dictionary = rules.players.get(my_id, {})
 	_shove_ready = 1.0 - clampf((float(me.get("shove_ready", 0.0)) - rules.elapsed) / StationRules.SHOVE_COOLDOWN, 0.0, 1.0)
+	_has_gun = rules.holds_gun(my_id)
+	_ammo = rules.gun_ammo()
+	_gun_ready = 1.0 - clampf((rules.gun_ready - rules.elapsed) / StationRules.GUN_COOLDOWN, 0.0, 1.0)
 	_sabotage_cooldown = rules.sabotage_cooldown()
 	_sabotage_ready = 1.0 - clampf(_sabotage_cooldown / StationRules.BLACKOUT_COOLDOWN, 0.0, 1.0)
 	if phase == StationRules.Phase.RESULT and not _result.visible:
@@ -415,7 +433,27 @@ func _process(delta: float) -> void:
 
 # --- Touch and keyboard input ------------------------------------------------
 
+## "ok", "downed" or "dead", with seconds until a downed player gets up.
+func set_life_state(state: String, down_left: float) -> void:
+	if state != _life:
+		_life = state
+		reset_pointers()
+	match state:
+		"downed":
+			_status.text = "YOU'RE DOWN\nA crewmate can drag you to Medical  ·  up in %ds" % int(ceil(maxf(down_left, 0.0)))
+			_status.add_theme_color_override("font_color", UiStyle.AMBER)
+		"dead":
+			_status.text = "YOU WERE SPACED\nDrift through the station and watch"
+			_status.add_theme_color_override("font_color", Color("b9c8ff"))
+		_:
+			_status.text = ""
+
+
 func _buttons() -> Dictionary:
+	if _life == "downed":
+		return {}
+	if _life == "dead":
+		return {}
 	var out := {
 		"jump": {"pos": Vector2(size.x - 96, size.y - 96), "radius": 52.0},
 		"interact": {"pos": Vector2(size.x - 244, size.y - 124), "radius": 70.0},
@@ -423,6 +461,8 @@ func _buttons() -> Dictionary:
 	}
 	if role == StationRules.INFILTRATOR:
 		out["sabotage"] = {"pos": Vector2(size.x - 278, size.y - 300), "radius": 46.0}
+	if _has_gun:
+		out["shoot"] = {"pos": Vector2(size.x - 120, size.y - 372), "radius": 56.0}
 	return out
 
 
@@ -476,6 +516,12 @@ func _input(event: InputEvent) -> void:
 			KEY_Q:
 				if role == StationRules.INFILTRATOR:
 					_press("sabotage")
+			KEY_R:
+				if _has_gun:
+					action_pressed.emit("shoot")
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+			and not _touch and _has_gun:
+		action_pressed.emit("shoot")
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		crew.look(event.relative)
 	if event is InputEventScreenTouch:
@@ -552,6 +598,14 @@ func _draw() -> void:
 				text = "SHOVE"
 				fraction = _shove_ready
 				ring = UiStyle.AMBER if _shove_ready >= 1.0 else Color(1, 1, 1, 0.3)
+			"shoot":
+				text = "SHOOT"
+				fill = Color(0.5, 0.12, 0.06, 0.5)
+				ring = Color("ff8a4a") if _ammo > 0 else Color(1, 1, 1, 0.25)
+				fraction = _gun_ready
+				for pip in range(StationRules.GUN_AMMO):
+					var pip_at := pos + Vector2((pip - 1) * 16.0, radius + 12.0)
+					draw_circle(pip_at, 5.0, Color("ff8a4a") if pip < _ammo else Color(1, 1, 1, 0.2))
 			"sabotage":
 				text = "BLACKOUT" if _sabotage_cooldown <= 0.0 else "%ds" % int(ceil(_sabotage_cooldown))
 				fill = Color(0.45, 0.05, 0.1, 0.45)

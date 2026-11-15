@@ -18,6 +18,7 @@ const ROOMS := {
 	"engineering": {"name": "Engineering", "center": Vector2(62, 0), "size": Vector2(12, 12), "color": Color("f2d43d")},
 	"reactor": {"name": "Reactor", "center": Vector2(62, 20), "size": Vector2(14, 12), "color": Color("9b5cff")},
 	"medical": {"name": "Medical", "center": Vector2(0, 20), "size": Vector2(14, 12), "color": Color("5fd35f")},
+	"airlock": {"name": "Airlock", "center": Vector2(-12.5, 0), "size": Vector2(5, 5), "color": Color("ff7a3d")},
 }
 
 ## Corridors are axis-aligned rectangles that exactly bridge the gap between two
@@ -33,6 +34,7 @@ const CORRIDORS := {
 	"engineering-reactor": {"a": "engineering", "b": "reactor", "center": Vector2(62, 10), "size": Vector2(3, 8)},
 	"reactor-medical": {"a": "reactor", "b": "medical", "center": Vector2(31, 20), "size": Vector2(48, 3)},
 	"medical-commons": {"a": "medical", "b": "commons", "center": Vector2(0, 10.5), "size": Vector2(3, 7)},
+	"commons-airlock": {"a": "commons", "b": "airlock", "center": Vector2(-9, 0), "size": Vector2(2, 3)},
 }
 
 ## Interaction sockets. "accepts" is the item kind it holds.
@@ -44,6 +46,9 @@ const SOCKETS := {
 	"reactor_3": {"kind": "reactor", "room": "reactor", "pos": Vector2(66, 23), "accepts": "cell", "facing": PI},
 	"shuttle": {"kind": "shuttle", "room": "docking", "pos": Vector2(20, -1.5), "accepts": "core", "facing": 0.0},
 	"pod": {"kind": "pod", "room": "cargo", "pos": Vector2(43.4, 4.5), "accepts": "core", "facing": -PI / 2},
+	"armory": {"kind": "armory", "room": "security", "pos": Vector2(37, -24.5), "accepts": "gun", "facing": 0.0},
+	"medbay": {"kind": "medbay", "room": "medical", "pos": Vector2(3.5, 23.5), "accepts": "body", "facing": PI},
+	"airlock_console": {"kind": "airlock_console", "room": "commons", "pos": Vector2(-6.5, 3.5), "accepts": "", "facing": PI / 2},
 }
 
 ## Static fixtures the art pass should build around sockets (non-interactive).
@@ -57,6 +62,7 @@ const ITEMS := {
 	"cell_1": {"kind": "cell", "pos": Vector2(64, -3)},
 	"cell_2": {"kind": "cell", "pos": Vector2(-4, 23)},
 	"cell_3": {"kind": "cell", "pos": Vector2(43, -23)},
+	"gun": {"kind": "gun", "socket": "armory"},
 }
 
 const PLAYER_SPAWN_CENTER := Vector2(0, 0)

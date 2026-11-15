@@ -121,6 +121,23 @@ void fragment() {
 }
 """
 
+## All station light strips in one material: vertex alpha picks the group,
+## `energies` holds each group's current energy (set by ArtStationFX).
+const LIGHT_GROUPS := """
+shader_type spatial;
+render_mode cull_back;
+uniform float energies[8];
+uniform float albedo_mix = 0.12;
+
+void fragment() {
+	int g = clamp(int(COLOR.a * 7.0 + 0.5), 0, 7);
+	vec3 c = COLOR.rgb;
+	ALBEDO = c * albedo_mix;
+	ROUGHNESS = 0.35;
+	EMISSION = c * energies[g];
+}
+"""
+
 const GLASS := """
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, %s, specular_schlick_ggx;
@@ -178,6 +195,16 @@ void fragment() {
 	ALBEDO = mix(color_a, color_b, m) * COLOR.rgb * (0.65 + 0.4 * wear.r);
 	ROUGHNESS = 0.55 + 0.3 * (1.0 - wear.r);
 	METALLIC = 0.1;
+}
+"""
+
+## Multiplicative contact-shadow strips (cheap fake AO; Mobile has no SSAO).
+const AO := """
+shader_type spatial;
+render_mode unshaded, blend_mul, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+
+void fragment() {
+	ALBEDO = COLOR.rgb;
 }
 """
 
@@ -378,6 +405,10 @@ static func shader(key: String) -> Shader:
 			code = PLANET
 		"atmosphere":
 			code = ATMOSPHERE
+		"ao":
+			code = AO
+		"light_groups":
+			code = LIGHT_GROUPS
 	var s := Shader.new()
 	s.code = code
 	_shaders[key] = s
@@ -494,6 +525,26 @@ static func soft() -> StandardMaterial3D:
 	m.vertex_color_use_as_albedo = true
 	m.roughness = 0.85
 	_static_mats["soft"] = m
+	return m
+
+
+static func light_groups() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = shader("light_groups")
+	var e := PackedFloat32Array()
+	e.resize(8)
+	e.fill(1.0)
+	m.set_shader_parameter("energies", e)
+	return m
+
+
+static func ao() -> ShaderMaterial:
+	if _static_mats.has("ao"):
+		return _static_mats["ao"]
+	var m := ShaderMaterial.new()
+	m.shader = shader("ao")
+	m.render_priority = -1
+	_static_mats["ao"] = m
 	return m
 
 

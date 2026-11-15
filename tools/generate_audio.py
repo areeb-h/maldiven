@@ -932,6 +932,192 @@ def win_infiltrator():
     return fades(mix, sr, 0.003, 0.3), sr, {"target": -15.0}
 
 
+# --- Week 2: gun, downed / revive, throwing, airlock, ghosts -----------------
+
+def gunshot():
+    """Energy pistol: hard crack, falling FM zap with a ring-modulated buzz, sub punch,
+    crackling discharge and a short metallic room tail."""
+    sr, D = SR, 0.35
+    rng = rng_for("gunshot")
+    t = timeline(D, sr)
+    t0 = 0.002
+    tt = np.maximum(t - t0, 0.0)
+    crack = (noise_burst(t, t0, 0.0025, rng, 2500.0, "hp", sr=sr)
+             + 0.6 * modal(t, t0, [(3400, 0.006, 1.0), (5200, 0.004, 0.6), (1900, 0.01, 0.5)]))
+    f = 160.0 + 2200.0 * np.exp(-tt / 0.022)
+    zap = fm(t, f, 1.5, 2.5 * np.exp(-tt / 0.04) + 0.3, sr) * strike(t, t0, 0.06, 0.0008)
+    buzz = additive(0.5 * f, sr, square_amps(30, 0.3)) * strike(t, t0, 0.035, 0.0008)
+    ring = svf(rng.standard_normal(len(t)) * np.sin(phase_of(0.7 * f, sr)), 2500.0, 1.0, "bp", sr)
+    ring = unit_rms(ring) * strike(t, t0, 0.03, 0.0008)
+    punch = thump(t, t0, 55.0, 180.0, 0.012, 0.07, sr, harm=0.6)
+    sizzle = svf(rng.standard_normal(len(t)), 3000.0, 1.5, "bp", sr) * crackle_gate(len(t), sr, 800.0, rng)
+    sizzle *= strike(t, t0 + 0.01, 0.08, 0.004)
+    mix = 0.6 * crack + 0.45 * zap + 0.2 * buzz + 0.25 * ring + 0.8 * punch + 0.3 * sizzle
+    mix = softclip(mix, 2.0)
+    mix = reverb(mix, sr, 0.7, 0.3, rng, bright=0.6, metallic=0.6)
+    mix = onepole(mix, 25.0, sr, "hp")
+    return fades(mix, sr, 0.0003, 0.04), sr, {"target": -14.0}
+
+
+def downed():
+    """Knees, then the body and suit plates hitting the deck, then a descending
+    three-beep suit alarm heard inside the helmet."""
+    sr, D = SR, 0.7
+    rng = rng_for("downed")
+    t = timeline(D, sr)
+    knees = (thump(t, 0.015, 70.0, 130.0, 0.012, 0.05, sr, harm=0.7)
+             + 0.5 * modal(t, 0.015, [(190, 0.05, 1.0), (265, 0.04, 0.7), (410, 0.03, 0.4)])
+             + 0.4 * noise_burst(t, 0.015, 0.015, rng, 900.0, "lp", sr=sr))
+    tb = 0.15
+    body = (1.3 * thump(t, tb, 55.0, 110.0, 0.015, 0.09, sr, harm=0.7)
+            + 0.6 * modal(t, tb, [(170, 0.07, 1.0), (240, 0.06, 0.7), (520, 0.04, 0.4), (1250, 0.025, 0.25),
+                                  (2300, 0.015, 0.15)], rng=rng, jitter=0.02)
+            + 0.5 * noise_burst(t, tb, 0.02, rng, 1200.0, "lp", sr=sr))
+    rattle = np.zeros_like(t)
+    for dt in (0.04, 0.065, 0.09):
+        rattle += modal(t, tb + dt + rng.uniform(-0.005, 0.005), [(2400, 0.008, 1.0), (3900, 0.006, 0.5)],
+                        rng=rng, jitter=0.08)
+    rustle = svf(rng.standard_normal(len(t)), 2000.0, 0.7, "hp", sr) * crackle_gate(len(t), sr, 300.0, rng, 0.002)
+    rustle *= bell_curve(t, 0.0, 0.12, 0.32)
+    beeps = np.zeros_like(t)
+    for t0, f in ((0.34, 1567.98), (0.44, 1318.51), (0.54, 1046.5)):
+        env = ramp(t, t0, t0 + 0.003) * (1.0 - ramp(t, t0 + 0.06, t0 + 0.07))
+        beeps += additive(np.full(len(t), f), sr, square_amps(9, 0.2)) * env
+    beeps = echo(svf(beeps, 3500.0, 0.7, "lp", sr), sr, 0.05, 0.25, 2, 3000.0)
+    mix = knees + body + 0.2 * rattle + 0.25 * rustle + 0.4 * beeps
+    mix = softclip(mix, 1.4)
+    mix = reverb(mix, sr, 0.6, 0.12, rng, bright=0.5)
+    mix = onepole(mix, 25.0, sr, "hp")
+    return fades(mix, sr, 0.001, 0.05), sr, {"target": -16.0}
+
+
+def revive():
+    """Rising, pulsing medical-scanner shimmer resolving into a lub-dub heartbeat
+    with a bright major-triad confirmation on the second beat."""
+    sr, D = SR, 1.0
+    rng = rng_for("revive")
+    t = timeline(D, sr)
+    s = smooth(ramp(t, 0.0, 0.65))
+    fb = 600.0 * 2.0 ** (1.6 * s)
+    scan = np.zeros_like(t)
+    for ratio, a, cents in ((1.0, 1.0, 0.0), (1.5, 0.5, 3.0), (2.0, 0.4, -4.0), (3.0, 0.15, 6.0)):
+        scan += a * np.sin(phase_of(fb * ratio * 2.0 ** (cents / 1200.0), sr, rng.uniform(0, TAU)))
+    scan_env = np.sqrt(smooth(ramp(t, 0.0, 0.3))) * (1.0 - smooth(ramp(t, 0.62, 0.76)))
+    scan *= (0.6 + 0.4 * np.sin(phase_of(18.0 + 14.0 * s, sr))) * scan_env
+    sparkle = svf(rng.standard_normal(len(t)), 5000.0, 2.0, "bp", sr) * crackle_gate(len(t), sr, 600.0, rng, 0.003)
+    sparkle *= scan_env
+    beat = np.zeros_like(t)
+    for tb, a in ((0.68, 1.0), (0.80, 0.75)):
+        beat += a * (thump(t, tb, 55.0, 100.0, 0.02, 0.07, sr, harm=0.8)
+                     + 0.5 * modal(t, tb, [(180, 0.05, 1.0), (260, 0.04, 0.5)]))
+    confirm = (chime(t, 0.80, 1318.51, 0.25, sr, index=0.8) + 0.8 * chime(t, 0.80, 1661.22, 0.25, sr, index=0.8)
+               + 0.6 * chime(t, 0.80, 1975.53, 0.25, sr, index=0.8))
+    mix = 0.25 * scan + 0.1 * sparkle + 0.9 * beat + 0.12 * echo(confirm, sr, 0.11, 0.3, 2, 5000.0)
+    mix = reverb(mix, sr, 1.0, 0.2, rng, bright=0.6)
+    mix = onepole(mix, 25.0, sr, "hp")
+    return fades(mix, sr, 0.002, 0.08), sr, {"target": -16.0}
+
+
+def throw():
+    """Quick swept whoosh with a spinning-object flutter and a tiny grip release tick."""
+    sr, D = SR, 0.3
+    rng = rng_for("throw")
+    t = timeline(D, sr)
+    tp = 0.09
+    fc = np.where(t < tp, geo(450.0, 2600.0, ramp(t, 0.0, tp)), geo(2600.0, 700.0, ramp(t, tp, 0.27)))
+    env = smooth(ramp(t, 0.0, tp)) ** 1.5 * (1.0 - smooth(ramp(t, tp, 0.28))) ** 1.3
+    flutter = 1.0 + 0.25 * np.sin(TAU * 28.0 * t)
+    whoosh = unit_rms(svf(rng.standard_normal(len(t)), fc, 1.4, "bp", sr)) * env * flutter
+    air = unit_rms(svf(rng.standard_normal(len(t)), 0.35 * fc, 0.8, "lp", sr)) * env
+    grip = modal(t, 0.004, [(1800, 0.006, 1.0), (2900, 0.004, 0.5)])
+    mix = 0.5 * whoosh + 0.35 * air + 0.25 * grip
+    return fades(mix, sr, 0.001, 0.02), sr, {"target": -18.0}
+
+
+def airlock_warning():
+    """Deep beating horn blast, piston clunk, hydraulic hiss. Built as a loopable
+    1.5 s pattern (circular reverb) so it can repeat back-to-back."""
+    sr, P = AMB_SR, 1.5  # nothing above ~6 kHz: half rate keeps the pack small
+    rng = rng_for("airlock_warning")
+    t = timeline(P, sr)
+    f = 98.0 * (1.0 - 0.06 * np.exp(-t / 0.06)) * (1.0 + 0.003 * np.sin(TAU * 5.33 * t))
+    amps = [(1.0 / k) * (1.0 if k % 2 else 0.7) for k in range(1, 61)]
+    horn = additive(f, sr, amps, rng=rng) + 0.6 * additive(f * 1.007, sr, amps, rng=rng)
+    horn *= smooth(ramp(t, 0.0, 0.07)) * (1.0 - smooth(ramp(t, 0.72, 0.85)))
+    horn = spectral(horn, sr, lambda fr: hp_mag(60.0, 2)(fr) * lp_mag(3000.0, 2)(fr)
+                    * peak_mag(450.0, 1.5, 8.0)(fr) * peak_mag(1100.0, 2.0, 4.0)(fr))
+    horn = softclip(horn, 2.0)
+    tc = 0.86
+    clunk = (thump(t, tc, 70.0, 130.0, 0.015, 0.06, sr, harm=0.6)
+             + 0.7 * modal(t, tc, [(260, 0.08, 1.0), (620, 0.06, 0.6), (1400, 0.03, 0.3)]))
+    hiss_fc = geo(5000.0, 2500.0, ramp(t, 0.88, 1.45))
+    hiss = unit_rms(svf(rng.standard_normal(len(t)), hiss_fc, 0.8, "bp", sr))
+    hiss = 0.6 * hiss + 0.4 * unit_rms(svf(rng.standard_normal(len(t)), 1500.0, 0.7, "hp", sr))
+    hiss *= (ramp(t, 0.88, 0.9) * np.exp(-np.maximum(t - 0.9, 0.0) / 0.25)
+             * (1.0 - smooth(ramp(t, 1.3, 1.46))))
+    mix = unit_rms(horn) * 0.5 + 0.5 * clunk + 0.22 * hiss
+    mix = reverb(mix, sr, 1.2, 0.3, rng, circular=True, bright=0.45, metallic=0.8)
+    return mix, sr, {"target": -16.0, "loop": True, "pattern": True}
+
+
+def airlock_vent():
+    """Seal break, then a violent turbulent roar whose bandwidth and level collapse
+    as the air runs out, with a whistling aperture howl, down to silence."""
+    sr, D = AMB_SR, 2.5  # roar tops out near 9 kHz
+    rng = rng_for("airlock_vent")
+    t = timeline(D, sr)
+    t0 = 0.01
+    seal = (thump(t, t0, 38.0, 90.0, 0.05, 0.25, sr, harm=0.6)
+            + 0.8 * modal(t, t0, [(140, 0.3, 1.0), (330, 0.25, 0.7), (610, 0.18, 0.5), (1150, 0.1, 0.35),
+                                  (2100, 0.06, 0.2)])
+            + 0.6 * noise_burst(t, t0, 0.03, rng, 2000.0, "lp", sr=sr))
+    p = np.where(t < 0.35, 1.0, np.exp(-np.maximum(t - 0.35, 0.0) / 0.42))
+    env = ramp(t, t0, t0 + 0.015) * p * (1.0 - smooth(ramp(t, 2.0, 2.45)))
+    turb = np.clip(1.0 + 0.45 * unit_rms(onepole(rng.standard_normal(len(t)), 12.0, sr)), 0.2, 2.0)
+    roar = unit_rms(svf(rng.standard_normal(len(t)), 300.0 + 9000.0 * p ** 1.3, 0.7, "lp", sr))
+    rumble = unit_rms(svf(rng.standard_normal(len(t)), 110.0, 0.8, "lp", sr))
+    howl = unit_rms(svf(rng.standard_normal(len(t)), 250.0 + 700.0 * p, 8.0, "bp", sr))
+    mix = 0.9 * seal + (roar * turb + 0.6 * rumble + 0.25 * howl * p ** 0.5) * env
+    mix = softclip(mix, 2.5)
+    mix = reverb(mix, sr, 1.2, 0.2, rng, bright=0.5, metallic=0.5)
+    mix = onepole(mix, 22.0, sr, "hp")
+    return fades(mix, sr, 0.001, 0.2), sr, {"target": -14.0}
+
+
+def ghost_drift():
+    """Ethereal A-major-9 pad of slowly beating sine pairs, breathy air and a few
+    soft wrapped chimes in a long circular reverb. Exactly periodic over 6 s."""
+    sr, L = AMB_SR, 6.0
+    rng = rng_for("ghost_drift")
+    n = int(L * sr)
+    t = np.arange(n) / sr
+
+    def pf(f):  # nearest frequency that completes whole cycles over the loop
+        return round(f * L) / L
+
+    pad = np.zeros(n)
+    notes = [(220.0, 0.8), (329.63, 0.7), (493.88, 0.55), (554.37, 0.5), (659.26, 0.4), (830.61, 0.3)]
+    for i, (f, a) in enumerate(notes):
+        for det in (-3.0 / L, 3.0 / L):  # +/-0.5 Hz: a slow 1 Hz shimmer per note
+            fq = check_periodic(pf(f) + det, L)
+            lfo = 0.6 + 0.4 * np.sin(TAU * ((i % 3) + 1) / L * t + rng.uniform(0, TAU))
+            pad += a * lfo * (np.sin(TAU * fq * t + rng.uniform(0, TAU))
+                              + 0.15 * np.sin(TAU * 2 * fq * t + rng.uniform(0, TAU)))
+    breath = periodic_noise(n, sr, lambda f: peak_mag(2500.0, 0.7, 6.0)(f) * hp_mag(800.0, 2)(f)
+                            * lp_mag(7000.0, 2)(f), rng)
+    breath *= 0.4 + 0.6 * np.sin(TAU * t / L + 0.7) ** 2
+    low = periodic_noise(n, sr, lambda f: lp_mag(300.0, 2)(f) * hp_mag(40.0, 2)(f), rng)
+    chimes = np.zeros(n)
+    for i, f in enumerate((1760.0, 2217.46, 1318.51, 2637.02)):
+        tt = np.arange(int(2.5 * sr)) / sr
+        tone = np.sin(TAU * f * tt) * ramp(tt, 0.0, 0.05) * np.exp(-tt / 0.9)
+        place(chimes, tone, int((0.4 + 1.5 * i + rng.uniform(-0.2, 0.2)) * sr), wrap=True)
+    mix = unit_rms(pad) + breath * undb(-8.0) + low * undb(-14.0) + unit_rms(chimes) * undb(-16.0)
+    mix = reverb(mix, sr, 4.0, 1.0, rng, dry=0.5, circular=True, bright=0.6, predelay=0.03)
+    mix = spectral(mix, sr, lambda f: hp_mag(60.0, 2)(f) * lp_mag(7000.0, 1)(f))
+    return mix, sr, {"target": -27.0, "measure": "full", "loop": True}
+
+
 SOUNDS = {
     "ambience_station": ambience_station,
     "ambience_emergency": ambience_emergency,
@@ -951,6 +1137,13 @@ SOUNDS = {
     "ui_click": ui_click,
     "win_crew": win_crew,
     "win_infiltrator": win_infiltrator,
+    "gunshot": gunshot,
+    "downed": downed,
+    "revive": revive,
+    "throw": throw,
+    "airlock_warning": airlock_warning,
+    "airlock_vent": airlock_vent,
+    "ghost_drift": ghost_drift,
 }
 
 

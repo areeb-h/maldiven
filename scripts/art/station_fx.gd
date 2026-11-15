@@ -6,7 +6,7 @@ extends Node3D
 
 const STATES := {
 	"emergency": {
-		"ambient": 0.5, "ambient_color": Color(0.62, 0.36, 0.34), "sun": 0.3,
+		"ambient": 0.55, "ambient_color": Color(0.42, 0.42, 0.52), "sun": 0.35,
 		"light": 1.7, "light_mix": 0.0, "pulse": 1.0,
 		"trim": 0.18, "door": 1.6, "emergency": 3.2, "ceiling": 0.0, "guide": 1.3, "screen": 0.35,
 		"beacon": 6.0, "reactor": 0.55, "label": 0.9, "nav": 2.0, "glow": 0.85, "exposure": 1.05,
@@ -14,7 +14,7 @@ const STATES := {
 	"restored": {
 		"ambient": 0.75, "ambient_color": Color(0.6, 0.65, 0.74), "sun": 1.25,
 		"light": 1.5, "light_mix": 1.0, "pulse": 0.0,
-		"trim": 2.6, "door": 3.2, "emergency": 0.0, "ceiling": 3.2, "guide": 0.9, "screen": 2.0,
+		"trim": 2.4, "door": 3.2, "emergency": 0.0, "ceiling": 1.8, "guide": 0.9, "screen": 2.0,
 		"beacon": 0.0, "reactor": 5.0, "label": 1.5, "nav": 2.0, "glow": 0.75, "exposure": 1.0,
 	},
 	"blackout": {
@@ -25,7 +25,9 @@ const STATES := {
 	},
 }
 const EMERGENCY_LIGHT := Color(1.0, 0.3, 0.16)
-const MATERIAL_PARAMS := ["trim", "door", "emergency", "ceiling", "guide", "screen", "beacon", "reactor", "nav"]
+const MATERIAL_PARAMS := ["lights", "screen", "reactor"]
+## Light-strip groups (vertex alpha = index / 7) sharing the "lights" material.
+const LIGHT_GROUPS := ["trim", "door", "emergency", "ceiling", "guide", "beacon", "nav", "alarm"]
 
 var state := ""
 var mats: Dictionary = {}  # param name -> ShaderMaterial (glow shader)
@@ -43,6 +45,15 @@ var _blend := 1.0
 var _tween: Tween
 var _time := 0.0
 var _probe_timer := -1.0
+var airlock_doors: Array[Node3D] = []
+var airlock_door_closed: Array[Vector3] = []
+var airlock_door_open_dir: Array[Vector3] = []
+var airlock_light: OmniLight3D
+var airlock_state := "idle"
+var _airlock_t := 0.0
+var _airlock_open := 0.0
+var _alarm_energy := 0.35
+var _energies := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0])
 
 
 func set_state(new_state: String, duration := 1.0) -> void:
@@ -67,8 +78,17 @@ func set_state(new_state: String, duration := 1.0) -> void:
 	_tween.tween_callback(_refresh_probes)
 
 
+func set_airlock_state(new_state: String) -> void:
+	if not new_state in ["idle", "warning", "venting"]:
+		push_warning("Airlock state unknown: " + new_state)
+		return
+	airlock_state = new_state
+	_airlock_t = 0.0
+
+
 func _process(delta: float) -> void:
 	_time += delta
+	_update_airlock(delta)
 	_update(_blend < 1.0 or (_tween != null and _tween.is_running()))
 	if _probe_timer >= 0.0:
 		_probe_timer -= delta
@@ -115,9 +135,8 @@ func _apply_static() -> void:
 			c.a = clampf(float(current.label) * 1.2, 0.15, 1.0)
 			labels[i].modulate = c
 			labels[i].outline_modulate = Color(0, 0, 0, clampf(float(current.label), 0.0, 0.8))
-	for key in ["trim", "door", "ceiling", "guide", "screen", "nav"]:
-		if mats.has(key):
-			(mats[key] as ShaderMaterial).set_shader_parameter("energy", float(current[key]))
+	if mats.has("screen"):
+		(mats["screen"] as ShaderMaterial).set_shader_parameter("energy", float(current.screen))
 
 
 func _apply_animated() -> void:
@@ -125,10 +144,16 @@ func _apply_animated() -> void:
 	# Slow alarm swell (period ~2.4 s) and a faster beacon flash.
 	var swell := 0.5 + 0.5 * sin(_time * TAU / 2.4)
 	var flash := pow(maxf(0.0, sin(_time * TAU / 1.2)), 6.0)
-	if mats.has("emergency"):
-		(mats["emergency"] as ShaderMaterial).set_shader_parameter("energy", float(current.emergency) * (1.0 - pulse_amount * 0.55 * (1.0 - swell)))
-	if mats.has("beacon"):
-		(mats["beacon"] as ShaderMaterial).set_shader_parameter("energy", float(current.beacon) * (0.08 + 0.92 * flash))
+	if mats.has("lights"):
+		_energies[0] = current.trim
+		_energies[1] = current.door
+		_energies[2] = float(current.emergency) * (1.0 - pulse_amount * 0.55 * (1.0 - swell))
+		_energies[3] = current.ceiling
+		_energies[4] = current.guide
+		_energies[5] = float(current.beacon) * (0.08 + 0.92 * flash)
+		_energies[6] = float(current.nav) * (1.0 if fmod(_time * 0.7, 1.0) > 0.82 else 0.15)
+		_energies[7] = _alarm_energy
+		(mats["lights"] as ShaderMaterial).set_shader_parameter("energies", _energies)
 	if mats.has("reactor"):
 		(mats["reactor"] as ShaderMaterial).set_shader_parameter("energy", float(current.reactor))
 	var light_energy: float = current.light
@@ -141,3 +166,38 @@ func _apply_animated() -> void:
 		light.light_energy = e
 		light.light_color = EMERGENCY_LIGHT.lerp(room_light_colors[i], mix_t)
 		light.visible = e > 0.01
+
+
+
+func _update_airlock(delta: float) -> void:
+	_airlock_t += delta
+	var target_open := 0.0
+	var light_e := 0.0
+	var light_c := Color(1.0, 0.1, 0.05)
+	var lamp := 0.35
+	match airlock_state:
+		"warning":
+			var strobe := 1.0 if fmod(_airlock_t * 2.6, 1.0) < 0.5 else 0.0
+			light_e = 3.5 * strobe
+			lamp = 0.3 + 7.0 * strobe
+		"venting":
+			target_open = 1.0
+			var decay := exp(-_airlock_t * 1.4)
+			var flicker := 0.6 + 0.4 * sin(_airlock_t * 40.0)
+			light_e = 2.0 + 6.0 * decay * flicker
+			light_c = Color(1.0, 0.1, 0.05).lerp(Color(0.75, 0.9, 1.0), decay)
+			lamp = 3.0 + 5.0 * flicker
+			if _airlock_t >= 2.0:
+				set_airlock_state("idle")
+	var speed := 3.2 if target_open > _airlock_open else 1.6
+	_airlock_open = move_toward(_airlock_open, target_open, delta * speed)
+	var eased := _airlock_open * _airlock_open * (3.0 - 2.0 * _airlock_open)
+	for i in range(airlock_doors.size()):
+		if is_instance_valid(airlock_doors[i]):
+			airlock_doors[i].position = airlock_door_closed[i] + airlock_door_open_dir[i] * eased
+	if airlock_light != null and is_instance_valid(airlock_light):
+		airlock_light.visible = light_e > 0.01
+		airlock_light.light_energy = light_e
+		airlock_light.light_color = light_c
+	_alarm_energy = lamp
+

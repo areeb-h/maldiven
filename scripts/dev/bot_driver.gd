@@ -94,6 +94,36 @@ func _run() -> void:
 	if plan == "crew" and my_index == 0:
 		await _pick_from_socket(world, "core", "vault")
 		await _insert(world, "core", "shuttle")
+	elif plan == "eject":
+		# Needs --bot-host-infiltrator. Crew shoot the host, drag them into the
+		# airlock and cycle it: exercises gun, downed bodies, drag and airlock.
+		if world.role == StationRules.INFILTRATOR:
+			await _teleport(world, Vector3(0, 0, 0), 0.0)
+		elif my_index == 1:
+			await _pick_from_socket(world, "gun", "armory")
+			await _teleport(world, Vector3(0, 0, -5), PI)
+			world.local.yaw = PI
+			await _wait(0.5)
+			await _shot("aiming")
+			Net.request("shoot")
+			var hit: bool = await _until(func(): return world.rules.state_of(1) == StationRules.DOWNED)
+			print("BOT_SHOT_HIT ", hit)
+			await _shot("target_down")
+			Net.request("interact")  # drop the gun
+			await _until(func(): return not world.rules.holds_gun(Net.my_id()))
+			await _teleport(world, Vector3(0, 0, -1.4), PI)
+			Net.request("interact")  # drag
+			var dragging: bool = await _until(func(): return world.rules.players[Net.my_id()].body == 1)
+			print("BOT_DRAG ", dragging)
+			await _teleport(world, StationLayout.to_world(StationLayout.ROOMS.airlock.center), -PI / 2)
+			await _wait(0.4)
+			await _shot("dragging_to_airlock")
+			Net.request("interact")  # drop body
+			await _until(func(): return world.rules.players[Net.my_id()].body == 0)
+			await _teleport(world, _approach("airlock_console"), StationLayout.SOCKETS.airlock_console.facing)
+			Net.request("interact")  # cycle
+			await _wait(1.5)
+			await _shot("airlock_warning")
 	elif plan == "infiltrator":
 		if world.role == StationRules.INFILTRATOR:
 			if args.has("bot-shots"):

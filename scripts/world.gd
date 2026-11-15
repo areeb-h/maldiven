@@ -29,6 +29,9 @@ var sfx: Sfx
 var _holders := {}
 var _last_tick := -1
 var _result_played := false
+var vfx: Node  # optional Vfx module (scripts/vfx.gd), called dynamically
+var _states := {}
+var _airlock_shown := "idle"
 
 
 func _init(round_seed := -1) -> void:
@@ -43,6 +46,11 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	sfx.name = "Sfx"
 	add_child(sfx)
+	if ResourceLoader.exists("res://scripts/vfx.gd"):
+		vfx = load("res://scripts/vfx.gd").new()
+		vfx.name = "Vfx"
+		add_child(vfx)
+		_fx("ambient_station", [station])
 	for socket_id in StationLayout.SOCKETS:
 		var spec: Dictionary = StationLayout.SOCKETS[socket_id]
 		var node: Node3D = Props.make_socket(spec.kind)
@@ -110,6 +118,27 @@ func _on_action(action: String) -> void:
 	Net.request(action)
 
 
+## Call an optional Vfx method if the module provides it.
+func _fx(method: String, args: Array) -> void:
+	if vfx != null and vfx.has_method(method):
+		vfx.callv(method, args)
+
+
+## Call an optional static StationBuilder function if it exists.
+func _builder(method: String, args: Array) -> void:
+	var script: Script = load("res://scripts/station_builder.gd")
+	for entry in script.get_script_method_list():
+		if entry.name == method:
+			script.callv(method, args)
+			return
+
+
+## Host-side wall check for shots and throws (world geometry is layer 1).
+func _line_of_sight(from: Vector3, to: Vector3) -> bool:
+	var query := PhysicsRayQueryParameters3D.create(from, to, 1)
+	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
+
 # --- Host side ---------------------------------------------------------------
 
 func host_pose(id: int, pos: Vector3, yaw: float, moving: float) -> void:
@@ -122,8 +151,10 @@ func host_request(id: int, action: String) -> void:
 		"interact":
 			_dirty = rules.request_interact(id) or _dirty
 		"shove":
-			rules.request_shove(id)
+			rules.request_shove(id, _line_of_sight)
 			_dirty = true
+		"shoot":
+			_dirty = rules.request_shoot(id, _line_of_sight) >= 0 or _dirty
 		"sabotage":
 			_dirty = rules.request_sabotage(id) or _dirty
 	_flush_events()
@@ -196,9 +227,49 @@ func client_event(event: Dictionary) -> void:
 		"shoved":
 			var target := int(event.target)
 			if avatars.has(target):
-				sfx.play("shove", avatars[target].global_position)
+				var at: Vector3 = avatars[target].global_position + Vector3(0, 1.1, 0)
+				sfx.play("shove", at)
+				_fx("burst", ["shove_impact", at, Vector3(event.dir)])
+				if avatars[target].visual.has_method("play_hit"):
+					avatars[target].visual.play_hit()
+			if avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("play_shove"):
+				avatars[int(event.by)].visual.play_shove()
 			if target == my_id and local != null:
 				local.knockback(event.dir)
+				local.camera_kick(0.5)
+		"shot":
+			var from: Vector3 = event.from
+			var to: Vector3 = event.to
+			sfx.play("gunshot", from)
+			_fx("burst", ["muzzle_flash", from, (to - from).normalized()])
+			_fx("tracer", [from, to])
+			if int(event.target) == my_id and local != null:
+				local.camera_kick(1.0)
+		"downed":
+			sfx.play("downed", event.at)
+			_fx("burst", ["downed", event.at])
+		"revived":
+			sfx.play("revive", event.at)
+			_fx("burst", ["revive", event.at])
+		"spaced":
+			_fx("burst", ["spaced", event.at])
+		"thrown":
+			sfx.play("throw", rules.item_position(event.item))
+		"fx":
+			_fx("burst", [event.kind, event.at])
+		"airlock":
+			_builder("set_airlock_state", [station, event.state])
+			match event.state:
+				"warning":
+					sfx.start_alarm()
+					sfx.play("airlock_warning")
+				"venting":
+					sfx.stop_alarm()
+					sfx.play("airlock_vent")
+					var room: Dictionary = StationLayout.ROOMS.airlock
+					_fx("burst", ["airlock_vent", StationLayout.to_world(room.center, 1.0), Vector3.LEFT])
+					if local != null and StationLayout.room_at(local.position) in ["airlock", "commons"]:
+						local.camera_kick(0.8)
 
 
 func _remove_avatar(id: int) -> void:
@@ -230,11 +301,15 @@ func _process(delta: float) -> void:
 			rules.shuttle_left = maxf(0.0, rules.shuttle_left - delta)
 		if rules.pod_left >= 0.0:
 			rules.pod_left = maxf(0.0, rules.pod_left - delta)
+	_update_player_states()
 	if local != null:
 		local.speed_factor = rules.speed_factor(my_id)
 		var me: Dictionary = rules.players.get(my_id, {})
 		local.stunned = float(me.get("stunned_until", 0.0)) > rules.elapsed
-		if not host:
+		local.aiming = rules.holds_gun(my_id)
+		if me.get("state", StationRules.OK) == StationRules.DOWNED:
+			local.position = me.pos  # the host places downed bodies
+		elif not host:
 			rules.set_pose(my_id, local.position, local.facing_yaw())
 		_pose_timer -= delta
 		if _pose_timer <= 0.0:
@@ -285,6 +360,22 @@ func _update_audio() -> void:
 			sfx.play("power_down")
 
 
+## Downed / ghost presentation for every avatar.
+func _update_player_states() -> void:
+	var i_am_dead := rules.state_of(my_id) == StationRules.DEAD
+	for id in avatars:
+		var avatar: CrewMember = avatars[id]
+		var state := rules.state_of(id)
+		if _states.get(id, StationRules.OK) != state:
+			_states[id] = state
+			avatar.set_life_state(state)
+		# Ghosts are only visible to other ghosts.
+		avatar.visible = state != StationRules.DEAD or i_am_dead
+		var body: int = rules.players[id].body if rules.players.has(id) else 0
+		avatar.carrying_body = body != 0
+	hud.set_life_state(rules.state_of(my_id), float(rules.players.get(my_id, {}).get("down_until", 0.0)) - rules.elapsed)
+
+
 func _update_items() -> void:
 	for item_id in rules.items:
 		if not item_nodes.has(item_id):
@@ -292,8 +383,12 @@ func _update_items() -> void:
 		var node: Node3D = item_nodes[item_id]
 		var item: Dictionary = rules.items[item_id]
 		var holder: int = item.holder
-		if holder != 0 and avatars.has(holder):
-			var point: Node3D = avatars[holder].carry_point
+		if not item.flight.is_empty():
+			if node.get_parent() != self:
+				node.reparent(self, false)
+			node.transform = Transform3D(Basis(Vector3.UP, rules.elapsed * 9.0), rules.item_position(item_id))
+		elif holder != 0 and avatars.has(holder):
+			var point: Node3D = avatars[holder].hand_point if item.kind == "gun" else avatars[holder].carry_point
 			if node.get_parent() != point:
 				node.reparent(point, false)
 			node.transform = Transform3D.IDENTITY
@@ -306,15 +401,18 @@ func _update_items() -> void:
 			if node.get_parent() != self:
 				node.reparent(self, false)
 			node.transform = Transform3D(Basis.IDENTITY, item.pos)
+		if item.kind == "gun" and node.has_method("set_ammo"):
+			node.set_ammo(int(item.ammo))
 
 
 func _update_sockets() -> void:
 	for socket_id in socket_nodes:
 		var kind: String = StationLayout.SOCKETS[socket_id].kind
 		var filled: bool = rules.socket_items.get(socket_id, "") != ""
-		var locked := kind == "vault" and rules.phase < StationRules.Phase.EXTRACTION
+		var locked := kind in ["vault", "armory"] and rules.phase < StationRules.Phase.EXTRACTION
 		var active := (kind == "shuttle" and rules.shuttle_left >= 0.0 and filled) \
-			or (kind == "pod" and rules.pod_left >= 0.0 and filled)
+			or (kind == "pod" and rules.pod_left >= 0.0 and filled) \
+			or (kind == "airlock_console" and rules.airlock_state == "warning")
 		socket_nodes[socket_id].set_state(filled, locked, active)
 
 

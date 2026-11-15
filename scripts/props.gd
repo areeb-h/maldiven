@@ -5,6 +5,7 @@ extends RefCounted
 ## materials (ArtMaterials) so they batch and stay cheap on phones.
 
 const SPINNER := preload("res://scripts/art/spinner.gd")
+const GUN_SCRIPT := preload("res://scripts/art/gun_visual.gd")
 const DARK := Color(0.14, 0.15, 0.17)
 const GUNMETAL := Color(0.32, 0.34, 0.37)
 const CELL_GLOW := Color(1.0, 0.68, 0.12)
@@ -49,14 +50,47 @@ static func _base_mats() -> Dictionary:
 
 # --- items ---------------------------------------------------------------------------------
 
-## "cell" or "core". Origin at the item's bottom centre.
+## "cell", "core" or "gun". Origin at the item's bottom centre. The gun's
+## barrel points along -Z and its root has set_ammo(n) for 0-3 charge cells.
 static func make_item(kind: String) -> Node3D:
+	if kind == "gun":
+		return _build_gun()
 	var root := Node3D.new()
 	root.name = "Core" if kind == "core" else "Cell"
 	if kind == "core":
 		_build_core(root)
 	else:
 		_build_cell(root)
+	return root
+
+
+static func _build_gun() -> Node3D:
+	var root = GUN_SCRIPT.new()
+	root.name = "Gun"
+	var kit := ArtMeshKit.new()
+	var body_c := Color(0.22, 0.24, 0.27)
+	var shell := Color(0.85, 0.86, 0.84)
+	# Grip (raked back), receiver, shroud and emitter barrel along -Z.
+	kit.bevel_box("painted", Vector3(0, 0.09, 0.1), Vector3(0.07, 0.18, 0.09), 0.02, body_c, Basis(Vector3.RIGHT, -0.3))
+	kit.bevel_box("painted", Vector3(0, 0.22, -0.02), Vector3(0.09, 0.11, 0.34), 0.025, shell)
+	kit.bevel_box("painted", Vector3(0, 0.25, -0.17), Vector3(0.1, 0.08, 0.2), 0.02, body_c)
+	kit.cylinder("metal", Vector3(0, 0.235, -0.26), Vector3(0, 0.235, -0.36), 0.032, GUNMETAL, 10)
+	kit.cylinder("metal", Vector3(0, 0.235, -0.36), Vector3(0, 0.235, -0.4), 0.042, GUNMETAL, 10)
+	kit.cylinder("accent", Vector3(0, 0.235, -0.4), Vector3(0, 0.235, -0.405), 0.03, Color(0.3, 0.9, 1.0), 10)
+	kit.bevel_box("metal", Vector3(0, 0.15, 0.0), Vector3(0.05, 0.04, 0.12), 0.01, GUNMETAL)
+	kit.bevel_box("painted", Vector3(0, 0.29, 0.0), Vector3(0.04, 0.04, 0.12), 0.01, body_c)
+	kit.box("hazard", Vector3(0.046, 0.22, -0.02), Vector3(0.005, 0.03, 0.2), Color.WHITE)
+	kit.box("hazard", Vector3(-0.046, 0.22, -0.02), Vector3(0.005, 0.03, 0.2), Color.WHITE)
+	var mats := _base_mats()
+	for i in range(3):
+		var key := "cell%d" % i
+		kit.box(key, Vector3(0.048, 0.2, 0.07 - float(i) * 0.05), Vector3(0.008, 0.04, 0.035), Color(0.3, 1.0, 0.75))
+		kit.box(key, Vector3(-0.048, 0.2, 0.07 - float(i) * 0.05), Vector3(0.008, 0.04, 0.035), Color(0.3, 1.0, 0.75))
+		var m := ArtMaterials.glow(3.5)
+		mats[key] = m
+		root.cell_mats.append(m)
+	root.add_child(kit.to_instance(mats, "Mesh"))
+	root.set_ammo(3)
 	return root
 
 
@@ -125,7 +159,8 @@ static func _build_core(root: Node3D) -> void:
 
 # --- sockets -------------------------------------------------------------------------------
 
-## "vault", "reactor", "shuttle" or "pod". Returns a SocketVisual (front = +Z).
+## "vault", "reactor", "shuttle", "pod", "armory", "medbay" or "airlock_console".
+## Returns a SocketVisual (front = +Z).
 static func make_socket(kind: String) -> Node3D:
 	var socket := SocketVisual.new()
 	socket.name = "Socket_" + kind
@@ -148,14 +183,31 @@ static func make_socket(kind: String) -> Node3D:
 			seat_y = _build_launch_socket(kit, body, Color(0.86, 0.87, 0.86), Color(0.25, 0.78, 0.65), false)
 		"pod":
 			seat_y = _build_launch_socket(kit, body, Color(0.5, 0.36, 0.2), Color(1.0, 0.6, 0.15), true)
+		"armory":
+			seat_y = _build_armory(socket, kit, body)
+		"medbay":
+			seat_y = _build_medbay(kit, body)
+		"airlock_console":
+			seat_y = _build_airlock_console(kit, body)
 		_:
 			push_warning("Props.make_socket: unknown kind " + kind)
 	var mats := _base_mats()
 	mats["status"] = status
+	mats["alarm_btn"] = status
 	socket.add_child(kit.to_instance(mats, "Mesh"))
 	var seat := Marker3D.new()
 	seat.name = "Seat"
 	seat.position = Vector3(0, seat_y, 0)
+	if kind == "armory":
+		# Gun stands upright in the rack, barrel up, grip facing the room.
+		seat.position = Vector3(0, seat_y, -0.1)
+		seat.basis = Basis(Vector3.RIGHT, PI / 2.0)
+	elif kind == "medbay":
+		# A body lies on its back along local X, feet at -X, face up.
+		seat.position = Vector3(-0.9, seat_y, 0.0)
+		seat.basis = Basis(Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 1, 0))
+	elif kind == "airlock_console":
+		seat.position = Vector3(0, seat_y, 0.2)
 	socket.add_child(seat)
 	socket.seat = seat
 	var alarm := OmniLight3D.new()
@@ -167,7 +219,7 @@ static func make_socket(kind: String) -> Node3D:
 	alarm.visible = false
 	socket.add_child(alarm)
 	socket.alarm = alarm
-	socket.set_state(false, kind == "vault", false)
+	socket.set_state(false, kind in ["vault", "armory"], false)
 	return socket
 
 
@@ -209,15 +261,79 @@ static func _build_vault(socket: SocketVisual, kit: ArtMeshKit, body: StaticBody
 	shell.rings = 1
 	shell.cap_top = false
 	shell.cap_bottom = false
-	cage.mesh("field", shell, Transform3D(Basis.IDENTITY, Vector3(0, 1.3, 0)), Color.WHITE)
-	var field_mat := ArtMaterials.forcefield(Color(0.35, 0.6, 1.0))
+	_add_field(socket, cage, shell, Transform3D(Basis.IDENTITY, Vector3(0, 1.3, 0)), Color(0.35, 0.6, 1.0))
+	return 0.63
+
+
+## Shared cage + forcefield (vault and armory), hidden when unlocked.
+static func _add_field(socket: SocketVisual, cage: ArtMeshKit, field_mesh: Mesh, field_xform: Transform3D, color: Color) -> void:
+	cage.mesh("field", field_mesh, field_xform, Color.WHITE)
+	var field_mat := ArtMaterials.forcefield(color)
 	var cage_mats := _base_mats()
 	cage_mats["field"] = field_mat
 	var cage_mi := cage.to_instance(cage_mats, "Cage", false)
 	socket.add_child(cage_mi)
 	socket.field = cage_mi
 	socket.field_mat = field_mat
-	return 0.63
+
+
+static func _build_armory(socket: SocketVisual, kit: ArtMeshKit, body: StaticBody3D) -> float:
+	var red := Color(0.95, 0.3, 0.3)
+	# Wall rack: back panel, shelf, cradle with a lit outline; front faces +Z.
+	kit.bevel_box("painted", Vector3(0, 1.2, -0.35), Vector3(1.5, 2.3, 0.16), 0.05, DARK)
+	kit.bevel_box("painted", Vector3(0, 0.4, -0.1), Vector3(1.3, 0.8, 0.5), 0.05, Color(0.3, 0.17, 0.18))
+	kit.box("hazard", Vector3(0, 0.12, 0.152), Vector3(1.26, 0.14, 0.01), Color.WHITE)
+	kit.box("status", Vector3(0, 0.66, 0.152), Vector3(0.9, 0.05, 0.01), Color.WHITE)
+	kit.bevel_box("metal", Vector3(0, 0.84, -0.1), Vector3(1.36, 0.08, 0.56), 0.02, GUNMETAL)
+	kit.bevel_box("metal", Vector3(0, 1.15, -0.25), Vector3(0.24, 0.5, 0.12), 0.02, GUNMETAL)
+	kit.box("status", Vector3(0, 1.2, -0.265), Vector3(0.3, 0.7, 0.01), Color.WHITE)
+	for sx in [-0.5, 0.5]:
+		kit.box("accent", Vector3(sx, 1.4, -0.265), Vector3(0.03, 1.6, 0.01), red)
+	kit.bevel_box("metal", Vector3(0, 2.38, -0.2), Vector3(1.6, 0.12, 0.5), 0.03, GUNMETAL)
+	_box_collider(body, Vector3(0, 0.45, -0.12), Vector3(1.4, 0.9, 0.56))
+	_box_collider(body, Vector3(0, 1.2, -0.35), Vector3(1.5, 2.3, 0.16))
+	var cage := ArtMeshKit.new()
+	for i in range(5):
+		var x := -0.6 + float(i) * 0.3
+		cage.cylinder("metal", Vector3(x, 0.88, 0.2), Vector3(x, 2.3, 0.2), 0.025, GUNMETAL, 6)
+	cage.box("metal", Vector3(0, 2.3, 0.2), Vector3(1.3, 0.05, 0.05), GUNMETAL)
+	var plane := QuadMesh.new()
+	plane.size = Vector2(1.3, 1.42)
+	_add_field(socket, cage, plane, Transform3D(Basis.IDENTITY, Vector3(0, 1.59, 0.18)), Color(1.0, 0.35, 0.3))
+	return 0.95
+
+
+static func _build_medbay(kit: ArtMeshKit, body: StaticBody3D) -> float:
+	var green := Color(0.35, 0.95, 0.45)
+	# Bed along local X; the patient side faces +Z (the room).
+	kit.bevel_box("painted", Vector3(0, 0.3, 0), Vector3(2.1, 0.6, 0.85), 0.06, Color(0.86, 0.88, 0.9))
+	kit.box("status", Vector3(0, 0.3, 0.428), Vector3(1.6, 0.05, 0.01), Color.WHITE)
+	kit.bevel_box("soft", Vector3(0.05, 0.66, 0), Vector3(1.95, 0.12, 0.78), 0.05, Color(0.75, 0.82, 0.86))
+	kit.bevel_box("soft", Vector3(0.8, 0.76, 0), Vector3(0.35, 0.08, 0.55), 0.04, Color.WHITE)
+	# Scanner arch over the bed and a vitals monitor at the head.
+	kit.torus("metal", Vector3(0.0, 0.62, 0), 0.62, 0.74, GUNMETAL, Basis(Vector3.UP, PI / 2.0) * Basis(Vector3.RIGHT, PI / 2.0), 32, 8)
+	kit.torus("status", Vector3(0.0, 0.62, 0), 0.6, 0.63, Color.WHITE, Basis(Vector3.UP, PI / 2.0) * Basis(Vector3.RIGHT, PI / 2.0), 32, 4)
+	kit.bevel_box("painted", Vector3(1.2, 1.0, -0.2), Vector3(0.12, 1.2, 0.5), 0.03, DARK)
+	kit.box("accent", Vector3(1.135, 1.3, -0.2), Vector3(0.01, 0.3, 0.4), green)
+	_box_collider(body, Vector3(0, 0.36, 0), Vector3(2.1, 0.72, 0.85))
+	return 0.74
+
+
+static func _build_airlock_console(kit: ArtMeshKit, body: StaticBody3D) -> float:
+	var orange := Color(1.0, 0.48, 0.24)
+	# Pedestal console with an angled panel and a big red lever + button.
+	kit.bevel_box("painted", Vector3(0, 0.5, -0.05), Vector3(0.7, 1.0, 0.5), 0.05, DARK)
+	kit.box("hazard", Vector3(0, 0.15, 0.202), Vector3(0.66, 0.24, 0.01), Color.WHITE)
+	kit.bevel_box("metal", Vector3(0, 1.06, 0.0), Vector3(0.76, 0.08, 0.56), 0.02, GUNMETAL, Basis(Vector3.RIGHT, 0.4))
+	kit.box("status", Vector3(-0.12, 1.1, 0.02), Vector3(0.38, 0.01, 0.34), Color.WHITE, Basis(Vector3.RIGHT, 0.4))
+	kit.cylinder("painted", Vector3(0.22, 1.08, 0.08), Vector3(0.22, 1.13, 0.08), 0.1, Color(0.2, 0.2, 0.22), 16)
+	kit.cylinder("alarm_btn", Vector3(0.22, 1.12, 0.08), Vector3(0.22, 1.18, 0.08), 0.075, Color(1.0, 0.1, 0.05), 16)
+	kit.bevel_box("metal", Vector3(0.3, 1.0, -0.26), Vector3(0.06, 0.12, 0.08), 0.01, GUNMETAL)
+	kit.cylinder("painted", Vector3(0.3, 1.0, -0.26), Vector3(0.3, 1.45, -0.12), 0.025, Color(0.75, 0.1, 0.06), 8)
+	kit.sphere("painted", Vector3(0.3, 1.47, -0.11), 0.05, Color(0.85, 0.12, 0.07), 10)
+	kit.box("accent", Vector3(0, 0.75, 0.203), Vector3(0.5, 0.04, 0.01), orange)
+	_box_collider(body, Vector3(0, 0.55, -0.05), Vector3(0.7, 1.1, 0.5))
+	return 1.12
 
 
 static func _build_reactor_socket(kit: ArtMeshKit, body: StaticBody3D) -> float:

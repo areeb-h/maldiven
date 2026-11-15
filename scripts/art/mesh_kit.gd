@@ -18,6 +18,10 @@ class _Surface:
 		c.append(color)
 		uv.append(tex)
 var xform := Transform3D.IDENTITY  # applied to everything added (local -> kit space)
+## Optional key remap: key -> [target_key, alpha]. Lets several logical keys share
+## one surface/material, with the group encoded in vertex alpha.
+var remap: Dictionary = {}
+var _alpha := -1.0
 
 const _FACES := [
 	[Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0)],
@@ -30,6 +34,11 @@ const _FACES := [
 
 
 func _surface(key: String) -> _Surface:
+	_alpha = -1.0
+	if remap.has(key):
+		var target: Array = remap[key]
+		_alpha = target[1]
+		key = target[0]
 	if not _surfaces.has(key):
 		_surfaces[key] = _Surface.new()
 	return _surfaces[key]
@@ -47,6 +56,8 @@ func vertex_count() -> int:
 
 
 func _push(s: _Surface, p: Vector3, n: Vector3, c: Color, uv: Vector2) -> void:
+	if _alpha >= 0.0:
+		c.a = _alpha
 	s.add(xform * p, (xform.basis * n).normalized(), c, uv)
 
 
@@ -66,6 +77,16 @@ func tri(key: String, a: Vector3, b: Vector3, c: Vector3, n: Vector3, color: Col
 func quad(key: String, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, color: Color) -> void:
 	tri(key, a, b, c, n, color, Vector2(0, 0), Vector2(1, 0), Vector2(1, 1))
 	tri(key, a, c, d, n, color, Vector2(0, 0), Vector2(1, 1), Vector2(0, 1))
+
+
+## Quad with a colour gradient: a,b take `near`, c,d take `far`.
+func quad_grad(key: String, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, near: Color, far: Color) -> void:
+	var s := _surface(key)
+	var pts := [[a, near], [b, near], [c, far], [a, near], [c, far], [d, far]]
+	if (b - a).cross(c - a).dot(n) > 0.0:
+		pts = [[a, near], [c, far], [b, near], [a, near], [d, far], [c, far]]
+	for p in pts:
+		_push(s, p[0], n, p[1], Vector2.ZERO)
 
 
 ## Axis-aligned (optionally rotated by `basis`) box. `color_b` blends along local X.

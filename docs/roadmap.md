@@ -8,35 +8,42 @@ Updated 2026-11-15.
 
 ## Week 1 — Playable round
 
-- [ ] Station greybox (8 rooms, two loops) + art pass (trim lighting, emergency red, space backdrop, suits)
-- [ ] Listen-server host/join + LAN discovery, manual IP fallback
-- [ ] Roles: one infiltrator, private role cards
-- [ ] Cells → reactor → core → shuttle / pod
-- [ ] Shove
-- [ ] Blackout sabotage
-- [ ] 10-minute round timer
-- [ ] Result screen + event timeline
-- [ ] Rematch back to lobby
-- [ ] Touch controls
+- [x] Station greybox (8 rooms, two loops) + art pass (trim lighting, emergency red, space backdrop, suits)
+- [x] Listen-server host/join + LAN discovery, manual IP fallback
+- [x] Roles: one infiltrator, private role cards
+- [x] Cells → reactor → core → shuttle / pod
+- [x] Shove
+- [x] Blackout sabotage
+- [x] 10-minute round timer
+- [x] Result screen + event timeline
+- [x] Rematch back to lobby
+- [x] Touch controls
 - [ ] Android build (0.4.0)
 
 **Done when:** 5 rounds with friends in one room.
 
-## Week 2 — Physical chaos
+## Week 2 — The gun question
 
-- [ ] Ragdoll knockdowns
-- [ ] Carry bodies and objects with physics
-- [ ] Throwables
-- [ ] Stun tool
-- [ ] Airlock that can eject someone into space
-- [ ] Doors with manual override
+- [x] One gun in the Security armory (3 rounds, aim-assisted, walls block), unlocks with power
+- [x] Downed state: drop everything, get up after 25 s or get revived at the medbay
+- [x] Drag downed players
+- [x] Airlock off Commons: 3.5 s warning, vents everyone inside
+- [x] Spaced players become ghosts (fly through walls, visible only to other ghosts)
+- [x] New wins: space the infiltrator (crew) / space all crew (infiltrator)
+- [x] Throwing: shove while carrying throws it; hits stun and knock items loose
+- [x] Rules tests for every mechanic + networked bot round: shoot → drag → airlock
+- [ ] Character ragdoll-style downed/ghost/aim poses (procedural crew model)
+- [ ] Gunshot tracer, decompression and revive VFX + sounds
+- [ ] Lobby warm-up arena: paintball shooting and shoving while you wait
+- [ ] Doors with manual override (moved from week 2 plan; needs door art)
 
-**Done when:** someone laughs or yells.
+**Done when:** someone laughs or yells, and "who gets the gun?" becomes an argument.
 
 ## Week 3 — Voice + remote play
 
 - [ ] In-game proximity voice (port Friends Lab PCM, then Opus if needed)
 - [ ] Radio channel
+- [ ] Ghosts hear each other, not the living (until week 4's window-banging)
 - [ ] Internet play via tunnel/relay
 
 **Done when:** a full remote round with no Discord.

@@ -181,12 +181,12 @@ func _wall_panel(size: int) -> void:
 			height[i] = h
 			# Paint chips concentrate on the raised frame edges.
 			var edge_zone := (1.0 - _sstep(6.0, 16.0, edge)) * 0.6 + (1.0 - _sstep(36.0, 46.0, edge)) * _sstep(30.0, 36.0, edge) * 0.5
-			var chip := _sstep(0.8, 0.86, chips[i] + edge_zone * 0.5) * (1.0 - seam)
+			var chip := _sstep(0.84, 0.9, chips[i] + edge_zone * 0.45) * (1.0 - seam)
 			# Vertical grime streaks running down from the seams.
 			var streak := streak_src[x] * 0.7 + streak_src[(y / 4) * size + x] * 0.3
 			var drip := _sstep(0.5, 0.8, streak) * pow(float(py) / float(panel_h), 2.0) * 0.4
 			var paint := Color(0.86, 0.85, 0.83) * (0.95 + 0.06 * mottle[i])
-			var bare := Color(0.5, 0.51, 0.52)
+			var bare := Color(0.62, 0.63, 0.64)
 			var dirt := Color(0.25, 0.23, 0.21)
 			var c := paint.lerp(bare, chip)
 			c = c.lerp(dirt, clampf(drip + seam * 0.85 + vent * 0.7 + (1.0 - recess) * outer * 0.04, 0.0, 1.0))
@@ -194,7 +194,7 @@ func _wall_panel(size: int) -> void:
 			_put(albedo, i, c)
 			var ao := (0.5 + 0.5 * outer) * (1.0 - vent * 0.4) * (1.0 - 0.25 * (1.0 - _sstep(34.0, 52.0, edge)) * recess)
 			var rough := clampf(0.5 + mottle[i] * 0.15 - chip * 0.25 + drip * 0.2, 0.15, 1.0)
-			var metal := clampf(chip + screw * 0.8, 0.0, 1.0)
+			var metal := clampf(chip * 0.55 + screw * 0.6, 0.0, 1.0)
 			_put(orm, i, Color(ao, rough, metal))
 	_save("wall_panel", size, albedo, orm, height, 5.0)
 

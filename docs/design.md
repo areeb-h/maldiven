@@ -21,10 +21,11 @@ How we work: **find the fun first, harden later.** Build the smallest fun thing,
 
 1. **Briefing (~6 s).** Everyone spawns in Commons. Each player sees a private role card. Roles go only to their owner.
 2. **Stabilise.** The power is out. Emergency red lighting only. Three power cells are lying loose in Engineering, Medical and Security. Carry them to the three Reactor sockets. The infiltrator wants this too: without power the core stays locked.
-3. **Extraction.** The third cell goes in, the lights come up, and the core vault in Command unlocks. Now interests split.
+3. **Extraction.** The third cell goes in, the lights come up, and the core vault in Command and the armory in Security unlock. Now interests split, and somebody is about to pick up the only gun.
    - **Crew win:** load the core into the shuttle in Docking and survive the 30 s launch countdown. Anyone can pull the core back out to abort.
    - **Infiltrator win:** load the core into the cargo pod in Cargo. Only the infiltrator can arm it. Arming sets off a station-wide alarm and a 20 s countdown. Anyone can pull the core out.
    - **Station lost:** the 10-minute round timer runs out. Everyone loses.
+   - **Spaced:** cycle the airlock with the infiltrator inside and the crew win on the spot. Space every crewmate and the infiltrator wins.
 4. **Result.** The outcome, who the infiltrator was, and a short event timeline of the round: who moved which cell, who took the core, who shoved whom, when the blackout hit. The host can send everyone back to the lobby for a rematch.
 
 ## Roles
@@ -36,18 +37,19 @@ At 7–8 players we'll try two infiltrators (week 4).
 
 ## The map
 
-One deck, about 77 × 52 m, eight rooms in two loops. The layout lives in `scripts/station_layout.gd`; geometry, rules and tests all read from it.
+One deck, about 84 × 52 m, eight rooms in two loops plus an airlock. The layout lives in `scripts/station_layout.gd`; geometry, rules and tests all read from it.
 
 | Room | What's there |
 | --- | --- |
-| Commons | Spawn, the social junction |
+| Commons | Spawn, the social junction, the airlock console |
+| Airlock | Small dead-end chamber off Commons. Cycle it and anyone inside is spaced |
 | Command | Core vault (locked until power is back) |
-| Security | Power cell |
+| Security | Power cell, the armory (one gun) |
 | Docking | The shuttle (crew escape) |
 | Cargo | The cargo pod (infiltrator escape) |
 | Engineering | Power cell |
 | Reactor | Three cell sockets |
-| Medical | Power cell |
+| Medical | Power cell, the medbay (instant revive) |
 
 - **Public loop:** Docking – Commons – Command – Security – Cargo – Docking.
 - **Service loop:** Cargo – Engineering – Reactor – Medical – Commons. Long, quiet corridors: good for a private chat or an ambush.
@@ -61,10 +63,16 @@ The core's two exits (shuttle and pod) sit one corridor apart, in Docking and Ca
 | Walk / run / jump | Everyone | |
 | Carry | Everyone | One item at a time. Carrying slows you down. |
 | Interact | Everyone | Pick up, drop, insert into a socket, pull out of a socket. |
-| Shove | Everyone | Short range. Knocks the target back, stuns ~1 s, makes them drop what they carry. 3 s cooldown. |
+| Shove | Everyone | Short range. Knocks the target back, stuns ~1 s, makes them drop what they carry (or the body they're dragging). 3 s cooldown. |
+| Throw | Everyone | Shove while carrying something throws it ~7 m. A hit stuns for 1.6 s and makes the target drop what they carry. |
+| Shoot | Whoever holds the gun | One gun, 3 rounds, never refills. Aim-assisted (about 20° cone, 18 m, walls block). A hit downs the target. |
+| Drag | Everyone | Pick up a downed player and drag them (slow). Drop them anywhere, revive them at the medbay, or put them in the airlock. |
+| Cycle airlock | Everyone | 3.5 s warning with klaxon and countdown, then everything inside is vented. 20 s cooldown. |
 | Sabotage: Blackout | Infiltrator | Station-wide lights out for ~25 s. Name tags hidden, flashlights only. 75 s cooldown. |
 
-Shove is the whole combat system for now. It's slapstick, it's fair (everyone has it), and it turns every core run into a scrum.
+**The gun question.** There is exactly one gun and it unlocks when the power comes back. Whoever holds it is the most trusted or most feared person aboard, and it can be shoved or thrown out of their hands. Being shot doesn't kill you: you're **downed** for 25 s (or until someone revives you at the medbay), you drop everything, and you're a body someone can drag. The only real death is the airlock, which takes teamwork or a good ambush. Spaced players become **ghosts**: they float through walls, see everything, and only other ghosts can see them.
+
+Shove is still the everyday tool: slapstick, fair (everyone has it), and it turns every core run into a scrum.
 
 ## Communication
 
@@ -93,4 +101,4 @@ These are why this game exists. Week 2 and week 4 are built around them.
 
 ## Not doing yet
 
-Public matchmaking, accounts, dedicated servers, anti-cheat, reconnect, ranked anything, monetisation, multiple maps, procedural stations, weapons with damage, NPC enemies, a big role roster, spaceflight. Some of these come back if friends keep asking to play. Ideas we liked but parked are in the [roadmap parking lot](roadmap.md#parking-lot); the full earlier plan is in the [archive](archive/README.md).
+Public matchmaking, accounts, dedicated servers, anti-cheat, reconnect, ranked anything, monetisation, multiple maps, procedural stations, more weapons, NPC enemies, a big role roster, spaceflight. Some of these come back if friends keep asking to play. Ideas we liked but parked are in the [roadmap parking lot](roadmap.md#parking-lot); the full earlier plan is in the [archive](archive/README.md).

@@ -10,10 +10,14 @@ func _initialize() -> void:
 		"test_vault_locked_until_power", "test_pod_infiltrator_only", "test_shove_drops_item",
 		"test_shuttle_abort", "test_timeout_station_loss", "test_blackout", "test_disconnects",
 		"test_mirror_prompts", "test_solo_walkaround", "test_layout_consistency",
+		"test_gun_locked_until_power", "test_shoot_downs_target", "test_shot_needs_aim_and_los",
+		"test_drag_and_medbay_revive", "test_downed_recovers", "test_airlock_spaces_infiltrator",
+		"test_airlock_spaces_last_crew", "test_airlock_respawns_items", "test_throw_hits_and_stuns",
+		"test_throw_respects_walls", "test_shove_drops_body", "test_mirror_flight_and_downed",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (13 tests)")
+		print("PASS: rules (25 tests)")
 	quit(1 if failures else 0)
 
 
@@ -230,3 +234,188 @@ func test_layout_consistency() -> void:
 		for room_id in [corridor.a, corridor.b]:
 			var room := StationLayout.room_rect(room_id)
 			check(room.grow(0.01).intersects(rect), "%s touches %s" % [corridor_id, room_id])
+
+
+func power_and_gun(rules: StationRules, id: int) -> void:
+	restore_power(rules, id)
+	go(rules, id, socket_front("armory"))
+	check(rules.request_interact(id), "take gun")
+	check(rules.holds_gun(id), "holding gun")
+
+
+func face(rules: StationRules, id: int, at: Vector3, target: Vector3) -> void:
+	var offset := target - at
+	rules.set_pose(id, at, atan2(offset.x, offset.z))
+
+
+func test_gun_locked_until_power() -> void:
+	var rules := make_round()
+	var id: int = crew_ids(rules)[0]
+	go(rules, id, socket_front("armory"))
+	check(not rules.request_interact(id), "armory locked before power")
+
+
+func test_shoot_downs_target() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	var shooter_at := Vector3(0, 0, 0)
+	var target_at := Vector3(0, 0, 8)
+	rules.set_pose(ids[1], target_at, 0.0)
+	face(rules, ids[0], shooter_at, target_at)
+	check(rules.request_shoot(ids[0]) == ids[1], "shot hits target in front")
+	check(rules.state_of(ids[1]) == StationRules.DOWNED, "target downed")
+	check(rules.gun_ammo() == StationRules.GUN_AMMO - 1, "ammo spent")
+	check(rules.request_shoot(ids[0]) == -1, "gun cooldown")
+	rules.tick(StationRules.GUN_COOLDOWN)
+	check(rules.request_shoot(ids[0]) == 0, "no standing target -> miss")
+	rules.tick(StationRules.GUN_COOLDOWN)
+	rules.request_shoot(ids[0])
+	rules.tick(StationRules.GUN_COOLDOWN)
+	check(rules.request_shoot(ids[0]) == -1, "out of ammo")
+	check(rules.speed_factor(ids[1]) == 0.0, "downed can't move")
+	check(rules.available_action(ids[1]).is_empty(), "downed can't interact")
+
+
+func test_shot_needs_aim_and_los() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(8, 0, 0), 0.0)
+	rules.set_pose(ids[0], Vector3.ZERO, 0.0)  # facing +z, target at +x
+	check(rules.request_shoot(ids[0]) == 0, "target outside cone missed")
+	rules.tick(StationRules.GUN_COOLDOWN)
+	face(rules, ids[0], Vector3.ZERO, Vector3(8, 0, 0))
+	var walls := func(_a: Vector3, _b: Vector3) -> bool: return false
+	check(rules.request_shoot(ids[0], walls) == 0, "wall blocks the shot")
+	check(rules.state_of(ids[1]) == StationRules.OK, "blocked target unharmed")
+
+
+func test_drag_and_medbay_revive() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.request_shoot(ids[0])
+	var medic: int = ids[2]
+	rules.set_pose(medic, Vector3(0, 0, 5), 0.0)
+	check(rules.available_action(medic).get("action") == "drag", "drag prompt")
+	check(rules.request_interact(medic), "start drag")
+	check(rules.players[ids[1]].carried_by == medic, "body attached")
+	check(rules.speed_factor(medic) == StationRules.CARRY_SPEED.body, "dragging is slow")
+	go(rules, medic, socket_front("medbay"))
+	check(rules.players[ids[1]].pos.distance_to(rules.players[medic].pos) < 1.0, "body follows carrier")
+	check(rules.available_action(medic).get("action") == "revive", "revive prompt at medbay")
+	check(rules.request_interact(medic), "revive")
+	check(rules.state_of(ids[1]) == StationRules.OK and rules.players[medic].body == 0, "revived and released")
+
+
+func test_downed_recovers() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.request_shoot(ids[0])
+	rules.tick(StationRules.DOWN_SECONDS + 0.1)
+	check(rules.state_of(ids[1]) == StationRules.OK, "auto recovery")
+
+
+func put_in_airlock(rules: StationRules, id: int) -> void:
+	rules.players[id].pos = StationLayout.to_world(StationLayout.ROOMS.airlock.center)
+
+
+func cycle_airlock(rules: StationRules, operator: int) -> void:
+	go(rules, operator, socket_front("airlock_console"))
+	check(rules.available_action(operator).get("action") == "airlock", "airlock prompt")
+	check(rules.request_interact(operator), "cycle airlock")
+	rules.tick(StationRules.AIRLOCK_WARNING + 0.05)
+
+
+func test_airlock_spaces_infiltrator() -> void:
+	var rules := make_round()
+	var bad := rules.infiltrator_id()
+	put_in_airlock(rules, bad)
+	cycle_airlock(rules, crew_ids(rules)[0])
+	check(rules.state_of(bad) == StationRules.DEAD, "infiltrator spaced")
+	check(rules.winner == StationRules.CREW, "crew win by spacing infiltrator")
+
+
+func test_airlock_spaces_last_crew() -> void:
+	var rules := make_round(2)
+	var bad := rules.infiltrator_id()
+	var crew: int = crew_ids(rules)[0]
+	put_in_airlock(rules, crew)
+	cycle_airlock(rules, bad)
+	check(rules.state_of(crew) == StationRules.DEAD, "crew spaced")
+	check(rules.winner == StationRules.INFILTRATOR, "infiltrator wins when no crew left")
+
+
+func test_airlock_respawns_items() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	rules.items.cell_1.pos = StationLayout.to_world(StationLayout.ROOMS.airlock.center)
+	cycle_airlock(rules, ids[0])
+	check(StationLayout.room_at(rules.items.cell_1.pos) == "engineering", "vented cell returns to spawn")
+	check(rules.phase != StationRules.Phase.RESULT, "empty vent doesn't end round")
+	check(rules.available_action(ids[0]).is_empty() or rules.available_action(ids[0]).get("action") != "airlock", "airlock on cooldown")
+	rules.tick(StationRules.AIRLOCK_COOLDOWN + 0.1)
+	check(rules.airlock_ready(), "airlock ready again")
+
+
+func test_throw_hits_and_stuns() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	var pos: Vector3 = rules.items.cell_1.pos
+	go(rules, ids[0], Vector2(pos.x, pos.z))
+	rules.request_interact(ids[0])
+	var thrower_at := Vector3(62, 0, -4)
+	face(rules, ids[0], thrower_at, Vector3(62, 0, 4))
+	rules.set_pose(ids[1], Vector3(62, 0, 0.5), 0.0)
+	rules.request_shove(ids[0])
+	check(rules.items.cell_1.holder == 0 and not rules.items.cell_1.flight.is_empty(), "cell in flight")
+	for i in range(12):
+		rules.tick(0.05)
+	check(rules.items.cell_1.flight.is_empty(), "flight finished")
+	check(rules.players[ids[1]].stunned_until > rules.elapsed, "hit player stunned")
+
+
+func test_throw_respects_walls() -> void:
+	var rules := make_round()
+	var id: int = crew_ids(rules)[0]
+	var pos: Vector3 = rules.items.cell_2.pos  # Medical
+	go(rules, id, Vector2(pos.x, pos.z))
+	rules.request_interact(id)
+	face(rules, id, Vector3(-5, 0, 24), Vector3(-30, 0, 24))  # towards the outer wall
+	rules.request_shove(id)
+	check(StationLayout.is_walkable(rules.items.cell_2.flight.to), "landing stays inside the station")
+
+
+func test_shove_drops_body() -> void:
+	var rules := make_round(5)
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.request_shoot(ids[0])
+	rules.set_pose(ids[2], Vector3(0, 0, 5), 0.0)
+	rules.request_interact(ids[2])
+	rules.tick(StationRules.SHOVE_COOLDOWN)
+	rules.set_pose(ids[3], Vector3(0, 0, 4), 0.0)
+	check(rules.request_shove(ids[3]) == ids[2], "shove the carrier")
+	check(rules.players[ids[1]].carried_by == 0 and rules.players[ids[2]].body == 0, "body dropped")
+
+
+func test_mirror_flight_and_downed() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.request_shoot(ids[0])
+	var mirror := StationRules.new()
+	mirror.apply_snapshot(rules.public_snapshot(), ids[1], StationRules.CREW)
+	check(mirror.state_of(ids[1]) == StationRules.DOWNED, "mirror sees downed")
+	check(mirror.gun_ammo() == StationRules.GUN_AMMO - 1, "mirror sees ammo")
+	check(not var_to_str(rules.public_snapshot()).contains("infiltrator"), "still no role leak")

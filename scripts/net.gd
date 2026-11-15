@@ -283,7 +283,7 @@ func request(action: String) -> void:
 
 @rpc("any_peer", "reliable")
 func _request(action: String) -> void:
-	if multiplayer.is_server() and world != null and action in ["interact", "shove", "sabotage"]:
+	if multiplayer.is_server() and world != null and action in ["interact", "shove", "sabotage", "shoot"]:
 		world.host_request(multiplayer.get_remote_sender_id(), action)
 
 

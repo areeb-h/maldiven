@@ -26,13 +26,14 @@ def run(engine, label, args, marker, timeout=180):
     print(f'  ok')
 
 
-def net_round(engine, plan, players=3, seed=11, timeout=150):
+def net_round(engine, plan, players=3, seed=11, timeout=150, host_infiltrator=False):
     label = f'network round ({plan} plan, {players} players)'
     print(f'{label}...', flush=True)
     base = [str(engine), '--headless', '--path', str(ROOT), '--']
     common = [f'--bot-plan={plan}', f'--bot-timeout={timeout - 10}']
     procs = [subprocess.Popen(base + ['--bot=host', '--bot-name=Host', f'--bot-players={players}',
-                                      f'--bot-seed={seed}'] + common,
+                                      f'--bot-seed={seed}'] + common
+                              + (['--bot-host-infiltrator'] if host_infiltrator else []),
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)]
     time.sleep(1.5)
     for index in range(1, players):
@@ -56,13 +57,18 @@ def net_round(engine, plan, players=3, seed=11, timeout=150):
         errors = [l for l in lines if any(m in l for m in ERROR_MARKERS)]
         if code != 0 or errors:
             problems.append(f'process {index} exit={code}\n' + '\n'.join(lines[-40:]))
-    expected = 'crew' if plan == 'crew' else 'infiltrator'
+    expected = 'infiltrator' if plan == 'infiltrator' else 'crew'
     if len(results) != players or any(f'winner={expected}' not in r for r in results):
         problems.append('results: ' + repr(results))
     if sorted(roles).count('infiltrator') != 1 or len(roles) != players:
         problems.append('roles: ' + repr(roles))
     if plan == 'infiltrator' and not any('BOT_SHOVE ok' in out for _, out in logs):
         problems.append('expected a successful shove of the core carrier')
+    if plan == 'eject':
+        if not any('reason=The infiltrator was spaced.' in r for r in results):
+            problems.append('expected the infiltrator to be spaced')
+        if not any('BOT_SHOT_HIT true' in out for _, out in logs) or not any('BOT_DRAG true' in out for _, out in logs):
+            problems.append('expected a hit and a drag')
     if problems:
         print('\n\n'.join(problems))
         raise SystemExit(f'FAILED: {label}')
@@ -84,6 +90,7 @@ def main():
     if not args.skip_net:
         net_round(engine, 'crew')
         net_round(engine, 'infiltrator')
+        net_round(engine, 'eject', host_infiltrator=True)
     print('ALL STATION CHECKS PASSED')
 
 
