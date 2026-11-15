@@ -9,7 +9,9 @@ extends SceneTree
 ##   floor_plate  1024px = 2 m: four bevelled tread plates with bolts and grime.
 ##   wall_panel   1024px = 2 m: two bevelled painted panels, screws, vent, chips.
 ##   metal_paint   512px = 1 m: painted metal with scratches for props.
-## Plus grime_decal.png (RGBA smudge) for Decal nodes.
+## Plus RGBA decals for Decal nodes: grime_decal.png (smudge), scuff_decal.png
+## (boot and trolley scuffs), leak_decal.png (oily puddle with drips).
+## `-- --decals-only` regenerates just the decals.
 
 const OUT := "res://assets/textures/"
 
@@ -17,10 +19,13 @@ const OUT := "res://assets/textures/"
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	var started := Time.get_ticks_msec()
-	_floor_plate(1024)
-	_wall_panel(1024)
-	_metal_paint(512)
+	if not "--decals-only" in OS.get_cmdline_user_args():
+		_floor_plate(1024)
+		_wall_panel(1024)
+		_metal_paint(512)
 	_grime_decal(512)
+	_scuff_decal(512)
+	_leak_decal(256)
 	print("textures generated in %d ms" % (Time.get_ticks_msec() - started))
 	quit()
 
@@ -252,3 +257,76 @@ func _grime_decal(size: int) -> void:
 			bytes[i * 4 + 2] = 28
 			bytes[i * 4 + 3] = clampi(int(a * 220.0), 0, 255)
 	Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, bytes).save_png(OUT + "grime_decal.png")
+
+
+## Curved dark scuff arcs (boot pivots, trolley wheels) over a faint haze.
+func _scuff_decal(size: int) -> void:
+	var fine := _noise(size, 6.0, 3, 77)
+	var haze := _noise(size, 90.0, 3, 78)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 79
+	var alpha := PackedFloat32Array()
+	alpha.resize(size * size)
+	var half := float(size) * 0.5
+	for k in range(26):
+		var c := Vector2(rng.randf_range(0.25, 0.75), rng.randf_range(0.25, 0.75)) * float(size)
+		var radius := rng.randf_range(0.08, 0.32) * float(size)
+		var a0 := rng.randf() * TAU
+		var span := rng.randf_range(0.4, 1.4)
+		var width := rng.randf_range(1.5, 5.0)
+		var strength := rng.randf_range(0.35, 0.9)
+		var steps := int(radius * span)
+		for j in range(steps):
+			var t := float(j) / float(maxi(steps - 1, 1))
+			var ang := a0 + span * t
+			var p := c + Vector2(cos(ang), sin(ang)) * radius
+			var fade := sin(t * PI)
+			for oy in range(-6, 7):
+				for ox in range(-6, 7):
+					var q := Vector2i(int(p.x) + ox, int(p.y) + oy)
+					if q.x < 0 or q.y < 0 or q.x >= size or q.y >= size:
+						continue
+					var d := Vector2(ox, oy).length()
+					var w := _sstep(width, width * 0.3, d) * strength * fade
+					var i := q.y * size + q.x
+					alpha[i] = maxf(alpha[i], w)
+	var bytes := PackedByteArray()
+	bytes.resize(size * size * 4)
+	for y in range(size):
+		for x in range(size):
+			var i := y * size + x
+			var r := Vector2(x - half, y - half).length() / half
+			var a := (alpha[i] * (0.55 + 0.45 * fine[i]) + _sstep(0.55, 0.8, haze[i]) * 0.18) * _sstep(1.0, 0.7, r)
+			bytes[i * 4] = 26
+			bytes[i * 4 + 1] = 25
+			bytes[i * 4 + 2] = 24
+			bytes[i * 4 + 3] = clampi(int(a * 235.0), 0, 255)
+	Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, bytes).save_png(OUT + "scuff_decal.png")
+
+
+## Glossy dark puddle with a darker rim and a few drip runs toward one side.
+func _leak_decal(size: int) -> void:
+	var blot := _noise(size, 70.0, 2, 91)
+	var fine := _noise(size, 8.0, 2, 92)
+	var bytes := PackedByteArray()
+	bytes.resize(size * size * 4)
+	var half := float(size) * 0.5
+	for y in range(size):
+		for x in range(size):
+			var i := y * size + x
+			var p := Vector2(x - half, y - half) / half
+			var r := Vector2(p.x, p.y * 1.25).length()
+			var body := _sstep(0.62, 0.48, r + (blot[i] - 0.5) * 0.5)
+			var rim := body * _sstep(0.35, 0.55, r + (blot[i] - 0.5) * 0.5)
+			var drip := 0.0
+			for k in range(3):
+				var dx := absf(p.x - (-0.3 + 0.3 * float(k)) - sin(p.y * 9.0 + float(k)) * 0.03)
+				drip = maxf(drip, _sstep(0.035, 0.0, dx) * _sstep(0.95, 0.4, p.y) * (1.0 if p.y >= 0.0 else 0.0))
+			drip *= 1.0 - body
+			var a := clampf(body * 0.75 + rim * 0.25 + drip * 0.6, 0.0, 1.0) * (0.85 + 0.15 * fine[i])
+			var shade := 0.6 + 0.4 * (1.0 - rim)
+			bytes[i * 4] = int(40.0 * shade)
+			bytes[i * 4 + 1] = int(36.0 * shade)
+			bytes[i * 4 + 2] = int(30.0 * shade)
+			bytes[i * 4 + 3] = clampi(int(a * 230.0), 0, 255)
+	Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, bytes).save_png(OUT + "leak_decal.png")

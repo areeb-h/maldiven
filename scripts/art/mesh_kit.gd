@@ -240,6 +240,45 @@ func torus(key: String, center: Vector3, inner: float, outer: float, color: Colo
 	mesh(key, t, Transform3D(basis, center), color)
 
 
+static var _text_font: Font
+static var _text_cache: Dictionary = {}  # text -> TextMesh with a 1 m em
+
+
+static func text_font() -> Font:
+	if _text_font == null:
+		var path := "res://assets/fonts/rajdhani-latin-700-normal.woff2"
+		_text_font = load(path) as Font if ResourceLoader.exists(path) else null
+		if _text_font == null:
+			_text_font = ThemeDB.fallback_font
+	return _text_font
+
+
+## Flat vector text (TextMesh, no extra draw call: merged into this kit),
+## centred on `t.origin` in the local XY plane and facing local +Z, so `t` reads
+## like a Label3D transform. `height` is the em size in metres; text wider than
+## `max_width` (when > 0) is scaled down to fit. Returns the final width.
+func text(key: String, s: String, t: Transform3D, color: Color, height: float, max_width := 0.0) -> float:
+	if s.strip_edges().is_empty():
+		return 0.0
+	var tm: TextMesh = _text_cache.get(s)
+	if tm == null:
+		tm = TextMesh.new()
+		tm.font = text_font()
+		tm.font_size = 48
+		tm.pixel_size = 1.0 / 48.0
+		tm.depth = 0.0
+		tm.curve_step = 1.5
+		tm.text = s
+		_text_cache[s] = tm
+	var k := height
+	var w := tm.get_aabb().size.x * k
+	if max_width > 0.0 and w > max_width:
+		k *= max_width / w
+		w = max_width
+	mesh(key, tm, t * Transform3D(Basis.from_scale(Vector3(k, k, k)), Vector3.ZERO), color)
+	return w
+
+
 ## Bakes into an ArrayMesh; `materials` maps key -> Material. Keys without a
 ## material are skipped.
 func build(materials: Dictionary) -> ArrayMesh:

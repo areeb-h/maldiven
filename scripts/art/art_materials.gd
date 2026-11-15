@@ -121,20 +121,39 @@ void fragment() {
 }
 """
 
-## All station light strips in one material: vertex alpha picks the group,
-## `energies` holds each group's current energy (set by ArtStationFX).
+## All station light strips in one material: vertex alpha picks the group
+## (index / 11), `energies` holds each group's current energy (set by
+## ArtStationFX). Groups 9-11 add cheap per-fixture life on top of the energy:
+## 9 blink (status LEDs), 10 breathe (standby glow), 11 flicker (a dying panel).
+## The phase comes from a hash of the fixture's world cell, so neighbours differ.
 const LIGHT_GROUPS := """
 shader_type spatial;
 render_mode cull_back;
-uniform float energies[8];
+uniform float energies[12];
 uniform float albedo_mix = 0.12;
+varying flat float v_phase;
+
+void vertex() {
+	vec3 w = floor((MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 1.7);
+	v_phase = fract(sin(dot(w, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+}
 
 void fragment() {
-	int g = clamp(int(COLOR.a * 7.0 + 0.5), 0, 7);
+	int g = clamp(int(COLOR.a * 11.0 + 0.5), 0, 11);
 	vec3 c = COLOR.rgb;
+	float e = energies[g];
+	if (g == 9) {
+		float t = fract(TIME * (0.45 + v_phase * 0.9) + v_phase);
+		e *= t < 0.5 ? 1.0 : (t < 0.62 ? 0.1 : 0.55);
+	} else if (g == 10) {
+		e *= 0.5 + 0.5 * sin(TIME * (1.1 + v_phase) + v_phase * 6.283);
+	} else if (g == 11) {
+		float k = fract(sin(floor(TIME * 11.0 + v_phase * 37.0) * 91.7) * 4375.5);
+		e *= k > 0.8 ? 0.06 : (k > 0.7 ? 0.5 : 1.0);
+	}
 	ALBEDO = c * albedo_mix;
 	ROUGHNESS = 0.35;
-	EMISSION = c * energies[g];
+	EMISSION = c * e;
 }
 """
 
@@ -535,7 +554,7 @@ static func light_groups() -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = shader("light_groups")
 	var e := PackedFloat32Array()
-	e.resize(8)
+	e.resize(12)
 	e.fill(1.0)
 	m.set_shader_parameter("energies", e)
 	return m

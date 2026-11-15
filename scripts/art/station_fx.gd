@@ -11,28 +11,33 @@ const STATES := {
 		"ambient": 0.5, "ambient_color": Color(0.42, 0.42, 0.55), "sun": 0.45, "fill": 0.35,
 		"light": 1.6, "light_mix": 0.0, "pulse": 1.0,
 		"trim": 0.25, "door": 1.2, "emergency": 1.9, "ceiling": 0.0, "guide": 1.2, "screen": 0.5,
-		"beacon": 2.0, "reactor": 0.35, "label": 0.9, "nav": 1.5, "glow": 1.3, "exposure": 1.05,
+		"beacon": 2.0, "reactor": 0.35, "label": 0.9, "nav": 1.5,
+		"sign": 0.75, "blink": 1.4, "breathe": 0.6, "flicker": 1.1, "glow": 1.3, "exposure": 1.05,
 		"fog_color": Color(0.25, 0.07, 0.05), "fog_density": 0.01,
 	},
 	"restored": {
 		"ambient": 0.7, "ambient_color": Color(0.62, 0.66, 0.76), "sun": 1.3, "fill": 0.25,
 		"light": 1.4, "light_mix": 1.0, "pulse": 0.0,
 		"trim": 1.6, "door": 1.9, "emergency": 0.0, "ceiling": 1.4, "guide": 0.8, "screen": 1.4,
-		"beacon": 0.0, "reactor": 2.0, "label": 1.3, "nav": 1.5, "glow": 1.2, "exposure": 1.0,
+		"beacon": 0.0, "reactor": 2.0, "label": 1.3, "nav": 1.5,
+		"sign": 1.25, "blink": 1.8, "breathe": 1.5, "flicker": 1.6, "glow": 1.2, "exposure": 1.0,
 		"fog_color": Color(0.08, 0.1, 0.14), "fog_density": 0.005,
 	},
 	"blackout": {
 		"ambient": 0.05, "ambient_color": Color(0.25, 0.3, 0.45), "sun": 0.02, "fill": 0.0,
 		"light": 0.0, "light_mix": 0.0, "pulse": 0.0,
 		"trim": 0.0, "door": 0.25, "emergency": 0.0, "ceiling": 0.0, "guide": 1.6, "screen": 0.04,
-		"beacon": 0.0, "reactor": 0.12, "label": 0.1, "nav": 0.4, "glow": 1.4, "exposure": 1.1,
+		"beacon": 0.0, "reactor": 0.12, "label": 0.1, "nav": 0.4,
+		"sign": 0.06, "blink": 0.5, "breathe": 0.0, "flicker": 0.0, "glow": 1.4, "exposure": 1.1,
 		"fog_color": Color(0.01, 0.015, 0.03), "fog_density": 0.02,
 	},
 }
 const EMERGENCY_LIGHT := Color(1.0, 0.3, 0.16)
 const MATERIAL_PARAMS := ["lights", "screen", "reactor"]
-## Light-strip groups (vertex alpha = index / 7) sharing the "lights" material.
-const LIGHT_GROUPS := ["trim", "door", "emergency", "ceiling", "guide", "beacon", "nav", "alarm"]
+## Light-strip groups (vertex alpha = index / 11) sharing the "lights" material.
+## sign: painted-in glowing stencils and floor names; blink/breathe/flicker are
+## animated per fixture in the shader (status LEDs, standby glow, dying panel).
+const LIGHT_GROUPS := ["trim", "door", "emergency", "ceiling", "guide", "beacon", "nav", "alarm", "sign", "blink", "breathe", "flicker"]
 
 var state := ""
 var mats: Dictionary = {}  # param name -> ShaderMaterial (glow shader)
@@ -60,7 +65,7 @@ var airlock_state := "idle"
 var _airlock_t := 0.0
 var _airlock_open := 0.0
 var _alarm_energy := 0.35
-var _energies := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0])
+var _energies := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
 
 func set_state(new_state: String, duration := 1.0) -> void:
@@ -180,6 +185,10 @@ func _apply_animated() -> void:
 		_energies[5] = float(current.beacon) * (0.08 + 0.92 * flash)
 		_energies[6] = float(current.nav) * (1.0 if fmod(_time * 0.7, 1.0) > 0.82 else 0.15)
 		_energies[7] = _alarm_energy
+		_energies[8] = current.sign
+		_energies[9] = current.blink
+		_energies[10] = current.breathe
+		_energies[11] = current.flicker
 		(mats["lights"] as ShaderMaterial).set_shader_parameter("energies", _energies)
 	if mats.has("reactor"):
 		(mats["reactor"] as ShaderMaterial).set_shader_parameter("energy", float(current.reactor))

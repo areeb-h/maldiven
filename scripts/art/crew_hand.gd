@@ -116,7 +116,8 @@ const _POSE_LIFE := {
 }
 ## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
 ## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
-## toward the palm normal, and item -Z (the gun's barrel) runs along the fingers.
+## toward the palm normal, then rolled by `roll` about the palm normal; item -Z (the
+## gun's barrel) runs along the fingers.
 ## `scale` is the item's uniform scale in the hand.
 const _GRIP_ANCHORS := {
 	# Power cell (Props casing radius 0.16, glow band 0.168): held from the side over the
@@ -127,7 +128,9 @@ const _GRIP_ANCHORS := {
 	# Blaster: grip in the palm, barrel along the extended index finger. The Props
 	# blaster grip is 11 cm deep (a 7.4 cm palm cannot close round it), so the held
 	# blaster is shown at pistol scale.
-	"gun": {"tilt": 0.0, "scale": 0.72, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0485, -0.045, 0.0)},
+	# `roll` (about the palm normal) squares the raked grip to the knuckle line, which
+	# cants the barrel 16 deg toward the thumb like a real pistol hold.
+	"gun": {"tilt": 0.0, "roll": -0.28, "scale": 0.72, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0485, -0.045, 0.0)},
 }
 ## Uniform scale the blaster takes in the hand (see _GRIP_ANCHORS).
 const GUN_SCALE := 0.72
@@ -329,7 +332,7 @@ static func grip_anchor(kind: String, p_side: int) -> Transform3D:
 	var sc: float = spec.scale
 	var y := Vector3(sin(th), 0.0, cos(th))
 	var z := Vector3(0.0, 1.0, 0.0)
-	var rot := Basis(y.cross(z), y, z)
+	var rot := Basis(Vector3(1, 0, 0), float(spec.get("roll", 0.0))) * Basis(y.cross(z), y, z)
 	var pivot: Vector3 = spec.pivot
 	var center: Vector3 = spec.center
 	var xf := Transform3D(rot.scaled_local(Vector3(sc, sc, sc)), center - rot * (pivot * sc))
