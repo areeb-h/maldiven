@@ -52,7 +52,7 @@ def build_audio(sheet, music, out_wav):
         m = len(cues) + 1
         parts.append('[sfx]asplit=2[sfx_mix][sfx_key]')
         parts.append(f'[{m}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{duration:.3f},'
-                     f'afade=t=out:st={max(0.0, duration - 2.5):.3f}:d=2.5,volume=-3dB[mus]')
+                     f'afade=t=out:st={max(0.0, duration - 0.8):.3f}:d=0.8,volume=-3dB[mus]')
         parts.append('[mus][sfx_key]sidechaincompress=threshold=0.05:ratio=6:attack=15:release=350[ducked]')
         parts.append('[ducked][sfx_mix]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[out]')
     else:

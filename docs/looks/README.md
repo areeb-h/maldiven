@@ -2,6 +2,18 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · physics-v1
+
+Commit `00319a0` · studio/station renders · 6 frames · [folder](2026-11-15-physics-v1/)
+
+Physics pass, as frame strips: ragdoll collapse when shot, carried body dangling, shove stagger, loose items bouncing, props knocked over, and the airlock vent blowing everything into space. Host-authoritative rigid bodies replicate at 25 Hz only while moving (about 3 KB/s per client in a scrum).
+
+| | |
+| --- | --- |
+| ![sheet airlock vent](2026-11-15-physics-v1/00_sheet_airlock_vent.jpg)<br>sheet airlock vent | ![sheet carried dangle](2026-11-15-physics-v1/01_sheet_carried_dangle.jpg)<br>sheet carried dangle |
+| ![sheet items bounce](2026-11-15-physics-v1/02_sheet_items_bounce.jpg)<br>sheet items bounce | ![sheet props knocked](2026-11-15-physics-v1/03_sheet_props_knocked.jpg)<br>sheet props knocked |
+| ![sheet ragdoll collapse](2026-11-15-physics-v1/04_sheet_ragdoll_collapse.jpg)<br>sheet ragdoll collapse | ![sheet shove stagger](2026-11-15-physics-v1/05_sheet_shove_stagger.jpg)<br>sheet shove stagger |
+
 ## 2026-11-15 · items-v2
 
 Commit `3f10be4` · studio/station renders · 17 frames · [folder](2026-11-15-items-v2/)
