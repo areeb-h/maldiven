@@ -16,8 +16,15 @@ const MAX_PLAYERS := 8
 const GAME_ID := "drift-station"
 const PALETTE := [Color("ff5a5a"), Color("4da3ff"), Color("ffd23f"), Color("53d769"),
 	Color("c77dff"), Color("ff9f40"), Color("3fe0d0"), Color("f2f2f2")]
+## Bot players (scripts/bots/): roster entries {name, color, bot: true, skill}
+## with ids from BOT_ID_BASE, simulated in-process by the host. They are never
+## sent an RPC; they count toward max_players.
+const BOT_ID_BASE := 10001
+const BOT_NAMES := ["Bot Nova", "Bot Pixel", "Bot Juno", "Bot Rivet", "Bot Comet", "Bot Echo",
+	"Bot Vega", "Bot Sprocket", "Bot Orbit", "Bot Tango"]
+const BOT_SKILLS := ["easy", "normal", "hard"]
 
-var roster := {}  # peer id -> {name, color}
+var roster := {}  # peer id -> {name, color} (bots also: bot = true, skill)
 var in_round := false
 var room_name := ""
 var dedicated := false  # PC dedicated server: peer 1 hosts but is not a player (scripts/server/)
@@ -50,6 +57,94 @@ func is_host() -> bool:
 
 func my_id() -> int:
 	return multiplayer.get_unique_id() if is_online() else 0
+
+
+## True for a bot player's id (host and clients both know from the roster).
+func is_bot(id: int) -> bool:
+	return roster.has(id) and bool(roster[id].get("bot", false))
+
+
+func human_count() -> int:
+	var count := 0
+	for id in roster:
+		if not is_bot(id):
+			count += 1
+	return count
+
+
+func bot_ids() -> Array:
+	var out := []
+	for id in roster:
+		if is_bot(id):
+			out.append(id)
+	out.sort()
+	return out
+
+
+## Host, lobby only: add a bot player. Returns its id, or 0 when that isn't
+## possible (not hosting, a round is running, or every seat is taken).
+func add_bot(skill := "normal") -> int:
+	if not is_host() or in_round or roster.size() >= max_players:
+		return 0
+	var id := BOT_ID_BASE
+	while roster.has(id) or multiplayer.get_peers().has(id):
+		id += 1
+	var taken := []
+	for entry in roster.values():
+		taken.append(entry.name)
+	var bot_name := ""
+	for candidate in BOT_NAMES:
+		if not taken.has(candidate):
+			bot_name = candidate
+			break
+	if bot_name.is_empty():
+		bot_name = _unique_name("Bot")
+	roster[id] = {"name": bot_name, "color": _free_color(), "bot": true,
+		"skill": skill if BOT_SKILLS.has(skill) else "normal"}
+	_send_to_roster("_roster", [roster])
+	roster_changed.emit()
+	return id
+
+
+## Host, lobby only: remove a bot (id 0: the most recently added). Returns false
+## if there was none to remove.
+func remove_bot(id := 0) -> bool:
+	if not is_host() or in_round:
+		return false
+	if id == 0:
+		var bots := bot_ids()
+		if bots.is_empty():
+			return false
+		id = bots.back()
+	if not is_bot(id):
+		return false
+	roster.erase(id)
+	_send_to_roster("_roster", [roster])
+	roster_changed.emit()
+	return true
+
+
+func _free_color() -> Color:
+	var used := []
+	for entry in roster.values():
+		used.append(entry.color)
+	for candidate in PALETTE:
+		if not used.has(candidate):
+			return candidate
+	return PALETTE[roster.size() % PALETTE.size()]
+
+
+func _unique_name(wanted: String) -> String:
+	var unique := _clean_name(wanted)
+	var taken := []
+	for entry in roster.values():
+		taken.append(entry.name)
+	var suffix := 2
+	var base := unique
+	while taken.has(unique):
+		unique = "%s %d" % [base.substr(0, 13), suffix]
+		suffix += 1
+	return unique
 
 
 # --- Session lifecycle -------------------------------------------------------
@@ -86,7 +181,9 @@ func host_dedicated(name_of_room: String, seats := MAX_PLAYERS) -> Error:
 
 ## Host: remove a client; they see the message on their home screen.
 func kick(id: int, message: String) -> void:
-	if is_host() and id != 1:
+	if is_bot(id):
+		remove_bot(id)
+	elif is_host() and id != 1:
 		_refuse(id, message)
 
 
@@ -191,10 +288,10 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 ## Host only: send an RPC to every registered client (never to peers that are
-## connected but not yet admitted, or were refused).
+## connected but not yet admitted, or were refused, and never to bots).
 func _send_to_roster(method: StringName, args: Array) -> void:
 	for id in roster:
-		if id != 1:
+		if id != 1 and not is_bot(id):
 			callv("rpc_id", [id, method] + args)
 
 
@@ -213,24 +310,10 @@ func _register(player_name: String, protocol: int) -> void:
 	if roster.size() >= max_players:
 		_refuse(id, "The station is full.")
 		return
-	var used := []
-	for entry in roster.values():
-		used.append(entry.color)
-	var color: Color = PALETTE[roster.size() % PALETTE.size()]
-	for candidate in PALETTE:
-		if not used.has(candidate):
-			color = candidate
-			break
-	var unique := _clean_name(player_name)
-	var taken := []
-	for entry in roster.values():
-		taken.append(entry.name)
-	var suffix := 2
-	var base := unique
-	while taken.has(unique):
-		unique = "%s %d" % [base.substr(0, 13), suffix]
-		suffix += 1
-	roster[id] = {"name": unique, "color": color}
+	if is_bot(id):
+		_refuse(id, "The station is busy. Try joining again.")  # (astronomically rare id clash)
+		return
+	roster[id] = {"name": _unique_name(player_name), "color": _free_color()}
 	_welcome.rpc_id(id, room_name)
 	if dedicated:
 		_server_is_dedicated.rpc_id(id)
@@ -297,6 +380,8 @@ func _back_to_lobby() -> void:
 
 ## Host -> one client: its private role. Never broadcast.
 func send_role(id: int, role: String) -> void:
+	if is_bot(id):
+		return  # a bot's brain reads its role from the host rules
 	_role.rpc_id(id, role)
 
 
@@ -361,7 +446,7 @@ func send_physics(data: PackedByteArray, reliable: bool, to_peer: int) -> void:
 	if not is_host():
 		return
 	if to_peer != 0:
-		if to_peer != 1 and roster.has(to_peer):
+		if to_peer != 1 and roster.has(to_peer) and not is_bot(to_peer):
 			_physics_keyframe.rpc_id(to_peer, data)
 	elif reliable:
 		_send_to_roster("_physics_keyframe", [data])
@@ -396,7 +481,7 @@ func _physics_sync() -> void:
 ## Host: smoothed round-trip time to a client, in seconds (0 if unknown).
 func peer_rtt(id: int) -> float:
 	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet == null or id == 1 or not is_online():
+	if enet == null or id == 1 or not is_online() or is_bot(id):
 		return 0.0
 	var packet_peer := enet.get_peer(id)
 	if packet_peer == null:

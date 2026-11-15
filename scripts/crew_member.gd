@@ -31,6 +31,9 @@ var number := 0  # 1..8, shown on the suit
 var variant := 0  # cosmetic helmet/backpack style
 var carried := false
 var input_enabled := true  # false while a menu covers the screen
+## Host-simulated bot (scripts/bots/): physics like a local player, driven by a
+## BotBrain through move_input / yaw / jump_pending; no camera, HUD or keys.
+var bot_driven := false
 var forced_position = null  # Vector3 set by the host for downed bodies, else null
 ## Velocity bias from the environment (airlock decompression), set by the world.
 var external_push := Vector3.ZERO
@@ -205,7 +208,7 @@ func clear_input() -> void:
 
 ## Remote puppets: latest host pose.
 func set_remote_pose(pos: Vector3, facing: float, moving: float) -> void:
-	if is_local:
+	if _simulated():
 		return
 	if pos.distance_to(_target_pos) > 6.0:
 		position = pos  # teleport/respawn: snap instead of sliding through walls
@@ -218,7 +221,7 @@ func set_remote_pose(pos: Vector3, facing: float, moving: float) -> void:
 ## Launch this (local) player along `direction`. strength 1 = a full shove;
 ## walls stop it (move_and_slide) and bounce a share of it back.
 func knockback(direction: Vector3, strength := 1.0) -> void:
-	if not is_local or life_state != "ok":
+	if not _simulated() or life_state != "ok":
 		return
 	var flat := Vector3(direction.x, 0.0, direction.z)
 	if flat.length() < 0.01:
@@ -296,6 +299,8 @@ func _apply_collision() -> void:
 ## (props are pushed by the host's proxy of this player, which runs a little
 ## ahead, so the replica usually moves before the capsule reaches it).
 func _standing_mask() -> int:
+	if bot_driven:
+		return 1 | 2 | 4 | PhysicsLayers.PROP  # host bots also bump into the host's own player
 	return 1 | 2 | (PhysicsLayers.PROP if is_local else 0)
 
 
@@ -323,7 +328,7 @@ func set_life_state(state: String) -> void:
 		_visual_base = Vector3(0, 0.25 if state == "downed" else 0.0, 0)
 	_apply_collision()
 	name_tag.modulate.a = 0.5 if ghost else 1.0
-	if ghost and is_local:
+	if ghost and _simulated():
 		velocity = Vector3.ZERO
 		position.y = 0.6
 
@@ -339,8 +344,13 @@ func facing_yaw() -> float:
 	return _facing
 
 
+## This peer simulates the body (its own player, or a bot on the host).
+func _simulated() -> bool:
+	return is_local or bot_driven
+
+
 func moving_amount() -> float:
-	return Vector2(velocity.x, velocity.z).length() if is_local else _remote_moving
+	return Vector2(velocity.x, velocity.z).length() if _simulated() else _remote_moving
 
 
 func respawn() -> void:
@@ -356,7 +366,7 @@ func snap_smoothing() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if is_local:
+	if _simulated():
 		_physics_prev = _physics_now
 		if life_state == "dead":
 			_ghost_physics(delta)
@@ -374,7 +384,7 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_step_offset = move_toward(_step_offset, 0.0, delta * 2.6)
-	if is_local:
+	if _simulated():
 		var smoothed := _physics_prev.lerp(_physics_now, Engine.get_physics_interpolation_fraction())
 		visual.position = _visual_base + (smoothed - global_position) + Vector3(0, _step_offset, 0)
 		_camera_fx(delta, smoothed + Vector3(0, _step_offset, 0))
@@ -408,6 +418,8 @@ func _ride_carrier(delta: float) -> void:
 
 
 func _input_axis() -> Vector2:
+	if bot_driven:
+		return move_input.limit_length()
 	if not input_enabled:
 		return Vector2.ZERO
 	var keyboard := Vector2(
@@ -421,7 +433,7 @@ func _local_physics(delta: float) -> void:
 	if stunned:
 		axis = Vector2.ZERO
 	var direction := Basis(Vector3.UP, yaw) * Vector3(axis.x, 0, axis.y)
-	var shift := input_enabled and Input.is_physical_key_pressed(KEY_SHIFT)
+	var shift := input_enabled and not bot_driven and Input.is_physical_key_pressed(KEY_SHIFT)
 	var running := shift or (move_input.length() > 0.8)
 	# Pushing a heavy prop slows you down (barrel ~40 %, crate ~30 %, a chair barely).
 	var speed := (RUN_SPEED if running else WALK_SPEED) * speed_factor * (1.0 - _push_load)
@@ -549,7 +561,7 @@ func _after_slide(before: Vector3, delta: float) -> void:
 ## Touch players: when moving without touching the camera for a moment, ease
 ## the camera back behind the character (common mobile third-person pattern).
 func _auto_recenter(delta: float, speed: float) -> void:
-	if aiming or move_input.length() < 0.2 or speed < 1.5:
+	if bot_driven or aiming or move_input.length() < 0.2 or speed < 1.5:
 		return
 	if Time.get_ticks_msec() - _last_look_ms < 1400:
 		return
@@ -596,7 +608,7 @@ func _keep_personal_space() -> void:
 		var distance := offset.length()
 		if distance >= MIN_GAP:
 			continue
-		var push := (MIN_GAP - distance) * (1.0 if other.is_local else 0.5)
+		var push := (MIN_GAP - distance) * (1.0 if other._simulated() else 0.5)
 		var away := offset.normalized() if distance > 0.001 else Vector2(1, 0)
 		position += Vector3(away.x, 0, away.y) * push
 
@@ -623,7 +635,7 @@ func _animate(delta: float, horizontal_speed: float) -> void:
 		footstep.emit(global_position)
 	var holding := carry_point.get_child_count() > 0 or carrying_body
 	if _model_api:
-		visual.set_motion(horizontal_speed, is_on_floor() or not is_local, holding, stunned, delta)
+		visual.set_motion(horizontal_speed, is_on_floor() or not _simulated(), holding, stunned, delta)
 		if visual.has_method("set_aiming"):
 			visual.set_aiming(aiming)
 		if visual.has_method("set_flashlight_on"):

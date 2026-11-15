@@ -39,6 +39,7 @@ var physics: StationPhysics
 var _physics_synced := false
 var _impact_sound_ms := 0
 var _music_state := ""
+var bots: BotController  # host only: drives bot players (scripts/bots/), null without bots
 
 
 func _init(round_seed := -1) -> void:
@@ -91,6 +92,7 @@ func _ready() -> void:
 		avatar.setup(id, id == my_id, entry.name, entry.color, StationLayout.spawn_point(index, ids.size()))
 		avatar.number = index + 1
 		avatar.variant = index % 4
+		avatar.bot_driven = Net.is_host() and Net.is_bot(id)  # simulated here like a local player
 		add_child(avatar)
 		avatars[id] = avatar
 		avatar.footstep.connect(func(at: Vector3):
@@ -131,6 +133,7 @@ func _ready() -> void:
 			else:
 				Net.send_role(id, rules.role_of(id))
 		_broadcast_snapshot()
+		bots = BotController.attach(self, _seed)
 	_apply_power_state()
 
 
@@ -214,6 +217,8 @@ func _flush_events() -> void:
 	for event in rules.drain_events():
 		_dirty = true
 		physics.on_event(event)
+		if bots != null:
+			bots.on_event(event)
 		if event.type == "result" or event.type == "swing":
 			continue
 		Net.broadcast_event(event)
@@ -222,6 +227,8 @@ func _flush_events() -> void:
 
 ## Host: a physics-made event (a prop slamming into someone) for every peer.
 func host_emit(event: Dictionary) -> void:
+	if bots != null:
+		bots.on_event(event)
 	Net.broadcast_event(event)
 	client_event(event)
 

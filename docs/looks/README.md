@@ -2,6 +2,35 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · keyart-v1
+
+Commit `2d86313` · studio/station renders · 40 frames · [folder](2026-11-15-keyart-v1/)
+
+Final key art: 37 stills (characters, station, items, gameplay moments, UI) rendered from the finished game, plus trailer frames. The 80 s trailer (720p, scored) and the 15 s vertical teaser are regenerated with `python3 tools/trailer/render_trailer.py`; the videos are kept out of git.
+
+| | |
+| --- | --- |
+| ![characters crew lineup](2026-11-15-keyart-v1/00_characters_crew_lineup.jpg)<br>characters crew lineup | ![characters roster all colours](2026-11-15-keyart-v1/01_characters_roster_all_colours.jpg)<br>characters roster all colours |
+| ![characters expressions](2026-11-15-keyart-v1/02_characters_expressions.jpg)<br>characters expressions | ![characters variants](2026-11-15-keyart-v1/03_characters_variants.jpg)<br>characters variants |
+| ![characters portrait blue happy](2026-11-15-keyart-v1/04_characters_portrait_blue_happy.jpg)<br>characters portrait blue happy | ![characters portrait purple suspicious](2026-11-15-keyart-v1/05_characters_portrait_purple_suspicious.jpg)<br>characters portrait purple suspicious |
+| ![characters portrait red angry](2026-11-15-keyart-v1/06_characters_portrait_red_angry.jpg)<br>characters portrait red angry | ![characters portrait orange shocked](2026-11-15-keyart-v1/07_characters_portrait_orange_shocked.jpg)<br>characters portrait orange shocked |
+| ![characters one of you is lying](2026-11-15-keyart-v1/08_characters_one_of_you_is_lying.jpg)<br>characters one of you is lying | ![characters turntable trio](2026-11-15-keyart-v1/09_characters_turntable_trio.jpg)<br>characters turntable trio |
+| ![characters squad selfie](2026-11-15-keyart-v1/10_characters_squad_selfie.jpg)<br>characters squad selfie | ![station exterior planet](2026-11-15-keyart-v1/11_station_exterior_planet.jpg)<br>station exterior planet |
+| ![station overhead tilt shift](2026-11-15-keyart-v1/12_station_overhead_tilt_shift.jpg)<br>station overhead tilt shift | ![station commons](2026-11-15-keyart-v1/13_station_commons.jpg)<br>station commons |
+| ![station command vault](2026-11-15-keyart-v1/14_station_command_vault.jpg)<br>station command vault | ![station security](2026-11-15-keyart-v1/15_station_security.jpg)<br>station security |
+| ![station docking shuttle](2026-11-15-keyart-v1/16_station_docking_shuttle.jpg)<br>station docking shuttle | ![station cargo pod](2026-11-15-keyart-v1/17_station_cargo_pod.jpg)<br>station cargo pod |
+| ![station engineering](2026-11-15-keyart-v1/18_station_engineering.jpg)<br>station engineering | ![station reactor power wave](2026-11-15-keyart-v1/19_station_reactor_power_wave.jpg)<br>station reactor power wave |
+| ![station medical](2026-11-15-keyart-v1/20_station_medical.jpg)<br>station medical | ![station observation](2026-11-15-keyart-v1/21_station_observation.jpg)<br>station observation |
+| ![station corridor](2026-11-15-keyart-v1/22_station_corridor.jpg)<br>station corridor | ![items gun](2026-11-15-keyart-v1/23_items_gun.jpg)<br>items gun |
+| ![items power cell](2026-11-15-keyart-v1/24_items_power_cell.jpg)<br>items power cell | ![items core](2026-11-15-keyart-v1/25_items_core.jpg)<br>items core |
+| ![items items trio](2026-11-15-keyart-v1/26_items_items_trio.jpg)<br>items items trio | ![items sockets](2026-11-15-keyart-v1/27_items_sockets.jpg)<br>items sockets |
+| ![moments core run](2026-11-15-keyart-v1/28_moments_core_run.jpg)<br>moments core run | ![moments shove](2026-11-15-keyart-v1/29_moments_shove.jpg)<br>moments shove |
+| ![moments gun standoff](2026-11-15-keyart-v1/30_moments_gun_standoff.jpg)<br>moments gun standoff | ![moments rescue](2026-11-15-keyart-v1/31_moments_rescue.jpg)<br>moments rescue |
+| ![moments airlock](2026-11-15-keyart-v1/32_moments_airlock.jpg)<br>moments airlock | ![moments ghost](2026-11-15-keyart-v1/33_moments_ghost.jpg)<br>moments ghost |
+| ![moments blackout](2026-11-15-keyart-v1/34_moments_blackout.jpg)<br>moments blackout | ![moments shuttle escape](2026-11-15-keyart-v1/35_moments_shuttle_escape.jpg)<br>moments shuttle escape |
+| ![moments spaced](2026-11-15-keyart-v1/36_moments_spaced.jpg)<br>moments spaced | ![ui home](2026-11-15-keyart-v1/37_ui_home.jpg)<br>ui home |
+| ![ui lobby](2026-11-15-keyart-v1/38_ui_lobby.jpg)<br>ui lobby | ![ui role reveal](2026-11-15-keyart-v1/39_ui_role_reveal.jpg)<br>ui role reveal |
+
 ## 2026-11-15 · station-v2
 
 Commit `84bb235` · studio/station renders · 18 frames · [folder](2026-11-15-station-v2/)
