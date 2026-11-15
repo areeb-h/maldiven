@@ -21,6 +21,8 @@ static func haptic(ms := 12) -> void:
 ## Hover lift and press squash for any Control button, plus a tap haptic.
 static func attach_press(control: Control, hover_scale := 1.02, press_scale := 0.95) -> void:
 	control.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	if OS.has_feature("mobile"):
+		hover_scale = 1.0  # emulated touch "hover" never ends cleanly on phones
 	var center := func(): control.pivot_offset = control.size * 0.5
 	control.resized.connect(center)
 	center.call()

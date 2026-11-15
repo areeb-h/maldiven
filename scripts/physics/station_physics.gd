@@ -370,15 +370,17 @@ func _tick_item(body: NetBody) -> void:
 			body.set_hot(0)
 		_kick_resting_item(body)
 		return
-	var speed := body.prev_velocity.length()
+	# Hits first: the contact that makes it slow down is the hit itself.
+	if body.prev_velocity.length() >= StationRules.THROW_HIT_SPEED and _try_hit(body):
+		return
 	var age: float = clock - float(_activated_at.get(body.item_id, clock))
 	if age > 0.2 and body.linear_velocity.length() < COOL_SPEED:
 		rules.cool_item(body.item_id)
 		body.set_hot(0)
-		return
-	if speed < StationRules.THROW_HIT_SPEED:
-		return
-	var centre := body.global_transform * Vector3(0, 0.3, 0)
+
+
+func _try_hit(body: NetBody) -> bool:
+	var centre := body.global_transform * _centre_of(body)
 	for id in proxies:
 		var proxy: PlayerProxy = proxies[id]
 		if proxy.mode != "standing" or id == body.hot_by:
@@ -390,7 +392,19 @@ func _tick_item(body: NetBody) -> void:
 			continue
 		if rules.item_hit(body.item_id, id, body.prev_velocity):
 			body.set_hot(0)
-			return
+			return true
+	return false
+
+
+## The middle of a body's collider (local space).
+static func _centre_of(body: NetBody) -> Vector3:
+	var sum := Vector3.ZERO
+	var n := 0
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			sum += (child as CollisionShape3D).position
+			n += 1
+	return sum / maxf(1.0, float(n))
 
 
 ## A player walking into a resting item nudges it along instead of launching it.

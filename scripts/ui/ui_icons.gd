@@ -431,12 +431,12 @@ static func badge_svg(name: String, accent: Color, shape := "hex", style := "col
 	var scale := 0.6 if shape == "hex" else 0.64
 	var offset := 24.0 - 24.0 * scale
 	var icon := _compose(_body(name), style, small, ink, "i", 0.0)
-	var defs := ("<linearGradient id='bp' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%s'/><stop offset='1' stop-color='#050912'/></linearGradient>" % top
+	var defs: String = ("<linearGradient id='bp' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%s'/><stop offset='1' stop-color='#050912'/></linearGradient>" % top
 		+ "<linearGradient id='bb' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.4'/><stop offset='.45' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.45'/></linearGradient>"
 		+ "<linearGradient id='br' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%s'/><stop offset='1' stop-color='%s'/></linearGradient>" % [lit, a]
 		+ "<radialGradient id='bg' cx='.5' cy='.5' r='.5'><stop offset='0' stop-color='%s' stop-opacity='.4'/><stop offset='1' stop-color='%s' stop-opacity='0'/></radialGradient>" % [a, a]
 		+ icon.defs)
-	var body := ("<path d='%s' transform='translate(0 1.6)' fill='#000' fill-opacity='.45'/>" % plate
+	var body: String = ("<path d='%s' transform='translate(0 1.6)' fill='#000' fill-opacity='.45'/>" % plate
 		+ "<path d='%s' fill='url(#bp)'/>" % plate
 		+ "<circle cx='24' cy='24' r='17' fill='url(#bg)'/>"
 		+ "<path d='%s' transform='translate(24 24) scale(.86) translate(-24 -24)' fill='none' stroke='url(#bb)' stroke-width='1.8'/>" % plate

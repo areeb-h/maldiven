@@ -191,6 +191,8 @@ func test_item_sync() -> void:
 	var settled := false
 	for i in range(360):
 		await _steps(1)
+		if i % 30 == 0:
+			print("  debug rest %d: %s v %s w %s" % [i, body.global_position, body.linear_velocity, body.angular_velocity])
 		if body.sleeping:
 			settled = true
 			break
@@ -203,7 +205,6 @@ func test_item_sync() -> void:
 	# Fell out of the world: back to its dock.
 	rules._make_loose("cell_2", Vector3(0, -8, 80), Quaternion.IDENTITY, Vector3.ZERO)
 	await _steps(4)
-	print("  debug oow: ", rules.items.cell_2.pos, " body ", _body("cell_2").global_position, " ep ", rules.items.cell_2.epoch, "/", _body("cell_2").epoch, " lost ", rules.items.cell_2.lost)
 	check(StationLayout.room_at(rules.items.cell_2.pos) == "medical", "an item out of the world respawns")
 	# A thrown item hits a standing player (proxy) and stuns them.
 	var victim := 2
@@ -218,12 +219,9 @@ func test_item_sync() -> void:
 	var hit := false
 	for i in range(60):
 		await _steps(1)
-		if i % 3 == 0:
-			print("  debug fly %d: %s v %s hot %s" % [i, _body("cell_2").global_position, _body("cell_2").linear_velocity, rules.items.cell_2.flight])
 		if rules.players[victim].stunned_until > rules.elapsed:
 			hit = true
 			break
-	print("  debug hit: thrown ", rules.items.cell_2.flight, " pos ", rules.items.cell_2.pos, " proxy ", phys.proxies[victim].global_position, " layer ", phys.proxies[victim].collision_layer, " phase ", rules.phase, " holder ", rules.items.cell_2.holder)
 	check(hit, "a thrown cell hitting a standing player's capsule stuns them")
 	await _steps(120)
 	check(rules.items.cell_2.flight.is_empty(), "the thrown cell cooled down")

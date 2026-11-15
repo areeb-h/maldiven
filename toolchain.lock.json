@@ -14,6 +14,27 @@
       "executable": "Godot_v4.7.2-stable_linux.x86_64",
       "executable_sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e"
     },
+    "windows_x86_64": {
+      "name": "Godot_v4.7.2-stable_win64.exe.zip",
+      "url": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip",
+      "sha256": "731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953",
+      "sha512": "83decd58fdf67b9d657958a1ae6bf1929c20785315a81effe245874cdc57acb709bf868e00778a96984338c1b29dafdb453c6847747694621c6ecf5da2259993",
+      "size": 86013866,
+      "executable": "Godot_v4.7.2-stable_win64_console.exe",
+      "executable_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643",
+      "companion": "Godot_v4.7.2-stable_win64.exe",
+      "companion_sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+    },
+    "macos_universal": {
+      "name": "Godot_v4.7.2-stable_macos.universal.zip",
+      "url": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_macos.universal.zip",
+      "sha256": "c58a24e31d720be9d62f60cb5627c4e695fb72f21b0cfe1bc9ccaa9a3b3ba63e",
+      "sha512": "38aa16e5bba2083941fc5b3e54be0089bd4cc35e32415f5b9fd9a8a6a7b9818255d44532ea8ef94b5aef56c4b407c2d634fa4f657e4ebe681ebbf59b7bac69ca",
+      "size": 170622178,
+      "bundle": "Godot.app",
+      "executable": "Godot.app/Contents/MacOS/Godot",
+      "executable_sha256": "c7cccbf8fb143e34e02fd6521e09be2c2b974f0d5db080b19071c9c570718ccf"
+    },
     "export_templates": {
       "name": "Godot_v4.7.2-stable_export_templates.tpz",
       "url": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz",
