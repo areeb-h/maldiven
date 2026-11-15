@@ -378,7 +378,23 @@ def unit_tests():
     check('playit agent detected' in console(lan, playit_detected=True), 'playit hint missing')
     check('playit agent detected' not in console(lan, playit_detected=True, public_address='a.playit.gg:1'),
           'playit hint shown although the address is set')
-    print('  address classification (WSL NAT / mirrored / Tailscale / LAN) and --public-address ok', flush=True)
+    # The Round card's empty-lobby line only promises routes that reach the server.
+    mirrored = hs.classify_network([('eth1', '192.168.1.42'), ('lo', '10.255.255.254')], True, (), '192.168.1.42')
+    nat_only = hs.classify_network([('lo', '10.255.255.254'), ('eth0', '172.21.39.63')], True)
+    wifi = 'Waiting for the crew. Phones on this Wi-Fi can see the station now.'
+    for network, public, expected in [
+            (hs.classify_network(owner, True), None, 'Waiting for the crew. Phones join by IP over Tailscale (100.92.33.25).'),
+            (hs.classify_network(owner, True), 'abc.playit.gg:12345',
+             'Waiting for the crew. Phones join by IP over Tailscale (100.92.33.25) or at abc.playit.gg:12345.'),
+            (nat_only, None, 'Waiting for the crew. Only this PC can reach the station; see the steps in Join from a phone.'),
+            (nat_only, 'abc.playit.gg:12345', "Waiting for the crew. Phones join by IP at abc.playit.gg:12345; phones on "
+                                              "your Wi-Fi can't reach this PC directly (see Join from a phone)."),
+            (lan, None, wifi), (mirrored, None, wifi),
+            (lan, 'abc.playit.gg:12345', wifi + ' Friends elsewhere join by IP at abc.playit.gg:12345.')]:
+        got = hs.lobby_hint(network, public)
+        check(got == expected, f'lobby hint for {network["mode"]}/{network["tailscale"]}/{public}: {got!r}')
+        check('Wi-Fi can see' not in got or network['mode'] != 'nat', f'NAT lobby hint promises Wi-Fi: {got!r}')
+    print('  address classification (WSL NAT / mirrored / Tailscale / LAN), lobby hint and --public-address ok', flush=True)
 
 
 def main():

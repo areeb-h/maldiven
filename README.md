@@ -66,6 +66,8 @@ Python 3.11+. Engine versions and checksums are pinned in `toolchain.lock.json`.
 
 - [Design](docs/design.md): the game, in one doc
 - [Roadmap](docs/roadmap.md): week-by-week checklist
+- [Hosting](docs/hosting.md): host from a phone or a PC server; Wi-Fi, Tailscale and public-tunnel join routes; WSL notes
+- [Looks log](docs/looks/README.md): how the game looks over time, with screenshots
 - [ADRs](docs/adr/README.md): decisions that still apply
 - [Friends Lab voice experiment](docs/pc-server-and-phone.md): PC server + phone PCM voice, tunnel setup
 - [Archive](docs/archive/README.md): the earlier detailed plan, blueprint and reports

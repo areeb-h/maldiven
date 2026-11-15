@@ -787,6 +787,7 @@ class Station:
         """Everything the panel shows, as one JSON document."""
         with self.lock:
             fresh = self.status is not None and time.time() - self.status_at < 3.0
+            network = network_for(self.options.network, (self.status or {}).get('addresses'))
             return {
                 'app': 'drift-station',
                 'launcher': {
@@ -795,7 +796,8 @@ class Station:
                     'exit_code': self.exit_code,
                     'log_tail': list(self.log)[-25:] if self.state == 'crashed' else [],
                     'uptime': round(time.time() - self.started_at, 1) if self.state in ('starting', 'running') else 0,
-                    'network': network_for(self.options.network, (self.status or {}).get('addresses')),
+                    'network': network,
+                    'lobby_hint': lobby_hint(network, self.options.public_address),
                     'public_address': self.options.public_address,
                     'public_label': self.options.public_label,
                     'playit_detected': self.options.playit_detected,
@@ -955,6 +957,26 @@ def print_wsl_nat_box(console, network):
         console.line('     ' + p(text, '2'))
         for command in commands:
             console.line('       ' + command)  # one line each, so they copy cleanly
+
+
+def lobby_hint(network, public_address=None):
+    """The Round card's empty-lobby line: only promise routes that actually reach this server."""
+    tailscale = network.get('tailscale') or []
+    via_tunnel = f'at {public_address}' if public_address else ''
+    if network.get('mode') == 'nat' or not network.get('lan'):
+        if tailscale:
+            routes = f'over Tailscale ({tailscale[0]})' + (f' or {via_tunnel}' if via_tunnel else '')
+            return f'Waiting for the crew. Phones join by IP {routes}.'
+        if via_tunnel:
+            return (f'Waiting for the crew. Phones join by IP {via_tunnel}; phones on your Wi-Fi can\'t reach '
+                    'this PC directly (see Join from a phone).')
+        if network.get('mode') == 'nat':
+            return 'Waiting for the crew. Only this PC can reach the station; see the steps in Join from a phone.'
+        return 'Waiting for the crew. This PC has no Wi-Fi or LAN address yet: connect it to the phones\' network.'
+    text = 'Waiting for the crew. Phones on this Wi-Fi can see the station now.'
+    if via_tunnel:
+        text += f' Friends elsewhere join by IP {via_tunnel}.'
+    return text
 
 
 def print_big_address(console, address):

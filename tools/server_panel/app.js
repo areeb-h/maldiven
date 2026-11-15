@@ -416,7 +416,8 @@
       const n = server.players.length;
       const need = server.min_players || 2;
       const names = server.players.map((p) => p.name);
-      if (n === 0) ui.lobbyLead.textContent = "Waiting for the crew. Phones on this Wi-Fi can see the station now.";
+      // The launcher words this from the routes that really reach the server (WSL NAT, Tailscale, tunnel).
+      if (n === 0) ui.lobbyLead.textContent = snap.launcher?.lobby_hint || "Waiting for the crew. Phones on this Wi-Fi can see the station now.";
       else if (n < need) ui.lobbyLead.textContent = `${names[0]} is aboard. One more player and you can start.`;
       else ui.lobbyLead.textContent = `${plural(n, "crewmate", "crewmates")} aboard. One of them will secretly be the infiltrator.`;
       const ready = n >= need && !server.stopping;
