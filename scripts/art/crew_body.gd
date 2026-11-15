@@ -15,12 +15,12 @@ const BONE_NAMES: Array[String] = ["Hips", "Spine", "Chest", "Neck", "Head",
 const PARENTS: Array[int] = [-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15, 7, 7, 10, 10, 4, 2]
 const JOINTS: Array[Vector3] = [
 	Vector3(0, 0.97, 0), Vector3(0, 1.07, 0), Vector3(0, 1.21, -0.01), Vector3(0, 1.47, -0.012), Vector3(0, 1.555, -0.005),
-	Vector3(0.222, 1.425, -0.015), Vector3(0.222, 1.13, -0.015), Vector3(0.222, 0.86, -0.015),
-	Vector3(-0.222, 1.425, -0.015), Vector3(-0.222, 1.13, -0.015), Vector3(-0.222, 0.86, -0.015),
+	Vector3(0.235, 1.425, -0.015), Vector3(0.235, 1.13, -0.015), Vector3(0.235, 0.86, -0.015),
+	Vector3(-0.235, 1.425, -0.015), Vector3(-0.235, 1.13, -0.015), Vector3(-0.235, 0.86, -0.015),
 	Vector3(0.1, 0.93, 0), Vector3(0.1, 0.505, 0), Vector3(0.1, 0.09, 0),
 	Vector3(-0.1, 0.93, 0), Vector3(-0.1, 0.505, 0), Vector3(-0.1, 0.09, 0),
-	Vector3(0.216, 0.776, -0.006), Vector3(0.207, 0.832, 0.035),
-	Vector3(-0.216, 0.776, -0.006), Vector3(-0.207, 0.832, 0.035),
+	Vector3(0.229, 0.776, -0.006), Vector3(0.22, 0.832, 0.035),
+	Vector3(-0.229, 0.776, -0.006), Vector3(-0.22, 0.832, 0.035),
 	Vector3(0, 1.648, -0.006), Vector3(0, 1.25, -0.13),
 ]
 
@@ -95,9 +95,9 @@ static func _build(variant: int) -> void:
 	_occluders(kit)
 	kit.bake_ao()
 	var creases: Array[Vector3] = []
-	for j in [L_FORE, R_FORE, L_SHIN, R_SHIN, L_ARM, R_ARM]:
+	for j in [L_FORE, R_FORE, L_SHIN, R_SHIN]:
 		creases.append(JOINTS[j])
-	kit.bake_creases(creases, 0.1, F)
+	kit.bake_creases(creases, 0.075, F)
 	_cache["body%d" % variant] = kit.commit()
 	_cache["body_tris%d" % variant] = kit.triangle_count()
 
@@ -160,20 +160,25 @@ static func _limb(k: CrewMeshKit, a: Vector3, b: Vector3, radii: Array[float], s
 	k.lathe(prof, Transform3D(Basis(x, y, x.cross(y)), a), segments, scale_xz)
 
 
-## Ridged rubber hinge barrel on the hinge (X) axis of a knee or elbow, rigid on the
+## Smooth rubber hinge barrel on the hinge (X) axis of a knee or elbow, rigid on the
 ## lower bone: a cylinder about its own rotation axis covers the joint at any bend.
-static func _barrel(k: CrewMeshKit, bone: int, center: Vector3, half_len: float, radius: float, ripples: int, segments: int) -> void:
-	var prof := PackedVector2Array()
-	prof.append(Vector2(0.0, -half_len - radius * 0.32))
-	prof.append(Vector2(radius * 0.7, -half_len - radius * 0.2))
-	var rows := ripples * 2
-	for i in rows + 1:
-		var t := float(i) / float(rows)
-		prof.append(Vector2(radius * (1.0 - 0.07 * cos(float(i) * PI)), lerpf(-half_len, half_len, t)))
-	prof.append(Vector2(radius * 0.7, half_len + radius * 0.2))
-	prof.append(Vector2(0.0, half_len + radius * 0.32))
-	k.set_part(bone, F, 0.72)
+static func _barrel(k: CrewMeshKit, bone: int, center: Vector3, half_len: float, radius: float, segments: int) -> void:
+	var prof := PackedVector2Array([Vector2(0.0, -half_len - radius * 0.3), Vector2(radius * 0.72, -half_len - radius * 0.18),
+		Vector2(radius * 0.97, -half_len), Vector2(radius, -half_len * 0.4), Vector2(radius, half_len * 0.4),
+		Vector2(radius * 0.97, half_len), Vector2(radius * 0.72, half_len + radius * 0.18), Vector2(0.0, half_len + radius * 0.3)])
+	k.set_part(bone, F, 0.62)
 	k.lathe(prof, Transform3D(Basis(Vector3.DOWN, Vector3.RIGHT, Vector3.BACK), center), segments)
+
+
+## Crisp flex ribs: separate, evenly spaced, bevelled rings (hard breaks between them).
+static func _ribs(k: CrewMeshKit, bone: int, center: Vector3, count: int, spacing: float, r_out: float, segments: int, scale_xz := Vector2.ONE, shade := 0.62) -> void:
+	var h := spacing * 0.34
+	var bv := h * 0.5
+	for i in count:
+		var y0 := (float(i) - float(count - 1) * 0.5) * spacing
+		var prof := PackedVector2Array([Vector2(r_out - bv * 1.6, y0 - h), Vector2(r_out, y0 - h + bv), Vector2(r_out, y0 + h - bv), Vector2(r_out - bv * 1.6, y0 + h)])
+		k.set_part(bone, F, shade)
+		k.lathe(prof, Transform3D(Basis.IDENTITY, center), segments, scale_xz, 0.0, TAU, PackedFloat32Array([0.6, 1, 1, 0.6]))
 
 
 ## Hinge cap with a metal bolt on the outer side of an elbow / knee / ankle.
@@ -233,15 +238,17 @@ static func _hips(k: CrewMeshKit) -> void:
 
 
 static func _torso(k: CrewMeshKit) -> void:
-	# Waist bellows (spine), blending into hips below.
+	# Waist: smooth satin sleeve (spine, skinned into the hips) with crisp flex ribs.
 	var prof := PackedVector2Array()
-	for i in 11:
-		var y := lerpf(0.99, 1.25, float(i) / 10.0)
-		var rr := 0.112 + 0.007 * cos(float(i) * PI) + 0.012 * sin(clampf((y - 0.99) / 0.26, 0.0, 1.0) * PI)
-		prof.append(Vector2(rr, y))
+	for i in 6:
+		var y := lerpf(0.99, 1.25, float(i) / 5.0)
+		prof.append(Vector2(0.108 + 0.012 * sin(clampf((y - 0.99) / 0.26, 0.0, 1.0) * PI), y))
 	k.set_part(SPINE, F, 0.8)
 	k.set_blend(HIPS, Vector3(0, 1.03, 0), Vector3.DOWN, 0.04)
 	k.lathe(prof, Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.012)), 14, Vector2(1.0, 0.78))
+	k.clear_blend()
+	_ribs(k, SPINE, Vector3(0, 1.05, -0.012), 2, 0.022, 0.121, 16, Vector2(1.0, 0.8))
+	_ribs(k, SPINE, Vector3(0, 1.175, -0.012), 2, 0.022, 0.127, 16, Vector2(1.0, 0.8))
 	# Abdominal armour bands (graphite: dark waist, bright chest -> heroic V).
 	k.set_part(SPINE, S, 1.15)
 	k.deform = CrewMeshKit.shell(0.175, 0.0)
@@ -592,41 +599,50 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	var out := Vector3(s, 0, 0)
 	# Shoulder bearing ball: fills the socket whatever the arm angle.
 	k.set_part(up, F, 0.7)
-	k.ellipsoid(Vector3(x - s * 0.008, 1.425, z0), Vector3(0.074, 0.07, 0.078), Basis.IDENTITY, 10, 5)
+	k.ellipsoid(Vector3(x - s * 0.01, 1.425, z0), Vector3(0.07, 0.068, 0.074), Basis.IDENTITY, 12, 6)
 	# Upper arm: wide at the shoulder, tapering to the elbow.
 	k.set_part(up, F, 0.85)
-	_limb(k, Vector3(x, 1.17, z0), Vector3(x, 1.42, z0), [0.053, 0.058, 0.064, 0.067] as Array[float], 10)
-	k.set_part(up, P, 0.95)
-	_plate(k, Vector3(x, 1.28, z0), 0.064, s * PI * 0.5, Vector3(0.12, 0.13, 0.026), 0.011, 0.0, 0.85)
+	_limb(k, Vector3(x, 1.17, z0), Vector3(x, 1.42, z0), [0.052, 0.056, 0.061, 0.064] as Array[float], 10)
+	# Coloured upper-arm shell wrapping the outer/front side; tucks under the pauldron
+	# and steps down onto the elbow barrel.
+	k.set_part(up, P, 1.0)
+	_plate(k, Vector3(x, 1.29, z0), 0.061, s * 1.05, Vector3(0.15, 0.17, 0.026), 0.012, 0.0, 0.86, Vector3i(1, 2, 1))
 	k.set_part(up, A)
-	_plate(k, Vector3(x, 1.212, z0), 0.068, s * PI * 0.5, Vector3(0.06, 0.006, 0.004), 0.0)
-	# Pauldron: graphite under-layer + domed cap overlapping the upper arm, emissive rim.
+	_plate(k, Vector3(x, 1.222, z0), 0.0875, s * 1.05, Vector3(0.09, 0.006, 0.004), 0.0)
+	# Pauldron: graphite under-layer + domed cap overlapping the arm shell, emissive rim,
+	# held by a strap with a metal buckle.
 	var pad_dir := Vector3(s * 0.5, 0.866, 0.0)
 	var pad_basis := Basis(pad_dir.cross(Vector3.BACK).normalized(), pad_dir, Vector3.BACK)
-	var pad_c := Vector3(x + s * 0.03, 1.448, z0)
+	var pad_c := Vector3(x + s * 0.018, 1.446, z0)
+	var sc := 0.82
 	k.set_part(up, S, 1.15)
-	k.lathe(PackedVector2Array([Vector2(0.09, -0.05), Vector2(0.106, -0.044), Vector2(0.11, -0.022), Vector2(0.1, 0.0), Vector2(0.084, 0.012)]),
+	k.lathe(PackedVector2Array([Vector2(0.09 * sc, -0.05 * sc), Vector2(0.106 * sc, -0.044 * sc), Vector2(0.11 * sc, -0.022 * sc), Vector2(0.1 * sc, 0.0), Vector2(0.084 * sc, 0.012 * sc)]),
 		Transform3D(pad_basis, pad_c), 14, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0.5, 1, 0]))
 	k.set_part(up, P, 1.0)
-	var dome := PackedVector2Array([Vector2(0.092, -0.006), Vector2(0.1, 0.006), Vector2(0.095, 0.034), Vector2(0.076, 0.062), Vector2(0.042, 0.078), Vector2(0.0, 0.083)])
+	var dome := PackedVector2Array([Vector2(0.092 * sc, -0.006 * sc), Vector2(0.1 * sc, 0.006 * sc), Vector2(0.095 * sc, 0.034 * sc), Vector2(0.076 * sc, 0.062 * sc), Vector2(0.042 * sc, 0.078 * sc), Vector2(0.0, 0.083 * sc)])
 	k.lathe(dome, Transform3D(pad_basis, pad_c), 14, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0, 0, 0, 0]))
 	k.set_part(up, A)
-	k.ring(pad_c + pad_dir * 0.012, 0.1, 0.0035, pad_basis, 14, 4, Vector2(1.0, 1.08))
+	k.ring(pad_c + pad_dir * 0.012 * sc, 0.1 * sc, 0.0032, pad_basis, 14, 4, Vector2(1.0, 1.08))
+	k.set_part(up, S, 1.3)
+	k.rounded_box(Vector3(x + s * 0.066, 1.37, z0), Vector3(0.012, 0.07, 0.034), 0.005, Basis(Vector3.BACK, s * 0.18), 1)
+	k.set_part(up, M)
+	k.rounded_box(Vector3(x + s * 0.071, 1.36, z0), Vector3(0.006, 0.02, 0.04), 0.0, Basis(Vector3.BACK, s * 0.18), 1)
 	# Player number on the outer face of the pauldron, following the dome.
 	var out_h := Vector3(s * 0.866, -0.5, 0.0)
 	var side := Vector3(0, 0, -s)
 	k.set_part(up, DC)
 	k.patch(func(u: float, v: float) -> Vector3:
-			var yy := lerpf(0.004, 0.05, v)
+			var yy := lerpf(0.004, 0.042, v)
 			var rr := _profile_r(dome, yy) + 0.0016
 			var al := (u - 0.5) * 0.85
 			return pad_c + pad_dir * yy + out_h * cos(al) * rr + side * sin(al) * rr * 1.08,
 		4, 2, pad_c, Vector2.ONE, Callable(), Vector2(DECAL_PAINT, 1.6))
-	# Elbow: bellows sleeve across the joint, hinge cap with bolt, graphite cop.
-	_barrel(k, fore, Vector3(x, 1.13, z0), 0.046, 0.06, 2, 10)
-	_hinge(k, fore, Vector3(x + s * 0.062, 1.13, z0), out, 0.03)
+	# Elbow: smooth hinge barrel, bolted caps, graphite cop.
+	_barrel(k, fore, Vector3(x, 1.13, z0), 0.044, 0.057, 12)
+	_hinge(k, fore, Vector3(x + s * 0.06, 1.13, z0), out, 0.03)
+	_hinge(k, fore, Vector3(x - s * 0.06, 1.13, z0), -out, 0.026)
 	k.set_part(fore, S, 1.2)
-	_plate(k, Vector3(x, 1.14, z0), 0.052, PI, Vector3(0.08, 0.075, 0.024), 0.011, 0.06)
+	_plate(k, Vector3(x, 1.14, z0), 0.054, PI, Vector3(0.08, 0.075, 0.024), 0.011, 0.06)
 	# Forearm and flared gauntlet.
 	k.set_part(fore, F, 0.85)
 	_limb(k, Vector3(x, 0.89, z0), Vector3(x, 1.1, z0), [0.042, 0.047, 0.052, 0.05] as Array[float], 10)
@@ -639,7 +655,7 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	k.set_part(fore, A)
 	k.rounded_box(Vector3(x + s * 0.0635, 0.995, z0 + 0.003), Vector3(0.004, 0.075, 0.04), 0.0, Basis.IDENTITY, 1)
 	# Wrist: bellows under a flared glove cuff.
-	_bellows(k, Vector3(x, 0.872, z0 + 0.004), Vector3.DOWN, 0.045, 0.047, 2, 10, fore, hand, Vector2.ONE, false)
+	_ribs(k, fore, Vector3(x, 0.874, z0 + 0.004), 2, 0.016, 0.047, 12)
 	k.set_part(hand, P, 0.85)
 	k.lathe(PackedVector2Array([Vector2(0.044, 0.83), Vector2(0.054, 0.836), Vector2(0.058, 0.858), Vector2(0.052, 0.866), Vector2(0.046, 0.864)]),
 		Transform3D(Basis.IDENTITY, Vector3(x, 0, z0 + 0.006)), 12, Vector2(0.92, 1.1), 0.0, TAU, PackedFloat32Array([0, 1, 0, 1, 0]))
@@ -681,13 +697,13 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	_limb(k, Vector3(x, 0.545, 0.0), Vector3(x, 0.97, -0.005), [0.07, 0.08, 0.09, 0.096, 0.097] as Array[float], 10)
 	k.clear_blend()
 	k.set_part(thigh, P, 1.0)
-	_plate(k, Vector3(x, 0.75, 0.0), 0.09, s * 0.3, Vector3(0.16, 0.27, 0.028), 0.012, 0.7, 0.78)
+	_plate(k, Vector3(x, 0.75, 0.0), 0.09, s * 0.42, Vector3(0.19, 0.27, 0.028), 0.013, 0.7, 0.8, Vector3i(1, 2, 1))
 	k.set_part(thigh, S, 1.15)
-	_plate(k, Vector3(x, 0.8, -0.005), 0.09, s * PI * 0.5, Vector3(0.1, 0.11, 0.04), 0.015)
+	_plate(k, Vector3(x, 0.74, -0.005), 0.088, s * 2.25, Vector3(0.09, 0.1, 0.038), 0.015)
 	k.set_part(thigh, A)
-	_plate(k, Vector3(x, 0.82, -0.005), 0.13, s * PI * 0.5, Vector3(0.05, 0.006, 0.004), 0.0)
+	_plate(k, Vector3(x, 0.83, 0.0), 0.118, s * 0.42, Vector3(0.12, 0.006, 0.004), 0.0, 0.7)
 	# Knee: bellows sleeve, hinge caps with bolts, domed knee guard on the shin.
-	_barrel(k, shin, Vector3(x, 0.505, -0.004), 0.058, 0.077, 2, 12)
+	_barrel(k, shin, Vector3(x, 0.505, -0.004), 0.058, 0.075, 14)
 	_hinge(k, shin, Vector3(x + s * 0.079, 0.505, -0.004), out, 0.036)
 	_hinge(k, shin, Vector3(x - s * 0.079, 0.505, -0.004), -out, 0.032)
 	k.set_part(shin, P, 0.82)
@@ -707,7 +723,7 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	k.lathe(PackedVector2Array([Vector2(0.074, 0.226), Vector2(0.08, 0.23), Vector2(0.08, 0.242), Vector2(0.072, 0.246)]),
 		Transform3D(Basis.IDENTITY, Vector3(x, 0, -0.008)), 14, Vector2(1.0, 1.15))
 	# Ankle: bellows into the boot, hinge bracket with bolt.
-	_bellows(k, Vector3(x, 0.115, -0.008), Vector3.DOWN, 0.05, 0.066, 2, 12, shin, foot, Vector2(1.0, 1.12), false)
+	_ribs(k, shin, Vector3(x, 0.112, -0.008), 2, 0.018, 0.067, 14, Vector2(1.0, 1.12))
 	k.set_part(foot, S, 1.2)
 	k.rounded_box(Vector3(x + s * 0.064, 0.09, -0.012), Vector3(0.018, 0.07, 0.064), 0.008, Basis.IDENTITY, 1)
 	k.set_part(foot, M)
@@ -735,8 +751,8 @@ static func _occluders(k: CrewMeshKit) -> void:
 	k.add_occluder(Vector3(0, 1.12, -0.01), 0.1)
 	k.add_occluder(Vector3(0, HELMET_C, HELMET_Z), 0.165)
 	for s in [1.0, -1.0]:
-		k.add_occluder(Vector3(s * 0.222, 1.3, -0.015), 0.055)
-		k.add_occluder(Vector3(s * 0.222, 0.99, -0.012), 0.05)
+		k.add_occluder(Vector3(s * 0.235, 1.3, -0.015), 0.055)
+		k.add_occluder(Vector3(s * 0.235, 0.99, -0.012), 0.05)
 		k.add_occluder(Vector3(s * 0.25, 1.47, -0.015), 0.06)
 		k.add_occluder(Vector3(s * 0.1, 0.78, 0), 0.08)
 		k.add_occluder(Vector3(s * 0.1, 0.62, 0), 0.07)

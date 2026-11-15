@@ -651,7 +651,7 @@ func _pose(g: Vector3) -> void:
 		var hand := up + 2
 		var swing := swing_amp * cos(cyc) * s
 		var fwd := maxf(0.0, -swing)
-		var fk_up := Basis.from_euler(Vector3(swing + 0.04 * (1.0 - mw), 0.0, s * (0.11 + 0.05 * rw + 0.012 * breath * (1.0 - mw))))
+		var fk_up := Basis.from_euler(Vector3(swing + 0.04 * (1.0 - mw), 0.0, s * (0.235 - 0.05 * mw + 0.04 * rw + 0.012 * breath * (1.0 - mw))))
 		var fk_fore := Basis.from_euler(Vector3(-(0.22 + 0.2 * mw + 0.95 * rw + fwd * 0.5), 0.0, 0.0))
 		# Air: arms out for balance. Hit: arms jerk up. Stun: flail.
 		fk_up = Basis.from_euler(Vector3(-0.35 * _air_w - 0.6 * hit, 0.0, s * (0.55 * _air_w + 0.45 * absf(hit)))) * fk_up
