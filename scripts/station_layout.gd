@@ -64,7 +64,7 @@ const POD_HULL := {"center": Vector2(45.5, 4.5), "size": Vector2(2.6, 2.6)}
 ## along that side, `length` out from it (gentle: <= ~12 degrees).
 const PLATFORMS := {
 	"observation_deck": {"room": "observation", "rect": Rect2(23, 15, 16, 3), "height": 0.24,
-		"ramps": [{"side": "s", "from": 24.6, "to": 27.2, "length": 1.2}, {"side": "s", "from": 34.8, "to": 37.4, "length": 1.2}]},
+		"ramps": [{"side": "s", "from": 29.5, "to": 32.5, "length": 1.2}]},
 	"cargo_dock": {"room": "cargo", "rect": Rect2(33, 3, 4.6, 4), "height": 0.24,
 		"ramps": [{"side": "e", "from": 3.6, "to": 6.4, "length": 1.2}]},
 }

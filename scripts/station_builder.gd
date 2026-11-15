@@ -2191,7 +2191,7 @@ static func _dress_observation(kit: ArtMeshKit, body: StaticBody3D, color: Color
 	# On the deck: sofas facing the panorama, a telescope at the centre.
 	_sofa(kit, body, Vector3(26.4, dh, 16.75), PI, 2.4, color.darkened(0.3))
 	_sofa(kit, body, Vector3(35.6, dh, 16.75), PI, 2.4, color.darkened(0.3))
-	var scope := Vector3(31.0, dh, 15.9)
+	var scope := Vector3(31.0, dh, 15.55)
 	for k in range(3):
 		var ang := TAU * float(k) / 3.0 + 0.4
 		kit.cylinder("metal", scope + Vector3(cos(ang) * 0.38, 0.0, sin(ang) * 0.38), scope + Vector3(0, 1.05, 0), 0.025, BRUSHED, 6)
@@ -2251,7 +2251,7 @@ static func _dress_observation(kit: ArtMeshKit, body: StaticBody3D, color: Color
 	_sofa(kit, body, Vector3(38.55, 0, 25.3), -PI / 2.0, 2.2, Color(0.35, 0.3, 0.45))
 	_vending(kit, body, Vector3(36.6, 0, 26.55), PI, Color(0.3, 0.2, 0.35), Color(1.0, 0.5, 0.75), "COSMO")
 	_potted_plant(kit, body, Vector3(23.6, 0, 22.3), 17)
-	_potted_plant(kit, body, Vector3(38.5, 0, 18.75), 19)
+	_potted_plant(kit, body, Vector3(38.45, dh, 15.6), 19)
 
 
 static func _dress_airlock(kit: ArtMeshKit, body: StaticBody3D, color: Color) -> void:

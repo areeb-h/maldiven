@@ -13,6 +13,7 @@ Usage: python3 tools/trailer/make_video.py --render <dir> --out <dir>
 """
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -97,7 +98,16 @@ def main():
     parser.add_argument('--max-mb', type=float, default=14.0)
     parser.add_argument('--no-teaser', action='store_true')
     args = parser.parse_args()
-    sheet = json.loads((args.render / 'cues.json').read_text())
+    cues = args.render / 'cues.json'
+    first = args.render / 'frames' / 'f_00000.png'
+    if not cues.is_file() or not first.is_file():
+        print(f'No frames found in {args.render}: render first, e.g.\n'
+              f'  python3 tools/trailer/render_trailer.py --preview', file=sys.stderr)
+        return 1
+    if not shutil.which('ffmpeg'):
+        print('ffmpeg is not installed (e.g. apt install ffmpeg); the frames are in ' + str(args.render), file=sys.stderr)
+        return 1
+    sheet = json.loads(cues.read_text())
     args.out.mkdir(parents=True, exist_ok=True)
     audio_wav = args.out / 'trailer_mix.wav'
     build_audio(sheet, args.music, audio_wav)

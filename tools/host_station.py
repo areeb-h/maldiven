@@ -436,6 +436,8 @@ class Station:
             if not line.strip():
                 continue
             self.log.append(line)
+            if self.options.test_mode:
+                self.console.line('GODOT| ' + line)
             if line.startswith('SERVER_ERROR'):
                 self.error = line.removeprefix('SERVER_ERROR').strip().rstrip('.') + '.'
                 self.error = self.error[0].upper() + self.error[1:]

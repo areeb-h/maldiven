@@ -7,6 +7,7 @@ with the real crew, items and VFX, plus a 15 s vertical teaser.
 | --- | --- |
 | `cut.gd` | The cut: `BEATS` (method, seconds) and one method per beat. Each beat dresses its set on its first frame, then drives crew (`set_motion`, expressions, holds, shoves), camera moves (eased lines and Catmull-Rom splines with depth of field), VFX bursts and title cards from the beat-local time, and fires audio cues. Built on `tools/showcase/studio.gd`. |
 | `trailer.gd` | Entry point: warms up, then renders frame by frame at a fixed 1/fps step, saving `frames/f_00000.png ...` and `cues.json` (the cue sheet and render time). |
+| `render_trailer.py` | One command for everything: finds or downloads the pinned Godot (or `--godot PATH`), refreshes the class cache, renders (xvfb-run only when there is no display; Mobile renderer, or GL Compatibility on a display without Vulkan such as WSLg), stops a stalled engine exit, encodes, prints the MP4 paths. |
 | `make_video.py` | ffmpeg assembly: effects track from the cue sheet (`assets/audio/*.wav`), the score (`assets/audio/music/trailer_theme.wav`) ducked under the effects when present, H.264 MP4 under a size budget, and the vertical teaser. |
 
 ## Beats
@@ -27,6 +28,22 @@ with the real crew, items and VFX, plus a 15 s vertical teaser.
 | 72.5-80.5 | End card: DRIFT STATION, "Restore the power. Save the core. Trust no one.", "2-8 FRIENDS · ANDROID". |
 
 ## Rendering
+
+One command (Linux, WSL, macOS or Windows with Python 3 and ffmpeg):
+
+```sh
+python3 tools/trailer/render_trailer.py --preview   # 640x360, 15 fps draft
+python3 tools/trailer/render_trailer.py             # final 1280x720, 30 fps -> builds/trailer/trailer.mp4
+```
+
+Options: `--from/--to` (seconds, partial render), `--out DIR` (default
+`builds/trailer`), `--godot PATH`, `--renderer auto|mobile|forward_plus|gl_compatibility`,
+`--skip-import`, `--no-video`, plus `make_video.py` options such as `--music`
+or `--max-mb`. GL Compatibility has no depth of field, so the picture is a
+little flatter there. Budget: on a 4-core CPU with software Vulkan the draft
+takes about 20 minutes and the final render a few hours.
+
+The steps it runs, by hand:
 
 ```sh
 GODOT=tools/.cache/godot-4.7.2/Godot_v4.7.2-stable_linux.x86_64
