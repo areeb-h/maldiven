@@ -229,15 +229,18 @@ func _clear_spot(body: NetBody, xform: Transform3D) -> Variant:
 	return null
 
 
+## True if the body's shapes at `xform` (lifted 3 cm, so resting on the floor
+## doesn't count) overlap static geometry.
 func _overlaps_world(body: NetBody, xform: Transform3D) -> bool:
+	var lifted := xform.translated(Vector3(0, 0.03, 0))
 	for child in body.get_children():
 		if not child is CollisionShape3D:
 			continue
 		var query := PhysicsShapeQueryParameters3D.new()
 		query.shape = (child as CollisionShape3D).shape
-		query.transform = xform * (child as CollisionShape3D).transform
+		query.transform = lifted * (child as CollisionShape3D).transform
 		query.collision_mask = PhysicsLayers.WORLD
-		query.margin = 0.01
+		query.margin = 0.0
 		if not _space.intersect_shape(query, 1).is_empty():
 			return true
 	return false

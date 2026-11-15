@@ -74,7 +74,7 @@ func shot_one_is_lying(out: String) -> Error:
 	var cam := Vector3(0.42, 1.6, -13.75)
 	var liar_pos := Vector3(0.38, 0, -20.4)
 	var front := [
-		["blue", Vector3(-2.1, 0, -19.5), "neutral", 2, 2],
+		["blue", Vector3(2.75, 0, -19.7), "neutral", 2, 2],
 		["yellow", Vector3(-1.5, 0, -18.1), "happy", 1, 3],
 		["green", Vector3(-0.58, 0, -17.6), "neutral", 3, 4],
 		["orange", Vector3(1.34, 0, -17.6), "happy", 2, 6],
@@ -155,8 +155,8 @@ func shot_core_run(out: String) -> Error:
 	omni(runner.global_transform * Vector3(0, 1.3, 0.9), CYAN, 0.4, 1.4)
 	spot(Vector3(19.6, 2.9, -18.9), Vector3(22.4, 1.4, -19.45), Color(1.0, 0.62, 0.42), 3.0, 30.0, 8.0, true, 0.3)
 	spot(Vector3(28.5, 2.4, -19.6), Vector3(23.5, 1.3, -19.8), Color(1.0, 0.12, 0.06), 8.0, 25.0, 9.0)
-	var cam := Vector3(18.9, 1.0, -20.7)
-	frame(cam, Vector3(23.2, 1.2, -19.75), 44.0, Vector3(22.3, 1.55, -19.45), 1.4, 0.12)
+	var cam := Vector3(19.0, 1.5, -20.95)
+	frame(cam, Vector3(23.2, 1.15, -19.8), 44.0, Vector3(22.3, 1.6, -19.45), 1.4, 0.12)
 	# Slide both runners in along the corridor so the core's trail lays down.
 	var ends := [runner.position, chaser.position]
 	for i in 9:
@@ -188,7 +188,7 @@ func shot_shove(out: String) -> Error:
 	spot(Vector3(37.0, 3.0, 3.4), Vector3(39.4, 1.4, 0.55), Color(1.0, 0.95, 0.88), 4.5, 30.0, 9.0, true, 0.3)
 	spot(Vector3(41.8, 2.6, -1.8), Vector3(39.5, 1.4, 0.55), Color(1.0, 0.7, 0.25), 9.0, 30.0, 8.0)
 	spot(Vector3(36.2, 2.4, -2.0), Vector3(38.5, 1.4, 0.55), Color(0.3, 1.0, 0.6), 7.0, 30.0, 8.0)
-	frame(Vector3(36.9, 1.1, 3.55), Vector3(39.5, 1.32, 0.35), 40.0, Vector3(39.5, 1.55, 0.55), 1.3, 0.1)
+	frame(Vector3(38.0, 1.12, 2.75), Vector3(39.55, 1.32, 0.3), 46.0, Vector3(39.5, 1.55, 0.55), 1.2, 0.1)
 	await wait(3)
 	# The cell spins up and away behind the victim; the impact fires mid-flight.
 	var from := cell.position
@@ -221,7 +221,7 @@ func shot_gun_question(out: String) -> Error:
 	(sockets["armory"] as SocketVisual).set_state(false, false, true)
 	var d := (target.position - shooter.position).normalized()
 	var right := d.cross(Vector3.UP)
-	var cam := shooter.position - d * 1.7 + right * 0.95 + Vector3(0, 1.5, 0)
+	var cam := shooter.position - d * 1.5 + right * 1.3 + Vector3(0, 1.42, 0)
 	spot(target.position + d * 1.2 - right * 2.4 + Vector3(0, 2.6, 0), target.position + Vector3(0, 1.3, 0), COOL, 6.0, 30.0, 8.0, true, 0.3)
 	spot(target.position + d * 2.2 + right * 1.2 + Vector3(0, 2.0, 0), target.position + Vector3(0, 1.4, 0), Color(1.0, 0.2, 0.08), 12.0, 30.0, 6.0)
 	spot(shooter.position - right * 1.5 + Vector3(0, 2.4, 0), shooter.position + Vector3(0, 1.4, 0), Color(1.0, 0.5, 0.2), 4.0, 35.0, 5.0)
