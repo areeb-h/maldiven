@@ -90,14 +90,14 @@ const _POSE_DATA := {
 		"t": [0.33, 0.11, 0.2, 0.2, 0.22]},
 	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
 		"t": [-0.22, 1.4, 0.42, 0.74, 0.31]},
-	"grip_large": {"w": Vector3(-0.6, 0.0, 0.0), "f": [Vector4(0.24, 0.48, 0.02, 0.07), Vector4(0.15, 0.45, 0.03, 0.01), Vector4(0.14, 0.43, 0.06, -0.05), Vector4(0.2, 0.56, 0.03, -0.11)],
-		"t": [-0.44, 0.1, 0.26, -0.2, -0.07]},
+	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.0, 1.35, 0.8, 0.04), Vector4(1.0, 1.35, 0.8, 0.0), Vector4(1.05, 1.35, 0.8, -0.03), Vector4(1.1, 1.35, 0.8, -0.06)],
+		"t": [0.4, 0.8, 0.2, 0.5, 0.4]},
 	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.84, 0.75, 0.13, 0.2), Vector4(0.99, 0.65, 0.25, 0.06), Vector4(0.93, 0.65, 0.24, -0.08), Vector4(0.69, 0.69, 0.08, -0.24)],
 		"t": [0.59, 0.12, 0.72, 0.07, 0.12]},
-	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(0.55, 1.2, 0.05, 0.0), Vector4(0.05, 1.75, 0.0, -0.03), Vector4(0.05, 1.38, 0.0, -0.07)],
-		"t": [0.3, 0.54, 0.17, 0.09, 0.04]},
-	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(0.55, 1.2, 0.05, 0.0), Vector4(0.05, 1.75, 0.0, -0.03), Vector4(0.05, 1.38, 0.0, -0.07)],
-		"t": [0.3, 0.54, 0.17, 0.09, 0.04]},
+	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(0.7, 1.3, 0.4, 0.0), Vector4(0.75, 1.3, 0.4, -0.03), Vector4(0.8, 1.3, 0.4, -0.07)],
+		"t": [0.3, 0.6, 0.15, 0.3, 0.2]},
+	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(0.7, 1.3, 0.4, 0.0), Vector4(0.75, 1.3, 0.4, -0.03), Vector4(0.8, 1.3, 0.4, -0.07)],
+		"t": [0.3, 0.6, 0.15, 0.3, 0.2]},
 	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
 		"t": [-0.1, 1.0, 0.4, 0.75, 0.35]},
 	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
@@ -122,13 +122,6 @@ const _POSE_LIFE := {
 	"point": [0.4, "", 0.0], "thumbs_up": [0.4, "", 0.0], "wave": [0.5, "", 0.0], "push": [0.2, "", 0.0],
 	"brace": [0.3, "", 0.0], "limp": [0.3, "", 0.0], "ghost": [0.0, "", 0.0], "curl": [0.8, "", 0.6],
 }
-## The blaster grip this hand is built to hold (metres): depth front-to-back, width
-## side-to-side, length along the grip, corner radius, rake (rad, top toward the
-## barrel), and how much shallower the bottom (pinky) third is. Its centre goes at
-## item-space (0, 0.10, 0.11), the frame's underside 0.06 above that centre (index
-## finger level), the frame ends at most 0.02 behind the grip centre (else it meets
-## the cuff), barrel along -Z.
-const GUN_GRIP := {"depth": 0.060, "width": 0.026, "length": 0.075, "radius": 0.008, "rake": 0.28, "pinky_taper": 0.85}
 ## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
 ## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
 ## toward the palm normal, then rolled by `roll` about the palm normal. The gun's
@@ -136,17 +129,25 @@ const GUN_GRIP := {"depth": 0.060, "width": 0.026, "length": 0.075, "radius": 0.
 ## front (+Z) faces where the fingers point, i.e. forward when carried.
 ## `scale` is the item's uniform scale in the hand.
 const _GRIP_ANCHORS := {
-	# Power cell (Props casing radius 0.16, glow band 0.168): held from the side over the
-	# upper glow band, palm on the casing, fingers wrapping round the curve.
-	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.39, 0.0), "center": Vector3(0.1866, -0.063, 0.0)},
-	# Core (cage radius 0.235, field 0.24): cradled from below-side, palm turned 35 deg up.
-	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2585, -0.064, 0.0)},
-	# Blaster, unscaled: the grip's centre (pivot, item space) sits in the palm, the
-	# barrel runs along the extended index finger. Designed for the grip in GUN_GRIP.
-	# `roll` (about the palm normal) squares the grip's 0.28 rad rake to the knuckle
-	# line, which cants the barrel 16 deg toward the thumb like a real pistol hold.
-	"gun": {"tilt": 0.0, "roll": -0.28, "scale": 1.0, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0304, -0.06, -0.0155)},
+	# Power cell (CellVisual): power grip round a side carry handle's rubber sleeve
+	# (vertical bar, radius 0.017, at item x = -0.1985, y 0.205..0.315). The bar lies
+	# in the curled fingers against the distal palm; the left hand takes the +X handle.
+	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(-0.1985, 0.26, 0.0), "center": Vector3(0.0352, -0.071, 0.0)},
+	# Core (CoreVisual, cage ribs at radius 0.214 + 0.0115): cradled from below-side,
+	# palm turned 35 deg up, below the sweep of the precessing emitter rings.
+	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2444, -0.064, 0.0)},
+	# Gun (GunVisual: origin mid-grip, barrel +Z, grip raked 0.24): the grip's centre
+	# sits against the palm with the front strap ~1.5 cm past the knuckle line; `roll`
+	# squares the rake to the knuckle line, canting the barrel toward the thumb like a
+	# real pistol hold. Unscaled.
+	"gun": {"tilt": 0.0, "yaw": PI, "roll": -0.24, "scale": 1.0, "pivot": Vector3(0.0, 0.002, -0.012), "center": Vector3(0.0339, -0.066, -0.0155)},
 }
+## The blaster grip this hand is built to hold (metres), for the items agent: depth
+## front-to-back, width side-to-side (incl. panels), length frame-to-pommel, corner
+## radius, rake (rad, top toward the barrel), and how much shallower the pinky third
+## may be. Nothing (frame, slide) may reach more than 0.045 behind the grip centre
+## within 0.07 above it, or it meets the glove cuff.
+const GUN_GRIP := {"depth": 0.050, "width": 0.026, "length": 0.080, "radius": 0.009, "rake": 0.24, "pinky_taper": 0.85}
 ## Grip pose whose wrist angle each anchor is measured with.
 const _ANCHOR_POSE := {"cell": "grip_large", "core": "grip_core", "gun": "grip_gun"}
 

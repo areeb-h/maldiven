@@ -234,13 +234,13 @@ func shot_gun_question(out: String) -> Error:
 	return await capture(out, "06_gun_question.png", 1)
 
 
-## 07 Rescue: white carries a downed green crewmate towards the medbay, which
-## already glows with the revive field. Camera low by the bay, looking back.
+## 07 Rescue: white carries a downed green crewmate along the medbay towards
+## its glowing revive field. Framed from the carried crewmate's head side so the
+## limp body reads across the carrier's arms.
 func shot_rescue(out: String) -> Error:
 	begin_shot("restored", 707)
-	var cam := Vector3(-2.6, 0.85, 18.9)
-	var carrier := crew("white", Vector3(1.3, 0, 20.7), 0.0, "neutral", 3, 8)
-	face(carrier, Vector3(3.3, 0, 23.0))
+	var cam := Vector3(2.75, 1.0, 18.85)
+	var carrier := crew("white", Vector3(0.6, 0, 21.7), 90.0, "neutral", 3, 8)
 	var body := crew("green", Vector3.ZERO, 0.0, "downed", 3, 4)
 	body.get_parent().remove_child(body)
 	carrier.carry_anchor.add_child(body)
@@ -248,11 +248,12 @@ func shot_rescue(out: String) -> Error:
 	body.set_carried(true)
 	pose(body, 1.5)
 	pose_stride(carrier, 2.1, 0.3, true)
+	turn_head(carrier, 18.0, 4.0)
 	(sockets["medbay"] as SocketVisual).set_state(false, false, true)
-	spot(Vector3(-1.4, 2.9, 22.4), Vector3(1.3, 1.1, 20.7), WARM, 4.0, 36.0, 9.0, true, 0.3)
-	spot(Vector3(3.4, 2.4, 17.6), Vector3(1.3, 1.3, 20.7), COOL, 9.0, 30.0, 7.0)
-	omni(Vector3(3.3, 1.1, 22.7), Color(0.35, 1.0, 0.55), 1.6, 4.0)
-	frame(cam, Vector3(2.2, 1.15, 21.6), 40.0, Vector3(1.3, 1.3, 20.7), 1.8, 0.1)
+	spot(Vector3(3.6, 3.0, 19.6), Vector3(0.6, 1.2, 21.7), WARM, 4.0, 34.0, 9.0, true, 0.3)
+	spot(Vector3(-2.0, 2.4, 23.4), Vector3(0.6, 1.3, 21.7), COOL, 9.0, 30.0, 7.0)
+	omni(Vector3(3.3, 1.1, 22.8), Color(0.35, 1.0, 0.55), 2.0, 4.5)
+	frame(cam, Vector3(1.55, 1.2, 22.3), 46.0, Vector3(0.75, 1.3, 21.5), 1.8, 0.1)
 	await wait(4)
 	vfx.burst("revive", Vector3(3.5, 0.75, 23.5))
 	return await capture(out, "07_rescue.png", 3)
@@ -291,8 +292,8 @@ func shot_ghost(out: String) -> Error:
 	begin_shot("restored", 909)
 	station.env.glow_intensity = 0.55
 	attrs.exposure_multiplier = 0.72
-	var cam := Vector3(61.0, 1.05, 14.45)
-	var ghost := crew("blue", Vector3(58.7, 0, 17.1), 0.0, "ghost", 2, 2)
+	var cam := Vector3(62.0, 1.15, 12.6)
+	var ghost := crew("blue", Vector3(59.3, 0, 17.0), 0.0, "ghost", 2, 2)
 	ghost.set_ghost(true)
 	face(ghost, Vector3(cam.x + 0.6, 0, cam.z))
 	pose(ghost, 2.6)
@@ -303,9 +304,9 @@ func shot_ghost(out: String) -> Error:
 	hold(worker.carry_anchor, "cell")
 	for id in ["reactor_2", "reactor_3"]:
 		(sockets[id] as SocketVisual).set_state(true, false, false)
-	spot(Vector3(60.4, 2.6, 15.2), Vector3(58.7, 1.4, 17.1), COOL, 2.0, 30.0, 6.0, false, 0.3)
-	spot(Vector3(56.4, 2.4, 19.4), Vector3(58.7, 1.4, 17.1), Color(0.7, 0.5, 1.0), 8.0, 35.0, 6.0)
-	frame(cam, Vector3(59.9, 1.75, 18.6), 44.0, Vector3(58.7, 1.55, 17.1), 1.6, 0.1)
+	spot(Vector3(61.0, 2.6, 14.6), Vector3(59.3, 1.4, 17.0), COOL, 2.0, 30.0, 6.0, false, 0.3)
+	spot(Vector3(57.0, 2.4, 19.4), Vector3(59.3, 1.4, 17.0), Color(0.7, 0.5, 1.0), 8.0, 35.0, 6.0)
+	frame(cam, Vector3(60.6, 1.75, 18.0), 42.0, Vector3(59.3, 1.55, 17.0), 1.6, 0.1)
 	await wait(4)
 	vfx.burst("power_wave", Vfx.REACTOR_CORE)
 	vfx.burst("insert_cell", Vector3(58.0, 0.9, 23.0))
@@ -317,16 +318,17 @@ func shot_ghost(out: String) -> Error:
 ## the frame instead of flaring into the lens.
 func shot_blackout(out: String) -> Error:
 	begin_shot("blackout", 1010)
+	station.env.fog_density = 0.006
 	var cast := [
-		["white", Vector3(40.4, 0, -0.6), 4.0, "suspicious", 3, 8, Vector3(40.2, 0.0, 3.4)],
-		["blue", Vector3(38.9, 0, -2.3), 14.0, "shocked", 2, 2, Vector3(38.6, 0.0, 1.6)],
-		["orange", Vector3(42.0, 0, -2.6), -16.0, "neutral", 2, 6, Vector3(43.6, 0.3, 1.2)],
+		["white", Vector3(40.4, 0, -0.6), 14.0, "suspicious", 3, 8, Vector3(41.6, 0.0, 3.2)],
+		["blue", Vector3(38.9, 0, -2.3), 6.0, "shocked", 2, 2, Vector3(39.5, 0.0, 1.6)],
+		["orange", Vector3(42.0, 0, -2.6), 30.0, "neutral", 2, 6, Vector3(44.6, 0.3, 0.4)],
 	]
 	for c in cast:
 		var m := crew(c[0], c[1], c[2], c[3], c[4], c[5])
 		pose_stride(m, 1.1, 0.05 + 0.3 * float(_models.size()), false)
-		flashlight(m, c[6])
-	frame(Vector3(35.6, 1.05, 2.4), Vector3(40.6, 1.2, -1.6), 42.0, Vector3(40.4, 1.6, -0.5), 1.8, 0.1)
+		flashlight(m, c[6], 0.07)
+	frame(Vector3(37.0, 1.2, 2.9), Vector3(40.7, 1.25, -1.5), 46.0, Vector3(40.4, 1.6, -0.5), 1.8, 0.1)
 	return await capture(out, "10_blackout.png", 5)
 
 
@@ -340,7 +342,7 @@ func shot_shuttle(out: String) -> Error:
 	var loader := crew("yellow", Vector3(20.0, 0, -0.62), 180.0, "happy", 1, 3)
 	pose(loader, 1.4, 0.0, true)
 	hold(loader.carry_anchor, "core")
-	var guard_a := crew("blue", Vector3(18.1, 0, 0.9), 0.0, "happy", 2, 2)
+	var guard_a := crew("blue", Vector3(17.4, 0, 1.7), 0.0, "happy", 2, 2)
 	var guard_b := crew("green", Vector3(21.8, 0, 1.15), 0.0, "angry", 3, 4)
 	face(guard_a, Vector3(cam.x + 1.0, 0, cam.z))
 	face(guard_b, Vector3(25.5, 0, 4.5))
@@ -364,7 +366,7 @@ func shot_turntable(out: String) -> Error:
 	begin_shot("restored", 1212)
 	var base := Vector3(3.4, 0, 16.0)
 	var cam := Vector3(1.7, 1.0, 24.3)
-	var yaws := [0.0, -40.0, 180.0]
+	var yaws := [0.0, -55.0, 180.0]
 	for i in 3:
 		var m := crew("blue", base + Vector3(-1.25 + 1.25 * float(i), 0, 0), 0.0, "happy", 2, 2)
 		face(m, Vector3(cam.x, 0, cam.z))
@@ -410,7 +412,7 @@ func shot_selfie(out: String) -> Error:
 		["blue", Vector3(-1.45, 0, 0.6), "happy", 2, 2],
 		["yellow", Vector3(0.3, 0, 0.65), "happy", 1, 3],
 		["green", Vector3(-2.15, 0, -0.1), "shocked", 3, 4],
-		["purple", Vector3(1.2, 0, -0.05), "suspicious", 1, 5],
+		["purple", Vector3(1.5, 0, 0.45), "suspicious", 1, 5],
 	]
 	for c in cast:
 		var m := crew(c[0], c[1], 0.0, c[2], c[3], c[4])
@@ -418,7 +420,7 @@ func shot_selfie(out: String) -> Error:
 		pose(m, 1.3)
 	# Purple leans in from the edge of the frame (feet are well out of shot).
 	var purple: CrewModel = _models[4]
-	purple.rotate_object_local(Vector3.BACK, deg_to_rad(12.0))
+	purple.rotate_object_local(Vector3.BACK, deg_to_rad(14.0))
 	turn_head(purple, 12.0, 0.0)
 	var cam := arm_tip + Vector3(0.05, 0.32, 0.45)
 	spot(cam + Vector3(-1.4, 1.2, 0.5), Vector3(-0.3, 1.4, 0.6), WARM, 4.0, 45.0, 8.0, true, 0.3)

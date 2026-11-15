@@ -96,6 +96,7 @@ static func build(parent: Node3D) -> Node3D:
 		fx.mats[key] = mats[key]
 	_build_environment(fx)
 	for room_id in StationLayout.ROOMS:
+		print("DBG room ", room_id, " ", Time.get_ticks_msec())
 		_build_room(fx, mats, room_id)
 	for corridor_id in StationLayout.CORRIDORS:
 		_build_corridor(fx, mats, corridor_id)

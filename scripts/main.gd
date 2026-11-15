@@ -737,7 +737,7 @@ func _show_lobby() -> void:
 
 ## Screen change: the old screen leaves (180 ms) as the new one enters (280 ms).
 func _switch_to(screen: Control) -> void:
-	for other in [_home, _lobby]:
+	for other: Control in [_home, _lobby]:
 		if other != screen and other.visible:
 			var tween := other.create_tween().set_parallel()
 			tween.tween_property(other, "modulate:a", 0.0, UiMotion.EXIT).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
