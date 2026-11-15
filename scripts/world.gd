@@ -369,6 +369,8 @@ func _update_player_states() -> void:
 		if _states.get(id, StationRules.OK) != state:
 			_states[id] = state
 			avatar.set_life_state(state)
+			if id == my_id:
+				sfx.set_ghost_mode(state == StationRules.DEAD)
 		# Ghosts are only visible to other ghosts.
 		avatar.visible = state != StationRules.DEAD or i_am_dead
 		var body: int = rules.players[id].body if rules.players.has(id) else 0
