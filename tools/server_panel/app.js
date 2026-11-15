@@ -32,6 +32,8 @@
     firewallNotes: $("firewall-notes"), copyFirewall: $("copy-firewall"), tipFirewall: $("tip-firewall"), helpAddress: $("help-address"),
     stop: $("stop-server"), confirm: $("confirm"), confirmTitle: $("confirm-title"), confirmText: $("confirm-text"), confirmOk: $("confirm-ok"),
     toasts: $("toasts"),
+    wslWarning: $("wsl-warning"), joinAddress: $("join-address"), wslNote: $("wsl-note"), tipWsl: $("tip-wsl"),
+    wslAfter: $("wsl-after"),
   };
 
   let snap = null;
@@ -142,7 +144,7 @@
         use.setAttribute("href", "#i-copy");
       }, 1600);
     }
-    toast("Copied " + text, "good");
+    toast(text.length > 40 || text.includes("\n") ? "Copied to the clipboard" : "Copied " + text, "good");
   }
 
   async function post(path, body) {
@@ -273,6 +275,10 @@
       cls = "pill--round";
       text = `In round · ${PHASE_TITLE[server.state]}`;
     }
+    if (launcher.network?.mode === "nat" && !server.stopping && server.state === "lobby") {
+      cls = "pill--round";
+      text = "Lobby · this PC only";
+    }
     ui.pill.className = "pill " + cls;
     ui.pillText.textContent = text;
     document.title = `${server.room_name} · ${server.state === "lobby" ? `Lobby (${n})` : PHASE_TITLE[server.state]}`;
@@ -295,13 +301,19 @@
   }
 
   function renderJoin(server, launcher) {
-    const addresses = [...(server.addresses || [])];
-    const best = launcher.primary_address;
-    if (best && addresses.includes(best)) {
-      addresses.splice(addresses.indexOf(best), 1);
-      addresses.unshift(best);
-    }
-    const address = addresses[0] || null;
+    // The launcher decides what phones can reach (it knows about WSL); fall back
+    // to the server's list without WSL's DNS loopback.
+    const network = launcher.network || {};
+    const addresses = network.lan ? [...network.lan] : (server.addresses || []).filter((a) => a !== "10.255.255.254");
+    const nat = network.mode === "nat";
+    ui.wslWarning.hidden = !nat;
+    ui.joinAddress.hidden = nat;
+    ui.wslNote.hidden = network.mode !== "mirrored";
+    ui.tipWsl.hidden = !network.wsl;
+    ui.wslAfter.hidden = !(nat && network.windows_ip);
+    ui.wslAfter.textContent = nat && network.windows_ip ? `Afterwards phones join ${network.windows_ip}, this PC's Wi-Fi address.` : "";
+    document.querySelector(".join-steps").hidden = nat;
+    const address = nat ? null : addresses[0] || null;
     if (ui.address.textContent !== (address || "No Wi-Fi address")) {
       ui.address.textContent = address || "No Wi-Fi address";
       ui.address.classList.toggle("is-none", !address);
@@ -545,6 +557,7 @@
       blocked: "A Windows Firewall rule blocks Godot (someone pressed Cancel on the Windows prompt). Remove it in Windows Security › Firewall & network protection › Allow an app, then run this as administrator:",
       prompt: "macOS may ask whether Godot may accept incoming connections. Click Allow.",
     };
+    if (os === "WSL") texts.unknown = "Windows Firewall must let in UDP 24600 and 24601. Run this once in PowerShell opened with “Run as administrator” (WSL also needs the Hyper-V rule under Running in WSL):";
     ui.firewallText.textContent = texts[fw.state] || (os === "Windows"
       ? "The computer must accept incoming UDP on ports 24600 (game) and 24601 (Nearby stations). If phones can't connect, run this once as administrator:"
       : "The computer must accept incoming UDP on ports 24600 (game) and 24601 (Nearby stations).");
@@ -627,6 +640,11 @@
 
   ui.copyAddress.addEventListener("click", () => shownAddress && copy(shownAddress, ui.copyAddress));
   ui.copyFirewall.addEventListener("click", () => copy(ui.firewallCommand.textContent, ui.copyFirewall));
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-copy]");
+    if (button) copy($(button.dataset.copy).textContent, button);
+  });
+  $("wsl-note-help").addEventListener("click", openHelp);
 
   ui.name.addEventListener("input", sizeName);
   window.addEventListener("resize", fitAddress);

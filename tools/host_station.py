@@ -229,9 +229,10 @@ def classify_network(interfaces, wsl, fallback=(), windows_ip=None):
         result.update(mode='nat', lan=[], internal=nat)
     else:
         result['mode'] = 'mirrored'
-        if windows_ip and windows_ip in lan:  # the Wi-Fi/Ethernet adapter Windows routes through
-            lan.remove(windows_ip)
-            lan.insert(0, windows_ip)
+        if mirrored:
+            # Lead with the adapter Windows routes through; skip Windows' virtual
+            # switches (vEthernet, 172.16-31) that phones can't use.
+            result['lan'] = [windows_ip] + [ip for ip in home if ip != windows_ip]
     return result
 
 
@@ -764,7 +765,7 @@ class PanelHandler(BaseHTTPRequestHandler):
 WSL_CONFIG_FIX = ['[wsl2]', 'networkingMode=mirrored']
 
 
-def wsl_fix_steps(windows_checkout=True):
+def wsl_fix_steps():
     """The steps that make a WSL 2 server reachable from phones (console and docs agree)."""
     steps = [
         ('In Windows, add these two lines to %UserProfile%\\.wslconfig (create the file if needed):', WSL_CONFIG_FIX),
@@ -777,32 +778,28 @@ def wsl_fix_steps(windows_checkout=True):
 
 def print_wsl_nat_box(console, network):
     p = console.paint
-    width = 74
-    bar = p('│', '33')
+    width = 72
     console.line('  ' + p('┌' + '─' * width + '┐', '33'))
 
     def row(text='', *codes):
-        console.line('  ' + bar + ' ' + p(text.ljust(width - 2), *codes) + ' ' + bar)
+        for chunk in _wrap(text, width - 2) if text else ['']:
+            console.line('  ' + p('│', '33') + ' ' + p(chunk.ljust(width - 2), *codes) + ' ' + p('│', '33'))
 
     row('WSL is in NAT mode, so phones can\'t reach this server.', '1', '33')
-    internal = ', '.join(network['internal']) or 'a 172.x address'
-    row(f'Its address ({internal}) exists only inside this PC. The server still runs,')
-    row('so you can test it here, but to play with phones:')
-    row()
-    number = 1
-    for text, commands in wsl_fix_steps():
-        for index, chunk in enumerate(_wrap(text, width - 6)):
-            row((f'{number}. ' if index == 0 else '   ') + chunk)
-        for command in commands:
-            for index, chunk in enumerate(_wrap(command, width - 8)):
-                row('     ' + chunk, '1')
-        number += 1
+    internal = ', '.join(network['internal']) or 'its 172.x address'
+    row(f'Its address ({internal}) only exists inside this PC. The server still runs, '
+        'so you can test here, but phones need WSL\'s mirrored networking (steps below).')
     if network.get('windows_ip'):
-        row(f'Phones then join {network["windows_ip"]}, this PC\'s Wi-Fi address.')
-    row()
-    row('Or skip WSL: install Python for Windows, clone the project in Windows')
-    row('and run  py tools\\host_station.py  from there.')
+        row(f'Afterwards phones join {network["windows_ip"]}, this PC\'s Wi-Fi address.')
+    row('Or skip WSL: install Python for Windows, get the project in a Windows folder '
+        'and run  py tools\\host_station.py  there.')
     console.line('  ' + p('└' + '─' * width + '┘', '33'))
+    console.line()
+    for number, (text, commands) in enumerate(wsl_fix_steps(), 1):
+        for index, chunk in enumerate(_wrap(text, 70)):
+            console.line('  ' + (f'{number}. ' if index == 0 else '   ') + chunk)
+        for command in commands:
+            console.line('       ' + p(command, '1'))  # one line each, so they copy cleanly
 
 
 def _wrap(text, width):

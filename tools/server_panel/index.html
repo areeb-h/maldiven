@@ -57,7 +57,29 @@
         <li><span class="join-steps__n">1</span><span>Connect the phones to the <strong>same Wi-Fi</strong> as this computer.</span></li>
         <li><span class="join-steps__n">2</span><span>Open <strong>Drift Station</strong>. Your station appears under <strong>Nearby stations</strong>: tap it.</span></li>
       </ol>
-      <div class="join-address">
+      <div class="wsl" id="wsl-warning" role="alert" hidden>
+        <p class="wsl__title"><svg class="icon" aria-hidden="true"><use href="#i-warning"/></svg><span>WSL is in NAT mode, so phones can't reach this server</span></p>
+        <p class="wsl__text" id="wsl-text">This server runs inside WSL behind a private virtual network. It still works for testing on this PC; to play with phones, switch WSL to mirrored networking once:</p>
+        <ol class="wsl__steps">
+          <li>
+            <span>In Windows, add these lines to <code>%UserProfile%\.wslconfig</code> (create the file if needed):</span>
+            <div class="code"><code id="wsl-config">[wsl2]
+networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="wsl-config" aria-label="Copy the .wslconfig lines"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+          </li>
+          <li>
+            <span>In PowerShell opened with <strong>Run as administrator</strong>, let phones through to WSL and the game ports:</span>
+            <div class="code"><code id="wsl-hyperv">Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code><button class="icon-btn" type="button" data-copy="wsl-hyperv" aria-label="Copy the Hyper-V firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+            <div class="code"><code id="wsl-netsh">netsh advfirewall firewall add rule name="Drift Station server" dir=in action=allow protocol=UDP localport=24600-24601 profile=private</code><button class="icon-btn" type="button" data-copy="wsl-netsh" aria-label="Copy the firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+          </li>
+          <li>
+            <span>Restart WSL, then start the server again:</span>
+            <div class="code"><code id="wsl-restart">wsl --shutdown</code><button class="icon-btn" type="button" data-copy="wsl-restart" aria-label="Copy the restart command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+          </li>
+        </ol>
+        <p class="wsl__alt" id="wsl-after"></p>
+        <p class="wsl__alt">Or skip WSL: install Python for Windows, put the project in a Windows folder and run <code>py tools\host_station.py</code> there.</p>
+      </div>
+      <div class="join-address" id="join-address">
         <div class="join-address__text">
           <span class="eyebrow">Not listed? Join by IP</span>
           <div class="address-row">
@@ -68,6 +90,7 @@
           </div>
           <p id="address-more" class="muted small" hidden></p>
           <p id="public-address" class="muted small" hidden></p>
+          <p id="wsl-note" class="wsl-note small" hidden>Running in WSL. If phones can't connect, allow WSL through the firewall: see <button type="button" class="link" id="wsl-note-help">Troubleshooting</button>.</p>
         </div>
         <figure class="qr" id="qr-figure">
           <svg id="qr" class="qr__code" role="img" aria-label="QR code of the address"></svg>
@@ -198,6 +221,11 @@
           </button>
         </div>
         <ul class="tip__notes" id="firewall-notes"></ul>
+      </section>
+      <section class="tip" id="tip-wsl" hidden>
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>Running in WSL</h3>
+        <p id="wsl-tip-text">WSL needs mirrored networking (<code>networkingMode=mirrored</code> under <code>[wsl2]</code> in <code>%UserProfile%\.wslconfig</code>, then <code>wsl --shutdown</code>), and Windows' Hyper-V firewall must let phones in. Run once in PowerShell as administrator:</p>
+        <div class="code"><code id="tip-hyperv">Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code><button class="icon-btn" type="button" data-copy="tip-hyperv" aria-label="Copy the Hyper-V firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
       </section>
       <section class="tip">
         <h3><svg class="icon" aria-hidden="true"><use href="#i-wifi"/></svg>Same network</h3>

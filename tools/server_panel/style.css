@@ -336,6 +336,25 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 .hint span { flex: 1; min-width: 0; }
 .hint u { flex: none; }
 .hint u { text-underline-offset: 3px; color: var(--amber); font-weight: 700; }
+.wsl {
+  padding: 18px 18px 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 225, 77, 0.45);
+  background: linear-gradient(180deg, rgba(255, 225, 77, 0.1), rgba(255, 225, 77, 0.03));
+  box-shadow: 0 0 30px rgba(255, 225, 77, 0.07);
+}
+.wsl__title { display: flex; align-items: flex-start; gap: 10px; margin: 0; font: 700 15.5px/1.3 var(--head); letter-spacing: 0.03em; color: #fff3b8; }
+.wsl__title .icon { color: var(--amber); margin-top: -1px; }
+.wsl__text { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
+.wsl__steps { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 12px; color: var(--muted); font-size: 16px; }
+.wsl__steps { grid-template-columns: minmax(0, 1fr); }
+.wsl__steps li { min-width: 0; }
+.wsl__steps li::marker { color: var(--amber); font-weight: 700; }
+.wsl__steps .code { margin-top: 8px; }
+.wsl__alt { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+.wsl .code code, .tip .code code { white-space: pre-wrap; }
+.wsl-note { margin: 10px 0 0; color: #fff3b8; }
+.link { padding: 0; border: 0; background: none; color: var(--amber); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .btn.has-alert::after { content: ""; position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
 /* --- Round card ------------------------------------------------------------------- */
@@ -657,6 +676,11 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
   .feed li { grid-template-columns: 56px 8px minmax(0, 1fr); gap: 10px; font-size: 15.5px; }
   .footer { padding: 4px 16px 28px; }
   .drawer__head, .drawer__body { padding-left: 20px; padding-right: 20px; }
+  .wsl { padding: 16px 14px 14px; }
+  .wsl__steps { padding-left: 18px; margin-left: -2px; }
+  .wsl .code { padding: 10px 8px 10px 12px; gap: 8px; }
+  .wsl .code code { white-space: pre; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .wsl .icon-btn { width: 38px; height: 38px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

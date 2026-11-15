@@ -280,13 +280,67 @@ def run(engine, project):
         launcher.kill()
 
 
+def unit_tests():
+    """Address classification (WSL NAT/mirrored, plain LAN) with fake interface lists."""
+    import contextlib
+    import io
+    import host_station as hs
+    hs.primary_address = lambda: None  # no real network lookups in unit tests
+    cases = [
+        # (interfaces, wsl, windows_ip, expected mode, expected lan, expected internal)
+        ([('lo', '127.0.0.1'), ('lo', '10.255.255.254'), ('eth0', '172.21.39.63')], True, '192.168.1.42',
+         'nat', [], ['172.21.39.63']),
+        ([('lo', '127.0.0.1'), ('eth0', '172.21.39.63')], True, None, 'nat', [], ['172.21.39.63']),
+        ([('lo', '127.0.0.1'), ('lo', '10.255.255.254'), ('eth0', '172.30.1.2'), ('eth1', '192.168.1.42')], True,
+         '192.168.1.42', 'mirrored', ['192.168.1.42'], []),
+        ([('eth0', '172.20.0.15'), ('lo', '10.255.255.254')], True, '172.20.0.15', 'mirrored', ['172.20.0.15'], []),
+        ([('eth0', '10.0.0.7'), ('lo', '10.255.255.254')], True, None, 'mirrored', ['10.0.0.7'], []),
+        ([('lo', '127.0.0.1'), ('eth0', '192.168.0.10'), ('docker0', '172.17.0.1'), ('tun0', '8.8.8.8')], False, None,
+         None, ['192.168.0.10', '172.17.0.1'], []),
+        (None, False, None, None, ['192.168.0.5'], []),
+    ]
+    for interfaces, wsl, windows_ip, mode, lan, internal in cases:
+        got = hs.classify_network(interfaces, wsl, ['10.255.255.254', '192.168.0.5'], windows_ip)
+        check((got['mode'], got['lan'], got['internal']) == (mode, lan, internal),
+              f'classify_network({interfaces}, wsl={wsl}, windows={windows_ip}) -> {got}')
+    # 10.255.255.254 never shows up, whatever the source.
+    for base in [{'source': 'server', 'wsl': False, 'windows_ip': None},
+                 dict(hs.classify_network([('lo', '10.255.255.254'), ('eth0', '192.168.3.4')], True), source='interfaces')]:
+        got = hs.network_for(base, ['10.255.255.254', '192.168.3.4'])
+        check('10.255.255.254' not in got['lan'] and got['lan'][:1] == ['192.168.3.4'], f'network_for: {got}')
+    # The console: NAT mode warns and prints no join address; mirrored shows the LAN IP and the Hyper-V hint.
+    options = argparse.Namespace(public_address=None, firewall={'state': 'unknown', 'notes': []})
+    status = {'version': '0', 'room_name': 'T', 'addresses': ['172.21.39.63', '10.255.255.254']}
+    for interfaces, windows_ip, expect, refuse in [
+            ([('lo', '10.255.255.254'), ('eth0', '172.21.39.63')], '192.168.1.42',
+             ["WSL is in NAT mode, so phones can't reach this server", 'networkingMode=mirrored', 'wsl --shutdown',
+              'Set-NetFirewallHyperVVMSetting', 'localport=24600-24601', 'join 192.168.1.42'], ['█', 'also ']),
+            ([('lo', '10.255.255.254'), ('eth1', '192.168.1.42'), ('eth0', '172.30.1.2')], '192.168.1.42',
+             ['Set-NetFirewallHyperVVMSetting', 'mirrored networking'], ['NAT mode', '10.255.255.254', '172.30.1.2'])]:
+        options.network = dict(hs.classify_network(interfaces, True, (), windows_ip), source='interfaces')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            hs.print_summary(hs.Console(machine=True), status, options, 'http://127.0.0.1:24680')
+        text = out.getvalue()
+        for needle in expect:
+            check(needle in text, f'console lacks {needle!r}:\n{text}')
+        for needle in refuse:
+            check(needle not in text, f'console shows {needle!r}:\n{text}')
+    print('  address classification (WSL NAT / mirrored / LAN) ok', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--godot')
     parser.add_argument('--project', type=Path, default=ROOT)
+    parser.add_argument('--unit-only', action='store_true', help='Only the fast checks (no Godot)')
     args = parser.parse_args()
-    engine, _ = validate_engine(args.godot or ensure_engine())
     try:
+        unit_tests()
+        if args.unit_only:
+            print('DEDICATED SERVER UNIT CHECKS PASSED')
+            return 0
+        engine, _ = validate_engine(args.godot or ensure_engine())
         run(engine, args.project.resolve())
     except Failure as exc:
         print(f'FAILED: {exc}')

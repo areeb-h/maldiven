@@ -94,6 +94,46 @@ network or the firewall:
   *client isolation* in the router, or plug the PC into the router with a cable.
 - **Mobile data or a VPN** on a phone hides the station. Turn them off.
 
+### Running in WSL
+
+You can run the server inside WSL 2 (Windows Subsystem for Linux), but WSL's
+default **NAT** networking hides it behind a private virtual network: its
+address (172.something) only exists inside your PC, so phones can't reach it.
+The launcher detects this, prints a warning instead of a join address, and
+shows the same warning in the panel. The server still starts, which is fine for
+testing on the PC itself.
+
+To play with phones, switch WSL to **mirrored** networking once:
+
+1. In Windows, add these lines to `%UserProfile%\.wslconfig` (create the file
+   if it doesn't exist):
+
+   ```
+   [wsl2]
+   networkingMode=mirrored
+   ```
+
+2. In PowerShell opened with *Run as administrator*, let incoming traffic
+   through to WSL (Hyper-V firewall) and open the game ports:
+
+   ```
+   Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
+   netsh advfirewall firewall add rule name="Drift Station server" dir=in action=allow protocol=UDP localport=24600-24601 profile=private
+   ```
+
+3. Restart WSL with `wsl --shutdown` (in PowerShell), open your WSL terminal
+   again and start the server.
+
+In mirrored mode the launcher shows your PC's real Wi-Fi address (it asks
+Windows for it). If phones still can't connect, the Hyper-V firewall rule in
+step 2 is the usual culprit. Mirrored networking needs Windows 11 22H2 or newer.
+
+**Simpler alternative:** skip WSL. Install Python for Windows, put the project
+in a Windows folder and run `py tools\host_station.py` from there.
+
+(`10.255.255.254`, which you may see inside WSL, is WSL's internal DNS address.
+It's never a join address, so the launcher hides it.)
+
 **"Port 24600 is already in use".** Another Drift Station (the game or a
 server) is running on this computer. Close it and press **Restart** in the panel.
 
