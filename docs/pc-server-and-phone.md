@@ -1,5 +1,7 @@
 # Run Friends Lab on your PC and Android phone
 
+> This is the separate **Friends Lab** voice experiment in `experiments/net-lab`, not the main game. To play Drift Station, see the [README](../README.md). The lab's PCM voice code is the base for in-game voice in week 3 ([roadmap](roadmap.md)), and its tunnel setup is the stopgap for remote play until then.
+
 This is the **0.3.1 Friends Lab**: one shared 3D test room, up to six crew slots, authoritative movement, nearby push-to-talk and room radio. Install it beside the older island app. Your PC runs the server; your phone runs the game. The default mode uses the **same home Wi-Fi/LAN**. If the phone is on mobile data or another network, use the [free UDP tunnel setup](#phone-on-mobile-data-or-another-wi-fi) below. The PC can use Ethernet.
 
 This build does not provide internet matchmaking, a built-in public relay, account login, match recovery, weapons or missions. The PC launcher can advertise a separately configured UDP tunnel to the existing APK. A Windows server walkthrough is provided below; its launcher was exercised on Linux loopback, so Windows execution and actual phone audio still need your test.
@@ -156,7 +158,7 @@ Record the phone model/Android version, PC OS, Wi-Fi setup and result for each i
 | Leave and retry with B | Returns to menu; the spare ticket can join the same slot after cleanup |
 | Stop PC server | Phone returns to menu, or times out and returns if the network fails silently |
 
-Run the same pass on three phones before marking the P1 gate complete. Also test headset disconnect, screen lock, permission revocation, a call interruption and a 15-minute session. Report failures; do not mark latency, thermal behaviour or audio intelligibility as passed without measurements.
+If you have more phones, try three. Headset disconnect, screen lock, permission revocation, a call interruption and a 15-minute session are worth a try too. Note what breaks; it feeds the week-3 voice port.
 
 ## Troubleshooting
 

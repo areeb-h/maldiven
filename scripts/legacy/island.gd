@@ -1,7 +1,7 @@
 extends Node3D
 ## Resource-driven island. Geometry, materials and static collision live in GLBs.
-const Explorer = preload("res://scripts/explorer.gd")
-const TouchControls = preload("res://scripts/touch_controls.gd")
+const Explorer = preload("res://scripts/legacy/explorer.gd")
+const TouchControls = preload("res://scripts/legacy/touch_controls.gd")
 
 func place(asset_name: String, at: Vector3, yaw := 0.0, uniform_scale := 1.0) -> Node3D:
 	var packed: PackedScene = load("res://assets/models/%s.glb" % asset_name)

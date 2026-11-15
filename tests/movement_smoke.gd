@@ -4,7 +4,7 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func run() -> void:
-	var scene = load("res://scenes/island.tscn").instantiate()
+	var scene = load("res://scenes/legacy/island.tscn").instantiate()
 	root.add_child(scene)
 	for frame in range(45):
 		await physics_frame

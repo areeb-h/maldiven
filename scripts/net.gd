@@ -1,0 +1,364 @@
+extends Node
+## Autoload "Net": listen-server sessions, LAN discovery and every gameplay RPC.
+## All RPCs live on this always-present node so they never target a missing
+## scene. The host (peer 1) is a player too and is authoritative over the round.
+
+signal roster_changed
+signal session_ended(message: String)
+signal round_began
+signal returned_to_lobby
+signal rooms_changed
+
+const PORT := 24600
+const DISCOVERY_PORT := 24601
+const PROTOCOL := 4
+const MAX_PLAYERS := 8
+const GAME_ID := "drift-station"
+const PALETTE := [Color("ff5a5a"), Color("4da3ff"), Color("ffd23f"), Color("53d769"),
+	Color("c77dff"), Color("ff9f40"), Color("3fe0d0"), Color("f2f2f2")]
+
+var roster := {}  # peer id -> {name, color}
+var in_round := false
+var room_name := ""
+var world: Node = null  # current World node, registers itself
+var rooms := {}  # ip -> {name, players, state, seen}
+var _beacon: PacketPeerUDP
+var _listener: PacketPeerUDP
+var _beacon_timer := 0.0
+var _local_name := ""
+var _leaving := false
+
+
+func _ready() -> void:
+	multiplayer.peer_connected.connect(_on_peer_connected)
+	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.connected_to_server.connect(_on_connected)
+	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+
+func is_online() -> bool:
+	return multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer) \
+		and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+
+
+func is_host() -> bool:
+	return is_online() and multiplayer.is_server()
+
+
+func my_id() -> int:
+	return multiplayer.get_unique_id() if is_online() else 0
+
+
+# --- Session lifecycle -------------------------------------------------------
+
+func host(player_name: String) -> Error:
+	leave()
+	var peer := ENetMultiplayerPeer.new()
+	var error := peer.create_server(PORT, MAX_PLAYERS - 1)
+	if error != OK:
+		return error
+	multiplayer.multiplayer_peer = peer
+	_local_name = _clean_name(player_name)
+	room_name = "%s's station" % _local_name
+	roster = {1: {"name": _local_name, "color": PALETTE[0]}}
+	in_round = false
+	_start_beacon()
+	roster_changed.emit()
+	return OK
+
+
+func join(address: String, player_name: String) -> Error:
+	leave()
+	var peer := ENetMultiplayerPeer.new()
+	var error := peer.create_client(address.strip_edges(), PORT)
+	if error != OK:
+		return error
+	multiplayer.multiplayer_peer = peer
+	_local_name = _clean_name(player_name)
+	roster = {}
+	in_round = false
+	return OK
+
+
+func leave() -> void:
+	_stop_beacon()
+	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
+		_leaving = true
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		_leaving = false
+	roster = {}
+	in_round = false
+	room_name = ""
+
+
+func _clean_name(text: String) -> String:
+	var cleaned := text.strip_edges().replace("\n", " ")
+	if cleaned.is_empty():
+		cleaned = "Crew %d" % (randi() % 90 + 10)
+	return cleaned.substr(0, 16)
+
+
+func _on_connected() -> void:
+	_register.rpc_id(1, _local_name, PROTOCOL)
+
+
+func _on_connection_failed() -> void:
+	leave()
+	session_ended.emit("Could not reach that station. Check the IP and that you're on the same Wi-Fi.")
+
+
+func _on_server_disconnected() -> void:
+	leave()
+	session_ended.emit("The host closed the station.")
+
+
+func _on_peer_connected(_id: int) -> void:
+	pass  # Wait for _register before listing them.
+
+
+func _on_peer_disconnected(id: int) -> void:
+	if not multiplayer.is_server() or not roster.has(id):
+		return
+	roster.erase(id)
+	if world != null and in_round:
+		world.host_player_left(id)
+	_roster.rpc(roster)
+	roster_changed.emit()
+
+
+@rpc("any_peer", "reliable")
+func _register(player_name: String, protocol: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	if protocol != PROTOCOL:
+		_refuse(id, "Version mismatch: update the app on every phone.")
+		return
+	if in_round:
+		_refuse(id, "A round is in progress. Try again when it ends.")
+		return
+	if roster.size() >= MAX_PLAYERS:
+		_refuse(id, "The station is full.")
+		return
+	var used := []
+	for entry in roster.values():
+		used.append(entry.color)
+	var color: Color = PALETTE[roster.size() % PALETTE.size()]
+	for candidate in PALETTE:
+		if not used.has(candidate):
+			color = candidate
+			break
+	var unique := _clean_name(player_name)
+	var taken := []
+	for entry in roster.values():
+		taken.append(entry.name)
+	var suffix := 2
+	var base := unique
+	while taken.has(unique):
+		unique = "%s %d" % [base.substr(0, 13), suffix]
+		suffix += 1
+	roster[id] = {"name": unique, "color": color}
+	_welcome.rpc_id(id, room_name)
+	_roster.rpc(roster)
+	roster_changed.emit()
+
+
+func _refuse(id: int, message: String) -> void:
+	_refused.rpc_id(id, message)
+	get_tree().create_timer(0.5).timeout.connect(func():
+		if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+			(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(id))
+
+
+@rpc("authority", "reliable")
+func _refused(message: String) -> void:
+	leave()
+	session_ended.emit(message)
+
+
+@rpc("authority", "reliable")
+func _welcome(name_of_room: String) -> void:
+	room_name = name_of_room
+
+
+@rpc("authority", "reliable")
+func _roster(next: Dictionary) -> void:
+	roster = next
+	roster_changed.emit()
+
+
+# --- Round lifecycle ---------------------------------------------------------
+
+func start_round() -> void:
+	if is_host() and not in_round:
+		_begin_round.rpc()
+
+
+@rpc("authority", "reliable", "call_local")
+func _begin_round() -> void:
+	in_round = true
+	round_began.emit()
+
+
+func back_to_lobby() -> void:
+	if is_host():
+		_back_to_lobby.rpc()
+
+
+@rpc("authority", "reliable", "call_local")
+func _back_to_lobby() -> void:
+	in_round = false
+	returned_to_lobby.emit()
+
+
+# --- Gameplay traffic --------------------------------------------------------
+
+## Host -> one client: its private role. Never broadcast.
+func send_role(id: int, role: String) -> void:
+	_role.rpc_id(id, role)
+
+
+@rpc("authority", "reliable")
+func _role(role: String) -> void:
+	if world != null:
+		world.client_role(role)
+
+
+func broadcast_snapshot(snapshot: Dictionary) -> void:
+	_snapshot.rpc(snapshot)
+
+
+@rpc("authority", "reliable")
+func _snapshot(snapshot: Dictionary) -> void:
+	if world != null:
+		world.client_snapshot(snapshot)
+
+
+func broadcast_event(event: Dictionary) -> void:
+	_event.rpc(event)
+
+
+@rpc("authority", "reliable")
+func _event(event: Dictionary) -> void:
+	if world != null:
+		world.client_event(event)
+
+
+## Client -> host: own pose, ~20 Hz.
+func send_pose(pos: Vector3, yaw: float, moving: float) -> void:
+	if is_host():
+		if world != null:
+			world.host_pose(1, pos, yaw, moving)
+	else:
+		_pose.rpc_id(1, pos, yaw, moving)
+
+
+@rpc("any_peer", "unreliable_ordered")
+func _pose(pos: Vector3, yaw: float, moving: float) -> void:
+	if multiplayer.is_server() and world != null:
+		world.host_pose(multiplayer.get_remote_sender_id(), pos, yaw, moving)
+
+
+## Host -> everyone: all poses in one packet.
+func broadcast_poses(poses: Dictionary) -> void:
+	_poses.rpc(poses)
+
+
+@rpc("authority", "unreliable_ordered")
+func _poses(poses: Dictionary) -> void:
+	if world != null:
+		world.client_poses(poses)
+
+
+## Client -> host: "interact", "shove" or "sabotage".
+func request(action: String) -> void:
+	if is_host():
+		if world != null:
+			world.host_request(1, action)
+	else:
+		_request.rpc_id(1, action)
+
+
+@rpc("any_peer", "reliable")
+func _request(action: String) -> void:
+	if multiplayer.is_server() and world != null and action in ["interact", "shove", "sabotage"]:
+		world.host_request(multiplayer.get_remote_sender_id(), action)
+
+
+# --- LAN discovery -----------------------------------------------------------
+
+func local_addresses() -> PackedStringArray:
+	var out := PackedStringArray()
+	for address in IP.get_local_addresses():
+		if address.begins_with("192.168.") or address.begins_with("10.") or _is_172_private(address):
+			out.append(address)
+	return out
+
+
+func _is_172_private(address: String) -> bool:
+	if not address.begins_with("172."):
+		return false
+	var parts := address.split(".")
+	return parts.size() == 4 and int(parts[1]) >= 16 and int(parts[1]) <= 31
+
+
+func _start_beacon() -> void:
+	_beacon = PacketPeerUDP.new()
+	_beacon.set_broadcast_enabled(true)
+	_beacon_timer = 0.0
+
+
+func _stop_beacon() -> void:
+	if _beacon != null:
+		_beacon.close()
+	_beacon = null
+
+
+func start_listening() -> void:
+	if _listener != null:
+		return
+	_listener = PacketPeerUDP.new()
+	if _listener.bind(DISCOVERY_PORT, "*") != OK:
+		_listener = null  # Another app/instance owns the port; manual IP still works.
+
+
+func stop_listening() -> void:
+	if _listener != null:
+		_listener.close()
+	_listener = null
+	rooms.clear()
+
+
+func _process(delta: float) -> void:
+	if _beacon != null and is_host():
+		_beacon_timer -= delta
+		if _beacon_timer <= 0.0:
+			_beacon_timer = 1.0
+			var payload := JSON.stringify({"game": GAME_ID, "v": PROTOCOL, "name": room_name,
+				"players": roster.size(), "state": "playing" if in_round else "lobby"}).to_utf8_buffer()
+			var targets := ["255.255.255.255"]
+			for address in local_addresses():
+				var parts := address.split(".")
+				targets.append("%s.%s.%s.255" % [parts[0], parts[1], parts[2]])
+			for target in targets:
+				_beacon.set_dest_address(target, DISCOVERY_PORT)
+				_beacon.put_packet(payload)
+	if _listener != null:
+		var changed := false
+		while _listener.get_available_packet_count() > 0:
+			var packet := _listener.get_packet()
+			var ip := _listener.get_packet_ip()
+			var data = JSON.parse_string(packet.get_string_from_utf8())
+			if typeof(data) == TYPE_DICTIONARY and data.get("game") == GAME_ID and int(data.get("v", 0)) == PROTOCOL:
+				rooms[ip] = {"name": str(data.get("name", "Station")).substr(0, 32),
+					"players": int(data.get("players", 0)), "state": str(data.get("state", "lobby")),
+					"seen": Time.get_ticks_msec()}
+				changed = true
+		for ip in rooms.keys():
+			if Time.get_ticks_msec() - rooms[ip].seen > 4000:
+				rooms.erase(ip)
+				changed = true
+		if changed:
+			rooms_changed.emit()

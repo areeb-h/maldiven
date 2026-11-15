@@ -18,3 +18,6 @@ One engine owns runtime, physics, UI and animation. Engine version upgrades requ
 
 ## Station planning update (2026-11-12)
 The engine/GDScript baseline is retained. Native voice may require a plugin/Gradle export; this exception is gated by ADR 0007. Station multiplayer is not implemented by the planning update.
+
+## Update (2026-11-15)
+Accepted. The station game runs on this baseline with Godot's built-in high-level multiplayer ([ADR 0025](0025-listen-server-prototype.md)).

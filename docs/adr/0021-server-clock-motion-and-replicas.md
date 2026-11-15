@@ -20,4 +20,4 @@ Application-level seeded delay/drop queues are diagnostic instrumentation. They 
 
 ## Validation
 
-[Step 3](../milestones/2026-11-12-shared-movement.md) links the movement, admission and island regression evidence plus render-capture scope. Invalid intent, fixed speed, stale-input stop, obstacle collision, replica removal and nine two-client impairment profiles are included. P1's phone/native voice/encrypted transport gates remain open.
+[Step 3](../archive/milestones/2026-11-12-shared-movement.md) links the movement, admission and island regression evidence plus render-capture scope. Invalid intent, fixed speed, stale-input stop, obstacle collision, replica removal and nine two-client impairment profiles are included. P1's phone/native voice/encrypted transport gates remain open.

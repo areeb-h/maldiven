@@ -22,4 +22,4 @@ The local ledger is not the production credential architecture. It deliberately 
 
 ## Validation
 
-[Milestone evidence](../milestones/2026-11-12-network-admission.md) records 32 actual multi-process network checks and five island baseline checks for the same inputs. Unknown/expired/replayed credentials, incompatible versions, simultaneous identity claims, malformed packets, unfinished authentication and restart/shutdown are included. This is not an internet security audit or gameplay/voice validation.
+[Milestone evidence](../archive/milestones/2026-11-12-network-admission.md) records 32 actual multi-process network checks and five island baseline checks for the same inputs. Unknown/expired/replayed credentials, incompatible versions, simultaneous identity claims, malformed packets, unfinished authentication and restart/shutdown are included. This is not an internet security audit or gameplay/voice validation.

@@ -18,3 +18,6 @@ Movement, touch, camera and Android build tools may transfer; tropical art does 
 
 ## Validation
 Documentation links and scope consistency; owner review; P1 technical spike before content expansion.
+
+## Update (2026-11-15)
+Direction stands; the process changed. Find the fun first, harden later. The active docs are now [design.md](../design.md) and [roadmap.md](../roadmap.md); `docs/plan.md` and the phase gates moved to the [archive](../archive/README.md). The infiltrator is in from week 1, 2–8 players.

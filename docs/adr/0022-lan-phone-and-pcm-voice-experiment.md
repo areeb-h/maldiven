@@ -30,7 +30,7 @@ Audio is decrypted in server memory for routing. There is no audio recording, tr
 
 ## Verification and gate
 
-See the [Step 4 milestone](../milestones/2026-11-12-friends-phone.md), [combined evidence](../milestones/evidence/friends-phone-2026-11-12.json) and [PC/phone guide](../pc-server-and-phone.md). Synthetic PCM over real certificate-checked DTLS, native generator consumption, capture adapter lifecycle, touch ownership, invite recovery and launcher shutdown are executable checks. Intentional certificate failures are expected engine TLS errors in the negative case only. Single-shot malformed movement probes now use reliable delivery for diagnostic evidence; real movement and production voice remain unreliable media.
+See the [Step 4 milestone](../archive/milestones/2026-11-12-friends-phone.md), [combined evidence](../archive/milestones/evidence/friends-phone-2026-11-12.json) and [PC/phone guide](../pc-server-and-phone.md). Synthetic PCM over real certificate-checked DTLS, native generator consumption, capture adapter lifecycle, touch ownership, invite recovery and launcher shutdown are executable checks. Intentional certificate failures are expected engine TLS errors in the negative case only. Single-shot malformed movement probes now use reliable delivery for diagnostic evidence; real movement and production voice remain unreliable media.
 
 Linux loopback and APK structural checks cannot close Android permissions/audio/route, Windows firewall/ACL, real Wi-Fi, thermal or latency gates. Run the guide on the owner's PC and at least three physical phones before advancing P1.
 
