@@ -26,6 +26,11 @@ const BEATS: Array = [
 ]
 ## Letterbox height as a share of the frame (2.39:1 inside 16:9).
 const BARS := 0.128
+## Beats that keep near-field depth of field (close portraits); elsewhere only a
+## light far blur is used so the frame stays crisp.
+const NEAR_BLUR_BEATS := ["beat_lying", "beat_console"]
+## Far-blur strength relative to the stills.
+const DOF_SCALE := 0.5
 
 var fps := 30.0
 var dt := 1.0 / 30.0
@@ -62,6 +67,7 @@ func setup_cut(p_fps: float) -> void:
 	fps = p_fps
 	dt = 1.0 / fps
 	setup()
+	dof_scale = DOF_SCALE
 	_build_overlay()
 
 
@@ -82,6 +88,7 @@ func update(t: float) -> void:
 	if first:
 		_beat = index
 		_beat_start = start
+		allow_near_blur = String(BEATS[index][0]) in NEAR_BLUR_BEATS
 		_prev_lt = -1.0
 		_cast.clear()
 		_carry.clear()
@@ -198,8 +205,8 @@ func _build_overlay() -> void:
 		_overlay.add_child(bar)
 		_bars.append(bar)
 	_title = _label("title", 0.105, Color(0.93, 0.96, 1.0))
-	_sub = _label("bold", 0.04, Color(0.8, 0.88, 1.0))
-	_small = _label("head", 0.028, Color(1.0, 0.82, 0.45))
+	_sub = _label("bold", 0.046, Color(0.8, 0.88, 1.0))
+	_small = _label("head", 0.033, Color(1.0, 0.82, 0.45))
 	_big = _label("title", 0.3, Color(1.0, 0.45, 0.2))
 
 
@@ -218,7 +225,7 @@ func _label(font_kind: String, size_share: float, color: Color) -> Label:
 
 
 func _reset_overlay() -> void:
-	_shade.color.a = 0.0
+	_shade.color = Color(0, 0, 0, 0)
 	for l in [_title, _sub, _small, _big]:
 		(l as Label).visible = false
 		(l as Label).modulate.a = 1.0
@@ -237,6 +244,22 @@ func card(shade: float, title := "", title_a := 1.0, sub := "", sub_a := 1.0, sm
 		l.text = spec[1]
 		l.modulate.a = clampf(spec[2], 0.0, 1.0)
 		l.position.y = h * float(spec[3])
+
+
+## Soft white flash over the picture (alpha 0..1).
+func flash(alpha: float) -> void:
+	_shade.color = Color(1, 1, 1, clampf(alpha, 0.0, 1.0))
+
+
+## Brings the power back like StationBuilder.set_power_state(station, "restored")
+## but with the reactor core and glow eased off for the camera (at full energy
+## the core blooms to a flat white shape in close shots).
+func restore_power_soft() -> void:
+	StationBuilder.set_power_state(station, "restored")
+	var target: Dictionary = (station.get("_to") as Dictionary).duplicate()
+	target["reactor"] = 0.75
+	target["glow"] = 0.85
+	station.set("_to", target)
 
 
 ## Big centred countdown digit.
@@ -352,7 +375,14 @@ func beat_reactor(lt: float, first: bool) -> void:
 		vfx.burst("insert_cell", socket.global_transform * socket.get_seat_transform().origin)
 	if crossed(lt, 1.5):
 		vfx.burst("power_wave", Vfx.REACTOR_CORE)
-		StationBuilder.set_power_state(station, "restored")
+		restore_power_soft()
+	# The wave's bright wall sweeps through the lens ~0.15 s after the burst
+	# (it expands from the core); dip exposure under it and ride a soft flash
+	# instead, so no frame goes full white.
+	var pass_t := 1.5 + Vfx.POWER_WAVE_TIME * pow(camera.global_position.distance_to(Vfx.REACTOR_CORE) / Vfx.POWER_WAVE_RADIUS, 1.0 / 1.15)
+	var dip := smooth(1.0 - absf(lt - pass_t) / 0.16)
+	attrs.exposure_multiplier = 0.85 * (1.0 - 0.7 * dip)
+	flash(0.28 * smooth(1.0 - absf(lt - pass_t - 0.02) / 0.22))
 	drive(w, 0.0, lt < 1.0)
 	cue(lt, 1.0, "insert_cell", 0.0)
 	cue(lt, 1.5, "power_up", 0.0)
@@ -373,7 +403,7 @@ func beat_lights_on(lt: float, first: bool) -> void:
 			i += 1
 		vfx.burst("power_wave", Vfx.REACTOR_CORE)
 	if crossed(lt, 0.3):
-		StationBuilder.set_power_state(station, "restored")
+		restore_power_soft()
 	if crossed(lt, 1.3):
 		for key: String in ring:
 			if key != "purple":

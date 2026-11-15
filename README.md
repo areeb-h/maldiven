@@ -30,6 +30,7 @@ There's no in-game voice yet. Play in the same room or on a Discord call.
 ## Hosting and joining
 
 - **Dedicated PC server (one command):** `python tools/host_station.py` (Python 3.11+, Windows/macOS/Linux). It downloads the pinned Godot on first run, starts a headless server where every phone is a player, and opens a live control panel in your browser (join address, QR, players, start round, kick, station log). Full guide: [docs/hosting.md](docs/hosting.md).
+- **Bots:** fill empty seats with AI crewmates (they can be the infiltrator). PC server: `python tools/host_station.py --bots 3` (optional `--bot-difficulty easy|normal|hard`) or **Add bot** in the panel. Phone/PC host: **ADD BOT** in the lobby. One human plus bots can start a round.
 - **Host from a phone:** choose Host on the main menu, on any phone or PC. The host plays too. The lobby shows the host's IP.
 - **Join:** on the same Wi-Fi the room shows up automatically. If it doesn't (some routers and phones block broadcast), type the host's IP.
 - Ports: game UDP **24600**, LAN discovery UDP broadcast **24601**. Allow them through the firewall on the hosting PC.

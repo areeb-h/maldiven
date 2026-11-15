@@ -4,7 +4,10 @@ extends SceneTree
 ##
 ## xvfb-run -a -s "-screen 0 1280x720x24" <godot> --path . --rendering-method mobile \
 ##     --resolution 1280x720 --fixed-fps 30 --script res://tools/trailer/trailer.gd \
-##     -- --out <dir> [--fps 30] [--from 0] [--to 80] [--preview] [--check]
+##     -- --out <dir> [--fps 30] [--from 0] [--to 80] [--preview] [--check] [--msaa 4|2]
+##
+## Masters are rendered supersampled (e.g. --resolution 2560x1440) with 4x MSAA
+## and downscaled to 1080p by make_video.py.
 ##
 ## --check (run with --headless) steps through each beat and only reports
 ## cameras inside geometry or blocked views; it renders nothing.
@@ -29,6 +32,7 @@ func _run() -> void:
 	var to := -1.0
 	var preview := false
 	var check := false
+	var msaa := 4
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		var value := args[i + 1] if i + 1 < args.size() else ""
@@ -45,13 +49,14 @@ func _run() -> void:
 				preview = true
 			"--check":
 				check = true
+			"--msaa":
+				msaa = int(value)
 	if out.is_empty():
 		push_error("trailer: pass --out <dir>")
 		quit(2)
 		return
 	DirAccess.make_dir_recursive_absolute(out.path_join("frames"))
-	# 2x MSAA: ~2,400 frames on a CPU renderer; motion hides the difference to 4x.
-	ShowcaseScript.configure_quality(root, preview, 2)
+	ShowcaseScript.configure_quality(root, preview, msaa)
 	var cut: Node3D = CutScript.new()
 	root.add_child(cut)
 	cut.setup_cut(fps)

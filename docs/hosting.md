@@ -233,3 +233,12 @@ done.
   `--unit-only` runs just the fast checks (address classification for WSL,
   Tailscale and LAN, and `--public-address` parsing) without Godot.
 - Logs of the last five server runs are in `tools/.cache/host_station/`.
+
+## Playing with bots
+
+Bots are AI crewmates that take real seats: they get roles (one can be the infiltrator), carry cells, run the core, shove, take the gun and revive. They fill out a round when there aren't enough people.
+
+- **PC server:** start with bots already aboard: `python3 tools/host_station.py --bots 3`. Add `--bot-difficulty easy`, `normal` (default) or `hard`. In the panel's Crew card, use **Add bot** / **Remove bot** while in the lobby. Bots show a BOT chip.
+- **Phone or PC host:** the host sees **ADD BOT / REMOVE BOT** in the lobby; everyone sees a BOT tag.
+- A round needs at least 2 players and at least one real person. A person joining a full lobby takes a bot's seat. Bots stay for rematches. If the last person leaves, the server returns to the lobby.
+- Current balance: bot crews are strong, and a bot infiltrator rarely wins. Play the infiltrator yourself for a fair fight, or use `easy`.
