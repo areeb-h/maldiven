@@ -85,6 +85,10 @@ func _ready() -> void:
 		else:
 			rng.randomize()
 		rules.setup(Net.roster, rng)
+		if OS.get_cmdline_user_args().has("--bot-host-infiltrator") and rules.players.size() > 1:
+			for id in rules.players:  # dev/screenshot option: host plays the infiltrator
+				rules.players[id].role = StationRules.INFILTRATOR if id == 1 else StationRules.CREW
+			rules.infiltrator_name = rules.players[1].name
 		_has_snapshot = true
 		for id in rules.players:
 			if id == my_id:

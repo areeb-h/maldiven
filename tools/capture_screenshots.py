@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--players', type=int, default=3)
     parser.add_argument('--renderer', default='gl_compatibility')
     parser.add_argument('--size', default='1600x900')
+    parser.add_argument('--host-infiltrator', action='store_true', help='Host plays the infiltrator (blackout/pod shots)')
     args = parser.parse_args()
     engine, _ = validate_engine(args.godot or ensure_engine())
     out = args.out.resolve()
@@ -37,7 +38,8 @@ def main():
     if not os.environ.get('DISPLAY') and shutil.which('xvfb-run'):
         rendered = ['xvfb-run', '-a', '-s', f'-screen 0 {width}x{height}x24'] + rendered
     host = subprocess.Popen(rendered + ['--bot=host', '--bot-name=Areeb', f'--bot-players={args.players}',
-                                        f'--bot-seed={args.seed}', f'--bot-shots={out}', '--touch-ui'] + common,
+                                        f'--bot-seed={args.seed}', f'--bot-shots={out}', '--touch-ui'] + common
+                            + (['--bot-host-infiltrator'] if args.host_infiltrator else []),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     time.sleep(4)
     names = ['Maya', 'Jon', 'Zara', 'Ilyas', 'Noor', 'Sam', 'Lee']
