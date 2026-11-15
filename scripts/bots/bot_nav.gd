@@ -1,6 +1,6 @@
 class_name BotNav
 extends RefCounted
-## Waypoint graph over the station for bot players (see scripts/bots/README.md).
+## Waypoint graph over the station for bot players (scripts/bots/bot_brain.gd).
 ##
 ## Built from StationLayout: room centres, a 2 m grid inside every room, the
 ## corridor centre lines, the doorway points where corridors meet rooms, ramp
@@ -17,7 +17,7 @@ const ROOM_MARGIN := 0.9  # grid points stay this far from room walls
 const CLEARANCE := 0.46  # capsule radius for point and link checks (crew capsule is 0.38)
 const LINK_RANGE := 3.2  # m: candidate links
 const SAMPLE := 0.25  # m between samples on a link (layout check)
-const CAPSULE_BOTTOM := 0.3  # m: lower obstacles are stepped over
+const CAPSULE_BOTTOM := 0.27  # m: lower obstacles are stepped over (crew step 0.25 m)
 const CAPSULE_TOP := 1.7
 
 var astar := AStar3D.new()
@@ -28,7 +28,7 @@ var room_point := {}  # room id -> point index (its centre, or the clear point n
 var approach_point := {}  # socket id -> point index
 var physics_checked := false
 var _space: PhysicsDirectSpaceState3D
-var _capsule: CapsuleShape3D
+var _capsule: CylinderShape3D  # a flat-bottomed "capsule": also finds knee-high decor
 var _buckets := {}  # Vector2i cell -> Array[int]
 
 static var _shared: BotNav
@@ -56,7 +56,7 @@ static func approach_of(socket_id: String) -> Vector3:
 func build(space: PhysicsDirectSpaceState3D) -> void:
 	_space = space
 	physics_checked = space != null
-	_capsule = CapsuleShape3D.new()
+	_capsule = CylinderShape3D.new()
 	_capsule.radius = CLEARANCE
 	_capsule.height = CAPSULE_TOP - CAPSULE_BOTTOM
 	astar.clear()

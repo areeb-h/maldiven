@@ -537,6 +537,9 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 .ping.is-ok i b:nth-child(-n+2) { background: var(--amber); }
 .ping.is-bad i b:nth-child(1) { background: var(--danger); }
 .crew-note { margin: 18px 0 0; display: flex; gap: 8px; align-items: flex-start; }
+.crew-bots { margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.crew-bots[hidden] { display: none; }
+.crew-bots .muted { flex: 1 1 200px; }
 
 /* --- Feed ---------------------------------------------------------------------------------- */
 

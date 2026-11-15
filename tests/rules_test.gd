@@ -19,10 +19,11 @@ func _initialize() -> void:
 		"test_drop_makes_item_loose", "test_physics_throw_and_hit", "test_thrown_item_cools",
 		"test_respawn_lost_item", "test_downed_lies_along_the_fall", "test_mirror_item_physics_fields",
 		"test_vented_item_drifts_then_returns", "test_shove_blocked_by_walls", "test_knocked_loose_flies",
+		"test_bot_roster_roles",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (39 tests)")
+		print("PASS: rules (40 tests)")
 	quit(1 if failures else 0)
 
 
@@ -623,3 +624,21 @@ func test_knocked_loose_flies() -> void:
 	check(rules.request_shove(ids[0]) == ids[1], "shove the carrier")
 	var item: Dictionary = rules.items.cell_1
 	check(item.holder == 0 and item.vel.z > 2.0 and item.vel.y > 2.0, "the cell pops out along the push")
+
+
+## Bot players (scripts/bots/) are ordinary roster entries with extra keys: one
+## human plus one bot is a real round, and the bot can be dealt either role.
+func test_bot_roster_roles() -> void:
+	var roster := {1: {"name": "Human", "color": Color.RED},
+		10001: {"name": "Bot Nova", "color": Color.BLUE, "bot": true, "skill": "normal"}}
+	var bot_infiltrator := 0
+	for seed in range(12):
+		var rules := StationRules.new()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed
+		rules.setup(roster, rng)
+		check(rules.players.size() == 2 and rules.infiltrator_id() != 0, "1 human + 1 bot deals an infiltrator")
+		if rules.infiltrator_id() == 10001:
+			bot_infiltrator += 1
+		check(not var_to_str(rules.public_snapshot()).contains("bot"), "snapshots don't carry roster extras")
+	check(bot_infiltrator > 0 and bot_infiltrator < 12, "either side can be the infiltrator (%d/12 bot)" % bot_infiltrator)

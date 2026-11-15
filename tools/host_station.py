@@ -49,7 +49,8 @@ STATIC = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
           '/qr.js': ('qr.js', 'text/javascript; charset=utf-8'),
           '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
-COMMANDS = {'start_round', 'back_to_lobby', 'kick', 'set_room_name', 'stop'}
+COMMANDS = {'start_round', 'back_to_lobby', 'kick', 'set_room_name', 'stop', 'add_bot', 'remove_bot'}
+BOT_SKILLS = ('easy', 'normal', 'hard')
 FIREWALL_RULE = ('netsh advfirewall firewall add rule name="Drift Station server" dir=in action=allow '
                  f'protocol=UDP localport={GAME_PORT}-{DISCOVERY_PORT} profile=private')
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; "
@@ -620,7 +621,9 @@ class Station:
             args = [str(self.engine), '--headless', '--path', str(self.project), '--', '--dedicated',
                     f'--room-name={self.room_name}', f'--max-players={self.options.max_players}',
                     f'--control-port={self.control_port}', f'--control-token={self.token}',
-                    f'--auto-lobby={self.options.auto_lobby}']
+                    f'--auto-lobby={self.options.auto_lobby}',
+                    f'--bots={getattr(self.options, "bots", 0)}',
+                    f'--bot-difficulty={getattr(self.options, "bot_difficulty", "normal")}']
             log_path = self._log_path()
             log_file = log_path.open('w', encoding='utf-8', errors='replace') if log_path else None
             self.process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
@@ -880,6 +883,14 @@ class PanelHandler(BaseHTTPRequestHandler):
                 return self._send(HTTPStatus.OK, {'ok': True})
             if cmd == 'set_room_name':
                 args = {'name': clean_room_name(args.get('name', ''))}
+            elif cmd == 'add_bot':
+                skill = args.get('skill')
+                args = {'skill': skill} if skill in BOT_SKILLS else {}
+            elif cmd == 'remove_bot':
+                try:
+                    args = {'id': max(0, int(args.get('id', 0)))}
+                except (TypeError, ValueError):
+                    args = {'id': 0}
             return self._send(HTTPStatus.OK, self.station.command(cmd, args))
         if path in ('/api/restart', '/api/start'):
             threading.Thread(target=self.station.restart, daemon=True).start()
@@ -1109,6 +1120,10 @@ def parse_args(argv=None):
     parser.add_argument('--max-players', type=int, default=8, choices=range(2, 9), metavar='2-8', help='Seats (default 8)')
     parser.add_argument('--auto-lobby', type=float, default=45, metavar='SECONDS',
                         help='Return everyone to the lobby this long after a round ends (0 = only from the panel; default 45)')
+    parser.add_argument('--bots', type=int, default=0, choices=range(0, 8), metavar='0-7',
+                        help='Add this many bot players to the lobby at start (add or remove more in the panel; default 0)')
+    parser.add_argument('--bot-difficulty', default='normal', choices=BOT_SKILLS,
+                        help='How well bots play: easy, normal or hard (default normal)')
     parser.add_argument('--http-port', type=int, default=PANEL_PORT, help=f'Control panel port on 127.0.0.1 (default {PANEL_PORT})')
     parser.add_argument('--public-address', type=public_address_arg, metavar='HOST:PORT',
                         help="A public UDP tunnel's address (e.g. playit.gg: abc.playit.gg:12345), shown as a join option")

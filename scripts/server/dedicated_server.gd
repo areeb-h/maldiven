@@ -3,6 +3,7 @@ extends Node
 ## game starts with user args:
 ##   godot --headless --path . -- --dedicated [--room-name=NAME] [--max-players=8]
 ##         [--control-port=PORT --control-token=TOKEN] [--auto-lobby=45]
+##         [--bots=N] [--bot-difficulty=easy|normal|hard]
 ##
 ## The PC hosts the session (ENet peer 1, UDP 24600, LAN beacon on 24601) but is
 ## not a player: the roster holds only the phones, the server has no avatar,
@@ -39,6 +40,7 @@ var _result_ms := -1
 var _stopping := false
 var _kicked := {}
 var _version := ""
+var bot_difficulty := "normal"  # for bots added by --bots or the panel's Add bot
 
 
 func _ready() -> void:
@@ -57,6 +59,11 @@ func _ready() -> void:
 		_fail("UDP port %d is busy: is another Drift Station server or game already running on this PC?" % Net.PORT
 			if error == ERR_CANT_CREATE or error == ERR_ALREADY_IN_USE else "could not open UDP port %d (error %d)" % [Net.PORT, error])
 		return
+	bot_difficulty = str(args.get("bot-difficulty", "normal"))
+	if not Net.BOT_SKILLS.has(bot_difficulty):
+		bot_difficulty = "normal"
+	for i in range(clampi(int(args.get("bots", "0")), 0, max_players - 1)):
+		Net.add_bot(bot_difficulty)  # bot players (scripts/bots/), kept across rounds
 	Net.roster_changed.connect(_on_roster_changed)
 	Net.round_began.connect(_on_round_began)
 	Net.returned_to_lobby.connect(_on_returned_to_lobby)
@@ -104,8 +111,9 @@ func _fail(message: String) -> void:
 func _on_roster_changed() -> void:
 	status.roster_changed(Net.roster, _kicked)
 	_kicked.clear()
-	# Everyone left mid-round: nothing to play for, reset for the next group.
-	if Net.in_round and Net.roster.is_empty():
+	# Every phone left mid-round: nothing to play for (bots never play alone),
+	# reset for the next group. Bots stay in the lobby for them.
+	if Net.in_round and Net.human_count() == 0:
 		Net.back_to_lobby()
 	_status_timer = 0.0
 
@@ -139,6 +147,8 @@ func start_round() -> String:
 		return "A round is already running."
 	if Net.roster.size() < MIN_PLAYERS:
 		return "Needs at least %d players (%d connected)." % [MIN_PLAYERS, Net.roster.size()]
+	if Net.human_count() == 0:
+		return "Bots don't play alone: a phone needs to join first."
 	Net.start_round()
 	return ""
 
@@ -153,6 +163,8 @@ func back_to_lobby() -> String:
 func kick(id: int) -> String:
 	if not Net.roster.has(id):
 		return "No player with id %d." % id
+	if Net.is_bot(id):
+		return remove_bot(id)
 	_kicked[id] = true
 	_send_away(id, KICK_MESSAGE)
 	return ""
@@ -172,6 +184,27 @@ func _send_away(id: int, message: String) -> void:
 			var peer := enet.get_peer(id)
 			if peer != null:
 				peer.peer_disconnect_later())
+
+
+func add_bot(skill := "") -> String:
+	if Net.in_round:
+		return "Add bots in the lobby, between rounds."
+	if Net.roster.size() >= max_players:
+		return "The station is full (%d seats)." % max_players
+	if Net.add_bot(skill if Net.BOT_SKILLS.has(skill) else bot_difficulty) == 0:
+		return "Couldn't add a bot."
+	return ""
+
+
+## id 0: the most recently added bot.
+func remove_bot(id := 0) -> String:
+	if Net.in_round:
+		return "Remove bots in the lobby, between rounds."
+	if id != 0 and not Net.is_bot(id):
+		return "No bot with id %d." % id
+	if not Net.remove_bot(id):
+		return "There are no bots to remove."
+	return ""
 
 
 func set_room_name(text: String) -> String:
@@ -259,6 +292,10 @@ func _handle(command: Dictionary) -> void:
 				error = back_to_lobby()
 			"kick":
 				error = kick(int(params.get("id", 0)))
+			"add_bot":
+				error = add_bot(str(params.get("skill", "")))
+			"remove_bot":
+				error = remove_bot(int(params.get("id", 0)))
 			"set_room_name":
 				error = set_room_name(str(params.get("name", "")))
 			"status":

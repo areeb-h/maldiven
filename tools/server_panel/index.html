@@ -219,6 +219,15 @@ networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="
         <span class="count" id="crew-count">0 / 8</span>
       </header>
       <ul class="crew" id="crew" aria-live="polite"></ul>
+      <div class="crew-bots" id="crew-bots">
+        <button id="add-bot" class="btn btn--ghost" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-bot"/></svg><span>Add bot</span>
+        </button>
+        <button id="remove-bot" class="btn btn--ghost" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span>Remove bot</span>
+        </button>
+        <span class="muted small" id="bots-hint">Bots fill empty seats and play the round like anyone else.</span>
+      </div>
       <p class="muted small crew-note" id="crew-note">This computer runs the station and isn't a player. Roles stay secret here until the round ends.</p>
     </section>
 
@@ -347,6 +356,7 @@ networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="
       <symbol id="i-gun" viewBox="0 0 24 24"><path d="M3.5 7.5h15l2 2.5-2 1h-7l-1.5 2.5h-2l-1 5H4.5l1.5-6.5-2.5-2V7.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
       <symbol id="i-carry" viewBox="0 0 24 24"><circle cx="12" cy="6.5" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c.6-4.2 3.1-6.8 7-6.8s6.4 2.6 7 6.8 M7 13.5h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
       <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19.5c.7-3.8 3.4-5.8 7-5.8s6.3 2 7 5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8V4.8 M3 12.5v3 M21 12.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="4" r="1.3" fill="currentColor"/><circle cx="9.3" cy="13" r="1.4" fill="currentColor"/><circle cx="14.7" cy="13" r="1.4" fill="currentColor"/><path d="M9.5 16.3h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
       <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.2" fill="currentColor"/></symbol>
     </defs>
   </svg>

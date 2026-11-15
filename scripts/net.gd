@@ -307,6 +307,8 @@ func _register(player_name: String, protocol: int) -> void:
 	if in_round and not round_over:
 		_refuse(id, "A round is in progress. Try again when it ends.")
 		return
+	if roster.size() >= max_players and not in_round and not bot_ids().is_empty():
+		roster.erase(bot_ids().back())  # in the lobby, a bot gives its seat up for a person
 	if roster.size() >= max_players:
 		_refuse(id, "The station is full.")
 		return
@@ -481,8 +483,8 @@ func _physics_sync() -> void:
 ## Host: smoothed round-trip time to a client, in seconds (0 if unknown).
 func peer_rtt(id: int) -> float:
 	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet == null or id == 1 or not is_online() or is_bot(id):
-		return 0.0
+	if enet == null or id == 1 or not is_online() or is_bot(id) or not multiplayer.get_peers().has(id):
+		return 0.0  # the host itself, a bot, or someone who already left
 	var packet_peer := enet.get_peer(id)
 	if packet_peer == null:
 		return 0.0

@@ -181,6 +181,7 @@ func test_round(seed_value: int, skill_name: String) -> void:
 			report_at += 30.0
 			_report(world, t)
 	var wall := (Time.get_ticks_msec() - started) / 1000.0
+	print("  waypoint graph: %d points, ready in %.0f ms" % [bots.nav.points.size(), bots.nav_ms])
 	_report(world, world.rules.elapsed)
 	print("  result after %.1f s (%.0f s wall): winner=%s reason=%s" % [world.rules.elapsed, wall,
 		world.rules.winner, world.rules.reason])

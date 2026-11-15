@@ -29,17 +29,21 @@ func roster_changed(roster: Dictionary, kicked: Dictionary) -> void:
 	var before: Dictionary = _last.get("roster", {})
 	for id in roster:
 		if not before.has(id):
-			log_line("%s joined" % roster[id].name, "join")
+			log_line(("%s was added (bot)" if bool(roster[id].get("bot", false)) else "%s joined") % roster[id].name, "join")
 	for id in before:
 		if not roster.has(id):
-			if kicked.has(id):
+			if kicked.has(id) or _last.get("bots", {}).has(id):
 				log_line("%s was removed by the host" % before[id], "leave")
 			else:
 				log_line("%s left" % before[id], "leave")
 	var names := {}
+	var bots := {}
 	for id in roster:
 		names[id] = str(roster[id].name)
+		if bool(roster[id].get("bot", false)):
+			bots[id] = true
 	_last["roster"] = names
+	_last["bots"] = bots
 
 
 func round_started(crew: int) -> void:
@@ -148,6 +152,9 @@ func build(rules: StationRules, info: Dictionary) -> Dictionary:
 		var entry: Dictionary = Net.roster[id]
 		var row := {"id": id, "name": str(entry.name), "color": "#" + Color(entry.color).to_html(false),
 			"ping_ms": int(round(Net.peer_rtt(id) * 1000.0)), "state": "lobby"}
+		if Net.is_bot(id):
+			row.bot = true  # a bot player run by this server (scripts/bots/)
+			row.skill = str(entry.get("skill", "normal"))
 		if not snap.is_empty():
 			if snap.players.has(id):
 				var p: Dictionary = snap.players[id]

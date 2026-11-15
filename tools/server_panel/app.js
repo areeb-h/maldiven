@@ -24,6 +24,7 @@
     verdict: $("verdict"), verdictIcon: $("verdict-icon"), verdictTitle: $("verdict-title"), verdictReason: $("verdict-reason"),
     reveal: $("reveal"), timeline: $("timeline"), timelineBox: $("timeline-box"),
     crew: $("crew"), crewCount: $("crew-count"),
+    crewBots: $("crew-bots"), addBot: $("add-bot"), removeBot: $("remove-bot"), botsHint: $("bots-hint"),
     feed: $("feed"), feedEmpty: $("feed-empty"), uptime: $("uptime"), ports: $("footer-ports"),
     overlay: $("overlay"), overlayTitle: $("overlay-title"), overlayText: $("overlay-text"), overlayLog: $("overlay-log"),
     overlayIcon: $("overlay-icon-use"), restart: $("restart"), restartLabel: $("restart-label"),
@@ -414,18 +415,21 @@
 
     if (state === "lobby") {
       const n = server.players.length;
+      const humans = server.players.filter((p) => !p.bot).length;
       const need = server.min_players || 2;
       const names = server.players.map((p) => p.name);
       // The launcher words this from the routes that really reach the server (WSL NAT, Tailscale, tunnel).
       if (n === 0) ui.lobbyLead.textContent = snap.launcher?.lobby_hint || "Waiting for the crew. Phones on this Wi-Fi can see the station now.";
       else if (n < need) ui.lobbyLead.textContent = `${names[0]} is aboard. One more player and you can start.`;
       else ui.lobbyLead.textContent = `${plural(n, "crewmate", "crewmates")} aboard. One of them will secretly be the infiltrator.`;
-      const ready = n >= need && !server.stopping;
+      const ready = n >= need && humans >= 1 && !server.stopping;
       ui.start.disabled = !ready;
       ui.startReason.replaceChildren();
       if (!ready) {
         ui.startReason.appendChild(icon("i-info"));
-        ui.startReason.appendChild(el("span", "", `Needs at least ${need} players · ${n} connected`));
+        ui.startReason.appendChild(el("span", "", n >= need && humans === 0
+          ? "Bots don't play alone · waiting for a phone to join"
+          : `Needs at least ${need} players · ${n} aboard (add a bot to play with one phone)`));
       } else {
         ui.startReason.appendChild(el("span", "", "Phones that join after the start wait for the next round."));
       }
@@ -486,6 +490,12 @@
   function renderCrew(server) {
     const players = server.players;
     ui.crewCount.replaceChildren(el("b", "", String(players.length)), ` / ${server.max_players}`);
+    // Bots: added and removed in the lobby only.
+    const lobby = server.state === "lobby" && !server.stopping;
+    const bots = players.filter((p) => p.bot).length;
+    ui.crewBots.hidden = !lobby;
+    ui.addBot.disabled = players.length >= server.max_players;
+    ui.removeBot.disabled = bots === 0;
     const live = new Set(players.map((p) => p.id));
     for (const [id, node] of members) {
       if (!live.has(id) && !node.classList.contains("is-leaving")) {
@@ -535,6 +545,11 @@
     kick.appendChild(icon("i-kick"));
     kick.addEventListener("click", async () => {
       const who = li.dataset.name;
+      if (li.dataset.bot === "1") {
+        const reply = await command("remove_bot", { id: Number(li.dataset.id) }, kick);
+        if (reply.ok) toast(`${who} was removed`, "good");
+        return;
+      }
       const ok = await confirmAction(`Remove ${who}?`, `${who}'s phone goes back to its home screen with a message. They can join again later.`, "Remove");
       if (ok) {
         const reply = await command("kick", { id: Number(li.dataset.id) }, kick);
@@ -550,6 +565,7 @@
     const parts = li._parts;
     li.style.setProperty("--c", p.color);
     li.dataset.name = p.name;
+    li.dataset.bot = p.bot ? "1" : "0";
     if (parts.name.textContent !== p.name) {
       parts.name.textContent = p.name;
       parts.face.textContent = initials(p.name);
@@ -566,6 +582,7 @@
       case "waiting": wanted.push({ key: "state", cls: "tag--quiet", icon: "i-info", text: "Next round" }); break;
     }
     if (phase === "result" && revealed && revealed === p.name) wanted.push({ key: "role", cls: "tag--danger", icon: "i-mask", text: "Infiltrator" });
+    if (p.bot) wanted.push({ key: "bot", cls: "tag--quiet", icon: "i-bot", text: "BOT" });
     if (p.holding && HOLDING[p.holding]) wanted.push({ key: "hold", cls: "tag--quiet", icon: HOLDING[p.holding][0], text: HOLDING[p.holding][1] });
     if (p.carrying_body) wanted.push({ key: "body", cls: "tag--quiet", icon: "i-carry", text: "Carrying" });
     syncTags(parts.chips, wanted);
@@ -732,6 +749,15 @@
     } else {
       ui.name.value = current || "";
     }
+  });
+
+  ui.addBot.addEventListener("click", async () => {
+    const reply = await command("add_bot", {}, ui.addBot);
+    if (reply.ok) toast("Bot added. It plays the next round.", "good");
+  });
+  ui.removeBot.addEventListener("click", async () => {
+    const reply = await command("remove_bot", {}, ui.removeBot);
+    if (reply.ok) toast("Bot removed", "good");
   });
 
   ui.start.addEventListener("click", async () => {

@@ -8,9 +8,10 @@ extends RefCounted
 ## human-like reaction delay; difficulty tunes delays, aim and aggression.
 ##
 ## Goal kinds (dictionaries with "kind" plus a target):
-##   idle, wander, guard {pos}, pickup {item}, insert {socket}, drop,
-##   follow {target, dist}, shove {target}, shoot {target}, drag {target},
-##   revive, sabotage, ghost.
+##   idle, wander, guard {pos}, ghost, pickup {item}, insert {socket}, drop,
+##   drop_body, follow {target, dist}, follow_item {item, dist}, shove {target},
+##   shoot {target}, drag {target}, revive (body to the medbay), eject (body
+##   into the airlock), cycle (the airlock), sabotage.
 
 const THINK_INTERVAL := 0.25
 const ARRIVE := 0.7
@@ -22,6 +23,7 @@ const AVOID_RANGE := 1.3
 const AVOID_MASK := PhysicsLayers.WORLD | PhysicsLayers.REMOTE_PLAYER | PhysicsLayers.LOCAL_PLAYER | PhysicsLayers.PROP
 const PERSONAL_SPACE := 1.05
 const SHOOT_RANGE := 12.0
+const STRONG_SUSPICION := 5.0  # seen doing something only the infiltrator would do
 const POD_GUARD := Vector3(40.0, 0.0, 3.0)  # Cargo, between the doors and the pod
 const SHUTTLE_GUARD := Vector3(20.0, 0.0, 2.2)
 
@@ -59,12 +61,14 @@ var _arrived := false
 var _last_stuck_at := Vector3.INF
 var _detour: Variant = null  # Vector3: a side step around a spot we keep sticking at
 var _detour_left := 0.0
+var _step_round_since := 0.0
+var _step_round_last := -10.0
 var _last_block := ""  # what the avoidance probe last hit (debugging)
+var _last_block_id := 0  # the player the probe last ran into, if any
 
 # Action pacing.
 var _act_cooldown := 0.0
 var _act_ready_at := -1.0  # rules.elapsed when an in-range action may fire (reaction)
-var _act_key := ""
 
 # Personality and memory.
 var plan := ""  # infiltrator: rush / ambush / gun
@@ -80,11 +84,13 @@ var _last_core_holder := 0
 var _core_was := ""
 var _pod_armer := 0
 var _revive_rolls := {}  # downed id -> bool (decided once per fall)
+var _eject_rolls := {}  # downed suspect id -> bool (decided once per fall)
 var _social_left := 0.0
 var _aim_error := 0.0
 var _trusted_until := {}  # player id -> rules time: just saved the core, don't chase them
 var _pod_dist := {}  # player id -> distance to the pod at the last think
 var _pod_trend := {}  # player id -> smoothed change of that distance (m/s, negative: closing in)
+var _holder_since := 0.0  # rules time the current core carrier picked it up
 var _gun_mission := false  # committed to fetching the gun for a suspect
 var _eject_target := 0  # downed suspect this bot is carrying to the airlock
 var _cycle_until := -1.0  # rules time until which this bot tries to cycle the airlock
@@ -186,8 +192,11 @@ func on_event(event: Dictionary) -> void:
 		"shot":
 			var by := int(event.by)
 			var target := int(event.target)
-			if target != 0 and by != id and float(_suspect.get(target, 0.0)) < 2.0:
-				_suspect[by] = float(_suspect.get(by, 0.0)) + 1.5  # shot someone who looked innocent
+			if target != 0 and _sees(by):
+				if target == _last_core_holder and _hostile(target):
+					_suspect[target] = float(_suspect.get(target, 0.0)) + 4.0  # stopped running for the pod
+				elif by != id and float(_suspect.get(target, 0.0)) < 2.0:
+					_suspect[by] = float(_suspect.get(by, 0.0)) + 1.5  # shot someone who looked innocent
 			if target == id:
 				avatar.express("shocked", 1.0)
 
@@ -254,7 +263,7 @@ func _observe() -> void:
 		if _sees(_pod_armer):  # in a blackout only the alarm gives it away, not who
 			_suspect[_pod_armer] = 10.0
 	if where == "held" and _core_was == "shuttle" and _sees(int(core.holder)):
-		_suspect[int(core.holder)] = float(_suspect.get(int(core.holder), 0.0)) + 6.0  # pulled it out of the shuttle
+		_suspect[int(core.holder)] = float(_suspect.get(int(core.holder), 0.0)) + 7.0  # pulled it out of the shuttle
 	if where == "held" and _core_was == "pod":
 		_suspect[int(core.holder)] = maxf(0.0, float(_suspect.get(int(core.holder), 0.0)) - 5.0)  # saved it
 		_trusted_until[int(core.holder)] = rules.elapsed + 20.0
@@ -269,11 +278,17 @@ func _observe() -> void:
 		_pod_trend[pid] = lerpf(float(_pod_trend.get(pid, 0.0)), (d - before) / THINK_INTERVAL, 0.35)
 		_pod_dist[pid] = d
 	if int(core.holder) != 0:
+		if int(core.holder) != _last_core_holder or _core_was != "held":
+			_holder_since = rules.elapsed
+			_pod_trend[int(core.holder)] = 0.0  # judge where they go from here
 		_last_core_holder = int(core.holder)
 	_core_was = where
 	for pid in _revive_rolls.keys():
 		if rules.state_of(pid) != StationRules.DOWNED:
 			_revive_rolls.erase(pid)
+	for pid in _eject_rolls.keys():
+		if rules.state_of(pid) != StationRules.DOWNED:
+			_eject_rolls.erase(pid)
 
 
 func _choose(me: Dictionary) -> Dictionary:
@@ -359,8 +374,9 @@ func _choose_crew(me: Dictionary) -> Dictionary:
 	if gun:
 		var mark := culprit
 		if core_holder != 0 and core_holder != id and _hostile(core_holder) and (float(_suspect.get(core_holder, 0.0)) >= 4.0 \
-				or _flat_dist(rules.players[core_holder].pos, StationLayout.to_world(StationLayout.SOCKETS.pod.pos)) < 9.0):
-			mark = core_holder  # shoot only the clear cases; shove the rest
+				or (StationLayout.room_at(rules.players[core_holder].pos) == "cargo" and rules.elapsed - _holder_since > 2.5
+					and float(_pod_trend.get(core_holder, 0.0)) < -1.0)):
+			mark = core_holder  # shoot only the clear cases (carrying it into Cargo); shove the rest
 		if mark == 0 and core.socket == "pod":
 			mark = _pod_threat()
 		if mark != 0 and _can_shoot(mark):
@@ -375,6 +391,13 @@ func _choose_crew(me: Dictionary) -> Dictionary:
 		if guard != 0 and _flat_dist(rules.players[guard].pos, _pos()) < 3.0 and rng.randf() < float(skill.aggression):
 			return {"kind": "shove", "target": guard, "urgent": true}
 		return {"kind": "pickup", "item": "core", "urgent": true}
+	# A downed suspect can be put out of the game for good (unless this bot
+	# is the one nearest a loose core: that comes first).
+	var core_loose: bool = core.socket == "" and core_holder == 0 and float(core.lost) < 0.0
+	if not gun and (not core_loose or _closer_friend(rules.item_position("core"))):
+		var eject := _consider_eject()
+		if not eject.is_empty():
+			return eject
 	if core_holder != 0 and core_holder != id:
 		if rules.is_blackout() and not _sees(core_holder):
 			# Lost in the dark: the pod is where a thief would go.
@@ -393,7 +416,8 @@ func _choose_crew(me: Dictionary) -> Dictionary:
 		return {"kind": "pickup", "item": "gun", "claims": ["gun"], "urgent": true}
 	if core.socket == "shuttle":
 		# Launch countdown: guard it, and keep suspects away from it.
-		var threat := _suspect_near(BotNav.approach_of("shuttle"), 3.5, 4.0)
+		# Keep a known suspect well away (the shuttle needs 30 quiet seconds).
+		var threat := _suspect_near(BotNav.approach_of("shuttle"), 9.0, 4.0)
 		if threat != 0 and not gun:
 			return {"kind": "shove", "target": threat, "urgent": true}
 		var eject_s := _consider_eject()
@@ -504,18 +528,19 @@ func _support_cells() -> Dictionary:
 	return {"kind": "guard", "pos": StationLayout.to_world(StationLayout.ROOMS.reactor.center) + Vector3(0, 0, -2.5)}
 
 
-## Someone loading the pod, or guarding it: whoever stands closest to it.
+## Whoever armed the pod (if this bot saw it) or a suspect standing guard by
+## it; never just anyone near it (that's usually crew pulling the core out).
 func _pod_threat() -> int:
 	var pod := BotNav.approach_of("pod")
 	var best := 0
-	var best_d := 4.0
+	var best_score := 2.0
 	for pid in rules.players:
 		if pid == id or rules.players[pid].state != StationRules.OK:
 			continue
 		var d := _flat_dist(rules.players[pid].pos, pod)
-		var score := d - float(_suspect.get(pid, 0.0))
-		if (pid == _pod_armer or d < 2.5) and score < best_d:
-			best_d = score
+		var score := float(_suspect.get(pid, 0.0))
+		if d < 6.0 and score >= best_score:
+			best_score = score
 			best = pid
 	return best
 
@@ -529,6 +554,8 @@ func _hostile(pid: int) -> bool:
 		return true
 	if float(_trusted_until.get(pid, -1.0)) > rules.elapsed:
 		return false
+	if pid == int(rules.items.core.holder) and rules.elapsed - _holder_since < 1.5:
+		return false  # just picked it up: wait and see where they take it
 	var closing := float(_pod_trend.get(pid, 0.0))  # negative: getting nearer the pod
 	var room := StationLayout.room_at(at)
 	var to_pod := _flat_dist(at, StationLayout.to_world(StationLayout.SOCKETS.pod.pos))
@@ -546,21 +573,23 @@ func _can_shoot(pid: int) -> bool:
 
 ## Someone who looked guilty enough (pulled the core from the shuttle, armed the
 ## pod) is down: drag them into the airlock and cycle it, if there's time.
+## Too far to make it before they wake up? Hauling them away from the core
+## still buys the crew time, so the trip only has to start in time.
 func _consider_eject() -> Dictionary:
-	if float(skill.aggression) < 0.5 or _held_kind(id) != "" or not rules.airlock_ready():
+	if _held_kind(id) != "" or not rules.airlock_ready():
 		return {}
-	var chamber := StationLayout.to_world(StationLayout.ROOMS.airlock.center)
 	for pid in rules.players:
 		var p: Dictionary = rules.players[pid]
 		if pid == id or p.state != StationRules.DOWNED or int(p.carried_by) != 0:
 			continue
-		if float(_suspect.get(pid, 0.0)) < 6.0 or ctl.claimed_by_other("eject:%d" % pid, id):
+		if float(_suspect.get(pid, 0.0)) < STRONG_SUSPICION or ctl.claimed_by_other("eject:%d" % pid, id):
 			continue
 		var left := float(p.down_until) - rules.elapsed
-		var trip := _flat_dist(p.pos, _pos()) / 5.5 + _flat_dist(p.pos, chamber) * 1.35 / 3.6 + 2.5
-		if trip > left - 3.0:
+		if _flat_dist(p.pos, _pos()) / 5.5 > left - 5.0:
 			continue
-		if ctl.claim("eject:%d" % pid, id):
+		if not _eject_rolls.has(pid):
+			_eject_rolls[pid] = rng.randf() < float(skill.eject)
+		if _eject_rolls[pid] and ctl.claim("eject:%d" % pid, id):
 			_eject_target = pid
 			return {"kind": "drag", "target": pid, "claims": ["eject:%d" % pid], "urgent": true}
 	return {}
@@ -568,7 +597,7 @@ func _consider_eject() -> Dictionary:
 
 func _strong_suspect() -> int:
 	var best := 0
-	var best_score := 6.0
+	var best_score := STRONG_SUSPICION
 	for pid in rules.players:
 		if pid == id or rules.players[pid].state != StationRules.OK:
 			continue
@@ -663,6 +692,10 @@ func _choose_infiltrator(me: Dictionary) -> Dictionary:
 	if core.socket == "shuttle":
 		if _sabotage_ready():
 			return {"kind": "sabotage", "urgent": true}
+		var dark_in := rules.sabotage_cooldown()
+		if not rules.is_blackout() and dark_in > 0.0 and dark_in < 7.0 and rules.shuttle_left > dark_in + 9.0:
+			# The lights go out soon: lurk nearby and strike in the dark.
+			return {"kind": "guard", "pos": BotNav.approach_of("shuttle") + Vector3(3.0, 0, 3.5)}
 		if gun:
 			var guard := _nearest_crew(BotNav.approach_of("shuttle"), 4.0)
 			if guard != 0 and _can_shoot(guard):
@@ -686,6 +719,10 @@ func _choose_infiltrator(me: Dictionary) -> Dictionary:
 		if gun:
 			return {"kind": "drop", "urgent": true}
 		return {"kind": "pickup", "item": "core", "urgent": true}
+	# A gun left lying around is too good to pass up.
+	if not gun and _gun_free() and rules.items.gun.socket == "" \
+			and _flat_dist(rules.item_position("gun"), _pos()) < 10.0 and rng.randf() < float(skill.aggression):
+		return {"kind": "pickup", "item": "gun"}
 	# Core in the vault.
 	var since := rules.elapsed - _plan_set_at
 	match plan:
@@ -724,7 +761,7 @@ func _pick_plan() -> void:
 	_plan_set_at = rules.elapsed
 	var roll := rng.randf()
 	var aggression := float(skill.aggression)
-	if roll < 0.15 * aggression:
+	if roll < 0.38 * aggression:
 		plan = "gun"
 	elif roll < 0.55:
 		plan = "rush"
@@ -971,7 +1008,7 @@ func _do_shoot() -> void:
 	var facing := avatar.facing_yaw()
 	if rules.elapsed >= _act_ready_at and absf(wrapf(float(_aim_yaw) - facing, -PI, PI)) < 0.08 \
 			and rules.gun_ready <= rules.elapsed:
-		var hit := _shot_would_hit()
+		var hit := _shot_would_hit(pid)
 		if hit != 0 and hit != pid:
 			# Someone else is in the line of fire: step aside instead.
 			_go(_pos() + Vector3(cos(true_yaw), 0, -sin(true_yaw)) * 2.0 * _avoid_side, 0.3, 0.6)
@@ -984,8 +1021,9 @@ func _do_shoot() -> void:
 
 
 ## Who a shot would hit right now (the rules' aim assist picks the best one in
-## the cone), or 0 for a miss.
-func _shot_would_hit() -> int:
+## the cone), or 0 for a miss. With `wanted`, anyone else nearly as well placed
+## counts as the hit too: bodies move between this check and the shot.
+func _shot_would_hit(wanted := 0) -> int:
 	var shooter: Vector3 = rules.players[id].pos
 	var forward := Vector3(sin(avatar.facing_yaw()), 0, cos(avatar.facing_yaw()))
 	var eye := shooter + Vector3(0, 1.3, 0)
@@ -1002,6 +1040,8 @@ func _shot_would_hit() -> int:
 		if not _line_clear(eye, rules.players[pid].pos + Vector3(0, 1.2, 0)):
 			continue
 		var score := forward.angle_to(offset.normalized()) * 10.0 + d * 0.1
+		if pid != wanted:
+			score -= 1.5  # margin: a teammate close to the line of fire blocks the shot
 		if score < best_score:
 			best_score = score
 			target = pid
@@ -1035,6 +1075,17 @@ func _step_round(at: Vector3) -> bool:
 	var other: Variant = _action_position(rules.available_action(id))
 	if other == null:
 		return false
+	if rules.elapsed - _step_round_last > 0.5:
+		_step_round_since = rules.elapsed
+	_step_round_last = rules.elapsed
+	if rules.elapsed - _step_round_since > 2.5:
+		# Can't get round it (a crate, the pod hull): knock things apart with a shove.
+		_face_point(at)
+		if _held_kind(id) == "" and _shove_would_hit() == 0 and float(rules.players[id].shove_ready) <= rules.elapsed \
+				and (_face_yaw == null or absf(wrapf(float(_face_yaw) - avatar.facing_yaw(), -PI, PI)) < 0.4):
+			_press("shove")
+			_step_round_since = rules.elapsed
+		return true
 	var away := Vector3(at.x - other.x, 0.0, at.z - other.z)
 	away = away.normalized() if away.length() > 0.05 else Vector3(1, 0, 0).rotated(Vector3.UP, float(id))
 	_go(at + away * 0.5, 0.2, 0.5)
@@ -1203,8 +1254,12 @@ func _stand(pos: Vector3, aiming: bool, delta: float) -> void:
 		if other == avatar or not other.is_inside_tree() or other.life_state != "ok":
 			continue
 		var vel := Vector2(other.velocity.x, other.velocity.z)
+		if other.bot_driven:
+			# Another bot: where it wants to go counts, even while something blocks it.
+			var wish := Basis(Vector3.UP, other.yaw) * Vector3(other.move_input.x, 0.0, other.move_input.y)
+			vel = Vector2(wish.x, wish.z) * CrewMember.RUN_SPEED
 		var offset := Vector2(pos.x - other.global_position.x, pos.z - other.global_position.z)
-		if vel.length() < 1.0 or offset.length() > 1.8 or offset.length() < 0.01:
+		if vel.length() < 1.0 or offset.length() > 2.2 or offset.length() < 0.01:
 			continue
 		var heading := vel.normalized()
 		if heading.dot(offset.normalized()) > 0.6:
@@ -1248,12 +1303,14 @@ func _avoid(pos: Vector3, dir: Vector2) -> Vector2:
 	if _probe_clear(pos, dir):
 		return dir
 	var straight_block := _last_block
+	var straight_id := _last_block_id
 	for step in [0.5, 0.9, 1.3, 1.75]:
 		for side in [_avoid_side, -_avoid_side]:
 			var turned := dir.rotated(step * side)
 			if _probe_clear(pos, turned):
 				_avoid_side = side
 				_last_block = straight_block
+				_last_block_id = straight_id
 				return turned
 	return dir
 
@@ -1273,6 +1330,7 @@ func _probe_clear(pos: Vector3, dir: Vector2) -> bool:
 					and (collider as CrewMember).peer_id == int(goal.get("target", 0)):
 				continue
 			_last_block = "%s@%s" % [collider.get("name") if collider != null else "?", hit.get("position")]
+			_last_block_id = (collider as CrewMember).peer_id if collider is CrewMember else 0
 			return false
 	return true
 
@@ -1310,14 +1368,18 @@ func _track_stuck(pos: Vector3, dir: Vector2, stunned: bool, delta: float) -> vo
 		_anchor_age = 0.0
 		_unstick_count += 1
 		unsticks += 1
+		# Someone stands in an infiltrator's way: out of the way with them.
+		if _last_block_id != 0 and rules.role_of(id) == StationRules.INFILTRATOR and _held_kind(id) == "" \
+				and float(rules.players[id].shove_ready) <= rules.elapsed and _shove_would_hit() == _last_block_id:
+			_press("shove")
 		_avoid_side = -_avoid_side
 		_backoff_dir = (-dir).rotated(rng.randf_range(0.6, 1.2) * (1.0 if rng.randf() < 0.5 else -1.0))
 		_backoff_left = BACKOFF_SECONDS
 		if _unstick_count >= 2:
 			avatar.jump_pending = true  # a small prop or a deck edge: hop it
-		if _flat_dist(pos, _last_stuck_at) < 1.5 and ctl.nav != null:
-			_detour = _detour_point(pos)  # same spot again: walk round it another way
-			_detour_left = 2.0
+		if ctl.nav != null:
+			_detour = _detour_point(pos)  # then walk round it another way
+			_detour_left = 2.0 if _flat_dist(pos, _last_stuck_at) < 1.5 else 1.2
 		_last_stuck_at = pos
 		_repath_now()
 

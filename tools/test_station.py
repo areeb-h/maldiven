@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Drift Station checks: import, rules unit tests, art/physics smoke tests and three
-real networked bot rounds (1 host + 2 clients over loopback ENet).
+"""Drift Station checks: import, rules unit tests, art/physics smoke tests, bot
+players (headless simulated rounds), three real networked bot rounds (1 host + 2
+clients over loopback ENet), the dedicated server and bots on it with a phone.
 
 Usage: python tools/test_station.py [--godot PATH] [--skip-net]
 """
@@ -24,16 +25,26 @@ def run_host_station_test(engine):
     print('  ' + (result.stdout.strip().splitlines() or ['ok'])[-1])
 
 
-def run(engine, label, args, marker, timeout=180):
+def run(engine, label, args, marker, timeout=180, extra_markers=()):
     print(f'{label}...', flush=True)
     result = subprocess.run([str(engine), '--headless', '--path', str(ROOT)] + args,
                             capture_output=True, text=True, timeout=timeout)
     log = result.stdout + result.stderr
-    bad = [line for line in log.splitlines() if any(m in line for m in ERROR_MARKERS)]
+    bad = [line for line in log.splitlines() if any(m in line for m in ERROR_MARKERS + tuple(extra_markers))]
     if result.returncode != 0 or bad or (marker and marker not in log):
         print(log[-4000:])
         raise SystemExit(f'FAILED: {label}')
     print(f'  ok')
+
+
+def run_bots_net_test(engine):
+    print('bots on the dedicated server with a phone (tools/test_bots.py)...', flush=True)
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'test_bots.py'), '--godot', str(engine)],
+                            capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        print((result.stdout + result.stderr)[-4000:])
+        raise SystemExit('FAILED: bots on the dedicated server')
+    print('  ' + '\n  '.join(result.stdout.strip().splitlines()[-4:]))
 
 
 def net_round(engine, plan, players=3, seed=11, timeout=150, host_infiltrator=False):
@@ -114,12 +125,17 @@ def main():
     # Fixed 60 Hz steps, as fast as the machine runs: many simulated seconds.
     run(engine, 'physics smoke', ['--fixed-fps', '60', '--script', 'res://tests/physics_smoke.gd'], 'PASS: physics smoke',
         timeout=300)
+    # Bot players: navigation graph, then simulated rounds (1 still human + 3 bots)
+    # at a fixed 60 Hz. No RPC may ever be aimed at a bot id.
+    run(engine, 'bot players', ['--fixed-fps', '60', '--script', 'res://tests/bots_test.gd', '--', '--seeds=11,23,5'],
+        'PASS: bots', timeout=600, extra_markers=('unknown peer', 'Invalid peer', 'FAIL:'))
     if not args.skip_net:
         net_round(engine, 'crew')
         net_round(engine, 'infiltrator')
         net_round(engine, 'eject', host_infiltrator=True)
         if (ROOT / 'tools' / 'test_host_station.py').exists():
             run_host_station_test(engine)
+        run_bots_net_test(engine)
     print('ALL STATION CHECKS PASSED')
 
 

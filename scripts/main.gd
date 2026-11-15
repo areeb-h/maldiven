@@ -37,6 +37,9 @@ var _lobby_grid: GridContainer
 var _lobby_waiting: HBoxContainer
 var _start_button: Button
 var _start_note: Label
+var _bot_row: HBoxContainer  # host only: add / remove bot players (scripts/bots/)
+var _add_bot_button: Button
+var _remove_bot_button: Button
 var _seen_ids := {}
 var _world: StationWorld
 var _backdrop: Node3D
@@ -488,6 +491,18 @@ func _build_lobby() -> void:
 	_lobby_grid.add_theme_constant_override("h_separation", UiStyle.S1)
 	_lobby_grid.add_theme_constant_override("v_separation", UiStyle.S1)
 	inner.add_child(_lobby_grid)
+	# Host: fill seats with bot players (they play the round like anyone else).
+	_bot_row = HBoxContainer.new()
+	_bot_row.add_theme_constant_override("separation", UiStyle.S1)
+	inner.add_child(_bot_row)
+	_add_bot_button = UiStyle.button("ADD BOT", false, UiStyle.ACCENT, "gear", 48)
+	_add_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_add_bot_button.pressed.connect(func(): Net.add_bot())
+	_bot_row.add_child(_add_bot_button)
+	_remove_bot_button = UiStyle.button("REMOVE BOT", false, UiStyle.MUTED, "close", 48)
+	_remove_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_remove_bot_button.pressed.connect(func(): Net.remove_bot())
+	_bot_row.add_child(_remove_bot_button)
 	_spacer(box, UiStyle.S1)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", UiStyle.S2)
@@ -576,6 +591,8 @@ func _player_card(entry: Dictionary, host: bool, me: bool) -> Control:
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.clip_text = true
 	row.add_child(name_label)
+	if bool(entry.get("bot", false)):
+		row.add_child(UiStyle.chip("BOT", UiStyle.MUTED, "gear", false))
 	if host:
 		row.add_child(UiStyle.chip("HOST", UiStyle.AMBER, "crown", false))
 	if me:
@@ -859,6 +876,9 @@ func _on_roster_changed() -> void:
 			UiMotion.pop(face, 0.12 + 0.04 * index, 0.4, 0.34)
 	_start_button.visible = host
 	_start_note.visible = host
+	_bot_row.visible = host
+	_add_bot_button.disabled = Net.roster.size() >= Net.max_players
+	_remove_bot_button.disabled = Net.bot_ids().is_empty()
 	if host:
 		var solo := Net.roster.size() < 2
 		_start_button.text = "START SOLO WALKAROUND" if solo else "START ROUND"
