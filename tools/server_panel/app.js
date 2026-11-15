@@ -258,6 +258,7 @@
 
   function renderHeader(server, launcher) {
     if (!nameEditing && document.activeElement !== ui.name) ui.name.value = server.room_name;
+    sizeName();
     ui.version.textContent = "v" + server.version;
     const n = server.players.length;
     let cls = "pill--live";
@@ -277,6 +278,22 @@
     document.title = `${server.room_name} · ${server.state === "lobby" ? `Lobby (${n})` : PHASE_TITLE[server.state]}`;
   }
 
+  /** The name field grows with its text, so the pencil sits right after it. */
+  function sizeName() {
+    $("room-name-field").dataset.value = ui.name.value || " ";
+  }
+
+  /** The address is the hero: as large as fits on one line (34 px down to 20 px). */
+  function fitAddress() {
+    const node = ui.address;
+    node.style.fontSize = "";
+    let size = parseFloat(getComputedStyle(node).fontSize);
+    while (node.scrollWidth > node.clientWidth + 1 && size > 20) {
+      size -= 1;
+      node.style.fontSize = size + "px";
+    }
+  }
+
   function renderJoin(server, launcher) {
     const addresses = [...(server.addresses || [])];
     const best = launcher.primary_address;
@@ -285,8 +302,11 @@
       addresses.unshift(best);
     }
     const address = addresses[0] || null;
-    ui.address.textContent = address || "No Wi-Fi address";
-    ui.address.classList.toggle("is-none", !address);
+    if (ui.address.textContent !== (address || "No Wi-Fi address")) {
+      ui.address.textContent = address || "No Wi-Fi address";
+      ui.address.classList.toggle("is-none", !address);
+      requestAnimationFrame(fitAddress);
+    }
     ui.copyAddress.hidden = !address;
     ui.qrFigure.hidden = !address;
     ui.helpAddress.textContent = address || "this computer's IP address";
@@ -606,6 +626,9 @@
   ui.copyAddress.addEventListener("click", () => shownAddress && copy(shownAddress, ui.copyAddress));
   ui.copyFirewall.addEventListener("click", () => copy(ui.firewallCommand.textContent, ui.copyFirewall));
 
+  ui.name.addEventListener("input", sizeName);
+  window.addEventListener("resize", fitAddress);
+  document.fonts?.ready.then(fitAddress);
   ui.name.addEventListener("focus", () => {
     nameEditing = true;
     ui.name.select();

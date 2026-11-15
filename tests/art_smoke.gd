@@ -307,8 +307,10 @@ func run() -> void:
 		world.add_child(item)
 		var box := _aabb(item)
 		var longest := maxf(box.size.y, maxf(box.size.x, box.size.z))
-		if absf(box.position.y) > 0.03 or longest < 0.35 or longest > 0.85:
-			fail("item %s bounds %s: origin must be bottom centre, ~0.5-0.6 m" % [kind, box])
+		# Gun: grip centred on the origin (hand spec), barrel towards +Z.
+		var gun_ok := kind == "gun" and box.position.y > -0.08 and box.position.y < -0.02 and box.end.z > 0.25 and box.position.z > -0.12
+		if not gun_ok and (absf(box.position.y) > 0.03 or longest < 0.35 or longest > 0.85):
+			fail("item %s bounds %s: origin must be bottom centre (gun: grip centre, barrel +Z), ~0.5-0.6 m" % [kind, box])
 		if kind == "gun":
 			if not item.has_method("set_ammo"):
 				fail("gun needs set_ammo")

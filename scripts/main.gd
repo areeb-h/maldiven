@@ -711,6 +711,7 @@ func _show_home(message: String) -> void:
 	_free_world()
 	_connecting = false
 	_set_backdrop_visible(true)
+	Sfx.set_music("lobby")
 	_ui.show()
 	_switch_to(_home)
 	if message != "":
@@ -730,6 +731,7 @@ func _show_lobby() -> void:
 	Net.stop_listening()
 	_ui.show()
 	_seen_ids.clear()
+	Sfx.set_music("lobby")
 	_switch_to(_lobby)
 	_on_roster_changed()
 	var delay := 0.12
