@@ -201,25 +201,46 @@ def windows_lan_address():
     return None
 
 
+def is_tailscale(address):
+    """Tailscale hands out addresses from the CGNAT range 100.64.0.0/10."""
+    parts = address.split('.')
+    return len(parts) == 4 and all(p.isdigit() for p in parts) and parts[0] == '100' and 64 <= int(parts[1]) <= 127
+
+
+def host_addresses():
+    """All IPv4 addresses of this computer by name lookup (Windows/macOS: finds Tailscale too)."""
+    try:
+        return socket.gethostbyname_ex(socket.gethostname())[2]
+    except OSError:
+        return []
+
+
 def classify_network(interfaces, wsl, fallback=(), windows_ip=None):
     """Decide which addresses phones can use.
 
     interfaces: [(name, ipv4)] or None if unknown; fallback: addresses from
     elsewhere (the Godot server) used when interfaces is None. Returns
     {'lan': [joinable addresses, best first], 'wsl': bool, 'mode': None |
-    'nat' | 'mirrored', 'internal': [WSL-only addresses], 'windows_ip': ...}.
-    WSL 2 in NAT mode sits behind a private virtual switch (172.16-31 on eth0):
-    phones can't reach it, so nothing is joinable there.
+    'nat' | 'mirrored', 'internal': [WSL-only addresses], 'windows_ip': ...,
+    'tailscale': [tailnet addresses]}. WSL 2 in NAT mode sits behind a private
+    virtual switch (172.16-31 on eth0): phones on the Wi-Fi can't reach it, so
+    nothing on the LAN is joinable there; Tailscale still is.
     """
     if interfaces is None:
         interfaces = [('?', address) for address in fallback]
+    tailscale = []
+    for name, ip in interfaces:
+        if (is_tailscale(ip) or name.startswith('tailscale')) and ip not in tailscale and not ip.startswith('127.'):
+            tailscale.append(ip)
     private = [(name, ip) for name, ip in interfaces
                if is_private(ip) and ip != WSL_DNS_ADDRESS and not ip.startswith('127.')]
     lan = []
     for _, ip in private:
         if ip not in lan:
             lan.append(ip)
-    result = {'lan': lan, 'wsl': bool(wsl), 'mode': None, 'internal': [], 'windows_ip': windows_ip}
+    lan = [ip for ip in lan if ip not in tailscale]
+    result = {'lan': lan, 'wsl': bool(wsl), 'mode': None, 'internal': [], 'windows_ip': windows_ip,
+              'tailscale': tailscale}
     if not wsl:
         return result
     home = [ip for _, ip in private if ip.startswith('192.168.') or ip.startswith('10.')]
@@ -242,6 +263,8 @@ def detect_network():
     interfaces = linux_interfaces() if platform.system() == 'Linux' else None
     network = classify_network(interfaces, wsl, (), windows_lan_address() if wsl else None)
     network['source'] = 'interfaces' if interfaces is not None else 'server'
+    if interfaces is None:  # Windows/macOS: the server only lists LAN addresses
+        network['tailscale'] = [ip for ip in host_addresses() if is_tailscale(ip)]
     return network
 
 
@@ -253,6 +276,7 @@ def network_for(base, server_addresses):
     else:
         network = classify_network(None, base.get('wsl', False), server_addresses or (), base.get('windows_ip'))
         network['source'] = base.get('source')
+        network['tailscale'] = list(base.get('tailscale') or [])
     best = primary_address()
     if not network['wsl'] and best and best != WSL_DNS_ADDRESS:
         if best in network['lan']:
@@ -776,6 +800,9 @@ def wsl_fix_steps():
     return steps
 
 
+TAILSCALE_NOTE = 'phones with Tailscale on the same tailnet, Join by IP; works away from home too'
+
+
 def print_wsl_nat_box(console, network):
     p = console.paint
     width = 72
@@ -785,10 +812,15 @@ def print_wsl_nat_box(console, network):
         for chunk in _wrap(text, width - 2) if text else ['']:
             console.line('  ' + p('│', '33') + ' ' + p(chunk.ljust(width - 2), *codes) + ' ' + p('│', '33'))
 
-    row('WSL is in NAT mode, so phones can\'t reach this server.', '1', '33')
+    tailnet = bool(network.get('tailscale'))
+    row('WSL is in NAT mode, so phones ' + ('on your Wi-Fi ' if tailnet else '') + 'can\'t reach this server.', '1', '33')
     internal = ', '.join(network['internal']) or 'its 172.x address'
-    row(f'Its address ({internal}) only exists inside this PC. The server still runs, '
-        'so you can test here, but phones need WSL\'s mirrored networking (steps below).')
+    if tailnet:
+        row(f'Its Wi-Fi-side address ({internal}) only exists inside this PC. Phones with Tailscale '
+            'can join now (above); for the others, WSL needs mirrored networking (steps below).')
+    else:
+        row(f'Its address ({internal}) only exists inside this PC. The server still runs, '
+            'so you can test here, but phones need WSL\'s mirrored networking (steps below).')
     if network.get('windows_ip'):
         row(f'Afterwards phones join {network["windows_ip"]}, this PC\'s Wi-Fi address.')
     row('Or skip WSL: install Python for Windows, get the project in a Windows folder '
@@ -800,6 +832,15 @@ def print_wsl_nat_box(console, network):
             console.line('  ' + (f'{number}. ' if index == 0 else '   ') + chunk)
         for command in commands:
             console.line('       ' + p(command, '1'))  # one line each, so they copy cleanly
+
+
+def print_big_address(console, address):
+    rows = big_text(address)
+    if rows:
+        for row in rows:
+            console.line('    ' + console.paint(row, '96'))
+    else:
+        console.line('    ' + console.paint(address, '1', '96'))
 
 
 def _wrap(text, width):
@@ -823,6 +864,7 @@ def _wrap(text, width):
 def print_summary(console, status, options, panel_url):
     network = network_for(options.network, status.get('addresses'))
     addresses = network['lan']
+    tailscale = network.get('tailscale') or []
     p = console.paint
     console.line()
     console.line('  ' + p('DRIFT STATION', '1', '96') + p(f'  dedicated server  v{status.get("version", "?")}', '2'))
@@ -830,22 +872,32 @@ def print_summary(console, status, options, panel_url):
     console.line(f'  Station   {p(status.get("room_name", ""), "1")}')
     if network['mode'] == 'nat':
         console.line()
+        if tailscale:
+            console.line('  ' + p('Phones with Tailscale', '1') + ' (same tailnet) join by IP, at home or away:')
+            console.line()
+            print_big_address(console, tailscale[0])
+            console.line(f'    Tailscale: {tailscale[0]}  ({TAILSCALE_NOTE})')
+            console.line('    ' + p('Nearby stations doesn\'t work over Tailscale: use Join by IP.', '2'))
+            console.line()
         print_wsl_nat_box(console, network)
     else:
-        console.line('  Phones on the same Wi-Fi: open Drift Station, the station is under')
-        console.line('  ' + p('Nearby stations', '1') + '. Or type this address:')
-        console.line()
         if addresses:
-            rows = big_text(addresses[0])
-            if rows:
-                for row in rows:
-                    console.line('    ' + p(row, '96'))
-            else:
-                console.line('    ' + p(addresses[0], '1', '96'))
+            console.line('  Phones on the same Wi-Fi: open Drift Station, the station is under')
+            console.line('  ' + p('Nearby stations', '1') + '. Or type this address:')
+            console.line()
+            print_big_address(console, addresses[0])
             if len(addresses) > 1:
                 console.line('    ' + p('also ' + ', '.join(addresses[1:]), '2'))
+        elif tailscale:
+            console.line('  ' + p('Phones with Tailscale', '1') + ' (same tailnet) join by IP:')
+            console.line()
+            print_big_address(console, tailscale[0])
         else:
             console.warn('No Wi-Fi or LAN address found. Connect this computer to the same network as the phones.')
+        for address in tailscale:
+            console.line(f'    Tailscale: {p(address, "1")}  ({TAILSCALE_NOTE})')
+        if tailscale:
+            console.line('    ' + p('Nearby stations doesn\'t work over Tailscale: use Join by IP.', '2'))
         if network['mode'] == 'mirrored':
             console.warn('Running in WSL (mirrored networking). If phones can\'t connect, allow inbound traffic')
             console.line('    to WSL once, in PowerShell opened with "Run as administrator":')
