@@ -436,6 +436,10 @@ func _set_blend(blend_time: float) -> void:
 		_x = _target.duplicate()
 		_v.fill(0.0)
 		_omega = 40.0
+		# Snap the pose layers too (wave swing, ghost float, brace tremor).
+		_wave_w = 1.0 if _pose == "wave" else 0.0
+		_ghost_w = 1.0 if _pose == "ghost" else 0.0
+		_brace_w = 1.0 if _pose == "brace" else 0.0
 	else:
 		# Critically damped: (1 + w t) e^(-w t) = 5% at t = blend_time.
 		_omega = 4.74 / blend_time
