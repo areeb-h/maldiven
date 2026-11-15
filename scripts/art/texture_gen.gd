@@ -227,9 +227,9 @@ func _metal_paint(size: int) -> void:
 	for i in range(size * size):
 		var chip := _sstep(0.8, 0.85, chips[i])
 		var sc := scratch[i]
-		height[i] = fine[i] * 0.04 - sc * 0.15 - chip * 0.2
+		height[i] = fine[i] * 0.04 - sc * 0.05 - chip * 0.12
 		var paint := Color(0.84, 0.84, 0.84) * (0.9 + 0.14 * mottle[i])
-		var c := paint.lerp(Color(0.55, 0.56, 0.57), maxf(chip, sc * 0.8))
+		var c := paint.lerp(Color(0.62, 0.63, 0.64), maxf(chip, sc * 0.35))
 		_put(albedo, i, c)
 		_put(orm, i, Color(1.0 - chip * 0.3, clampf(0.55 + mottle[i] * 0.2 - sc * 0.25 - chip * 0.15, 0.15, 1.0), clampf(maxf(chip, sc), 0.0, 1.0)))
 	_save("metal_paint", size, albedo, orm, height, 3.0)

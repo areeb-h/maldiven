@@ -27,6 +27,8 @@ var blend_origin := Vector3.ZERO
 var blend_axis := Vector3.UP
 var blend_width := 0.05
 var deform := Callable()
+## Skip the local -Z face of the next boxes (plates sitting flush on the body).
+var skip_back := false
 
 # Primitive scratch.
 var _tp := PackedVector3Array()
@@ -42,6 +44,7 @@ func set_part(p_bone: int, p_mat: int, p_shade := 1.0) -> void:
 	shade = p_shade
 	blend_bone = -1
 	deform = Callable()
+	skip_back = false
 
 
 ## Vertices past `origin` along `axis` blend toward bone `other` over +-width.
@@ -115,6 +118,11 @@ func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.I
 	var h := size * 0.5
 	var r := minf(radius, minf(h.x, minf(h.y, h.z)) * 0.98)
 	var hi := h - Vector3(r, r, r)
+	if r < 0.0035:
+		r = 0.0  # tiny trim strips: a plain box
+		hi = h
+	elif r < 0.024:
+		arc = mini(arc, 1)  # small bevels: two segments per 90 degrees is plenty
 	var samples: Array[PackedFloat32Array] = []
 	for axis in 3:
 		samples.append(_box_samples(h[axis], hi[axis], r, arc, segs[axis]))
@@ -125,6 +133,8 @@ func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.I
 		var u_axis: int = f[1]
 		var v_axis: int = f[2]
 		for side in [-1.0, 1.0]:
+			if skip_back and n_axis == 2 and side < 0.0:
+				continue
 			var su := samples[u_axis]
 			var sv := samples[v_axis]
 			var base := _tp.size()
@@ -239,10 +249,16 @@ func cylinder(a: Vector3, b: Vector3, radius: float, segments := 12, bevel := 0.
 	var length := a.distance_to(b)
 	var bv := minf(bevel, minf(radius * 0.4, length * 0.3))
 	var prof := PackedVector2Array([
-		Vector2(0.0, 0.0), Vector2(radius - bv, 0.0), Vector2(radius - bv * 0.3, bv * 0.3), Vector2(radius, bv),
-		Vector2(radius, length - bv), Vector2(radius - bv * 0.3, length - bv * 0.3), Vector2(radius - bv, length), Vector2(0.0, length)])
-	var em := PackedFloat32Array([0, 0, 1, 1, 1, 1, 0, 0])
+		Vector2(0.0, 0.0), Vector2(radius - bv, 0.0), Vector2(radius, bv),
+		Vector2(radius, length - bv), Vector2(radius - bv, length), Vector2(0.0, length)])
+	var em := PackedFloat32Array([0, 0.4, 0.8, 0.8, 0.4, 0])
 	lathe(prof, Transform3D(_basis_y(b - a, roll), a), segments, Vector2.ONE, 0.0, TAU, em)
+
+
+## Flat or slightly domed disc facing `normal` (lenses, lights, caps).
+func disc(center: Vector3, normal: Vector3, radius: float, segments := 12, dome := 0.0) -> void:
+	var prof := PackedVector2Array([Vector2(radius, 0.0), Vector2(radius * 0.7, dome * 0.6), Vector2(0.0, dome)])
+	lathe(prof, Transform3D(_basis_y(normal), center), segments)
 
 
 ## Torus ring around local Y at `center` (major radius R, minor r).
@@ -256,10 +272,18 @@ func ring(center: Vector3, major: float, minor: float, basis := Basis.IDENTITY, 
 
 
 ## Swept tube along a Catmull-Rom path through `points`. Optional ribs (hoses).
-func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, rib_freq := 0.0, rib_depth := 0.0) -> void:
+func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, rib_freq := 0.0, rib_depth := 0.0, closed := false) -> void:
 	var path := PackedVector3Array()
+	var ctrl := points
+	if closed:
+		# Pad with wrapped neighbours so the loop has continuous tangents at the join.
+		ctrl = PackedVector3Array([points[points.size() - 2]]) + points + PackedVector3Array([points[1]])
+	var segs := ctrl.size() - 1
 	for s in samples + 1:
-		path.append(_catmull(points, float(s) / float(samples)))
+		var t := float(s) / float(samples)
+		if closed:
+			t = (1.0 + t * float(segs - 2)) / float(segs)
+		path.append(_catmull(ctrl, t))
 	_begin()
 	var base := _tp.size()
 	var along := 0.0

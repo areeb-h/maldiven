@@ -9,7 +9,7 @@ const STATES := {
 		"ambient": 0.55, "ambient_color": Color(0.42, 0.42, 0.52), "sun": 0.35,
 		"light": 1.7, "light_mix": 0.0, "pulse": 1.0,
 		"trim": 0.18, "door": 1.6, "emergency": 3.2, "ceiling": 0.0, "guide": 1.3, "screen": 0.35,
-		"beacon": 6.0, "reactor": 0.55, "label": 0.9, "nav": 2.0, "glow": 0.85, "exposure": 1.05,
+		"beacon": 6.0, "reactor": 0.3, "label": 0.9, "nav": 2.0, "glow": 0.85, "exposure": 1.05,
 	},
 	"restored": {
 		"ambient": 0.75, "ambient_color": Color(0.6, 0.65, 0.74), "sun": 1.25,
@@ -45,6 +45,7 @@ var _blend := 1.0
 var _tween: Tween
 var _time := 0.0
 var _probe_timer := -1.0
+var _probe_frames := 0
 var airlock_doors: Array[Node3D] = []
 var airlock_door_closed: Array[Vector3] = []
 var airlock_door_open_dir: Array[Vector3] = []
@@ -62,6 +63,10 @@ func set_state(new_state: String, duration := 1.0) -> void:
 		return
 	state = new_state
 	_to = STATES[new_state]
+	# Sky reflections (sun glare, planet) would keep glossy trims lit in a
+	# blackout, so reflections fall back to probes/none while dark.
+	if env != null:
+		env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED if new_state == "blackout" else Environment.REFLECTION_SOURCE_SKY
 	if current.is_empty():
 		current = _to.duplicate()
 	_from = current.duplicate()
@@ -92,7 +97,8 @@ func _process(delta: float) -> void:
 	_update(_blend < 1.0 or (_tween != null and _tween.is_running()))
 	if _probe_timer >= 0.0:
 		_probe_timer -= delta
-		if _probe_timer < 0.0:
+		_probe_frames -= 1
+		if _probe_timer < 0.0 and _probe_frames <= 0:
 			for probe in probes:
 				if is_instance_valid(probe):
 					probe.update_mode = ReflectionProbe.UPDATE_ONCE
@@ -104,7 +110,9 @@ func _refresh_probes() -> void:
 	for probe in probes:
 		if is_instance_valid(probe):
 			probe.update_mode = ReflectionProbe.UPDATE_ALWAYS
+	# Re-render for at least 0.35 s and 12 frames (all six faces on slow devices).
 	_probe_timer = 0.35
+	_probe_frames = 12
 
 
 func _update(full: bool) -> void:
@@ -126,6 +134,13 @@ func _apply_static() -> void:
 		env.ambient_light_color = current.ambient_color
 		env.glow_intensity = current.glow
 		env.tonemap_exposure = current.exposure
+	# Probe ambient/reflections follow the power state directly, so a probe
+	# still holding an older capture can never light a blacked-out room.
+	for probe in probes:
+		if is_instance_valid(probe):
+			probe.ambient_color = current.ambient_color
+			probe.ambient_color_energy = current.ambient
+			probe.intensity = clampf(float(current.ambient) * 0.9, 0.03, 0.7)
 	if sun != null:
 		sun.light_energy = current.sun
 		sun.visible = current.sun > 0.01
@@ -178,8 +193,8 @@ func _update_airlock(delta: float) -> void:
 	match airlock_state:
 		"warning":
 			var strobe := 1.0 if fmod(_airlock_t * 2.6, 1.0) < 0.5 else 0.0
-			light_e = 3.5 * strobe
-			lamp = 0.3 + 7.0 * strobe
+			light_e = 0.6 + 6.0 * strobe
+			lamp = 0.6 + 10.0 * strobe
 		"venting":
 			target_open = 1.0
 			var decay := exp(-_airlock_t * 1.4)

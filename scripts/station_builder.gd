@@ -15,7 +15,7 @@ const SILL := 1.0
 const WIN_TOP := 2.45
 const WIN_HALF := 0.9
 const WIN_PITCH := 3.0
-const LINTEL := 2.7
+const LINTEL := 2.7  # top of the doorway light strips
 const SUN_DIR := Vector3(0.55, 0.72, -0.42)
 const WALL_TINT := Color(0.74, 0.76, 0.79)
 const DARK := Color(0.16, 0.17, 0.19)
@@ -28,7 +28,7 @@ const BEACON := Color(1.0, 0.28, 0.04)
 const AO_DARK := Color(0.42, 0.42, 0.45)
 
 ## Floor label offsets so names don't sit under big centre props.
-const LABEL_OFFSET := {"reactor": Vector2(0, -4.3), "command": Vector2(0, 2.6), "docking": Vector2(0, 3.0)}
+const LABEL_OFFSET := {"reactor": Vector2(0, -3.1), "command": Vector2(0, 2.6), "docking": Vector2(0, 3.0)}
 ## Floor names read from the room's main entrance (direction to the reader).
 const LABEL_FACING := {"reactor": Vector3(0, 0, -1), "medical": Vector3(0, 0, -1), "engineering": Vector3(-1, 0, 0), "airlock": Vector3(1, 0, 0)}
 
@@ -381,31 +381,41 @@ static func _beacon(kit: ArtMeshKit, pos: Vector3, inward: Vector3) -> void:
 
 # --- doorways --------------------------------------------------------------------------
 
-static func _doorway(fx: ArtStationFX, kit: ArtMeshKit, node: Node3D, along_x: bool, fixed: float, g0: float, g1: float, outward: float, color: Color, own_name: String, dest_color: Color, dest_name: String) -> void:
+static func _doorway(fx: ArtStationFX, kit: ArtMeshKit, node: Node3D, along_x: bool, fixed: float, g0: float, g1: float, outward: float, color: Color, own_name: String, dest_color: Color, dest_name: String, corridor_len: float) -> void:
+	# No lintel: the third-person camera follows players through doorways at
+	# ~3-4 m, so anything spanning the opening would fill the screen. Pylons,
+	# light strips and floor signage carry the doorway instead.
 	var across := fixed + outward * T * 0.5
 	var depth := T + 0.3
+	var top := H + 0.45
 	for side: float in [-1.0, 1.0]:
 		var edge := g0 if side < 0.0 else g1
 		var post_c := edge + side * 0.17
-		kit.bevel_box("metal", _v(along_x, post_c, (H + 0.1) * 0.5, across), _s(along_x, 0.34, H + 0.1, depth), 0.05, GUNMETAL)
-		_wbox(kit, "door", along_x, edge + side * 0.035 - 0.02, edge + side * 0.035 + 0.02, 0.12, LINTEL - 0.08, across, depth + 0.02, color)
+		kit.bevel_box("metal", _v(along_x, post_c, top * 0.5, across), _s(along_x, 0.34, top, depth), 0.05, GUNMETAL)
+		_wbox(kit, "door", along_x, edge + side * 0.035 - 0.02, edge + side * 0.035 + 0.02, 0.12, top - 0.12, across, depth + 0.02, color)
+		_wbox(kit, "door", along_x, post_c - 0.12, post_c + 0.12, top, top + 0.04, across, depth - 0.06, color)
 		# Hazard chevrons on the jamb base.
 		_wbox(kit, "hazard", along_x, edge + side * 0.17 - 0.16, edge + side * 0.17 + 0.16, 0.0, 0.5, across, depth + 0.01, Color.WHITE)
-	kit.bevel_box("metal", _v(along_x, (g0 + g1) * 0.5, (LINTEL + H + 0.1) * 0.5, across), _s(along_x, g1 - g0 + 0.68, H + 0.1 - LINTEL, depth), 0.05, GUNMETAL)
-	_wbox(kit, "door", along_x, g0, g1, LINTEL - 0.03, LINTEL, across, 0.16, color)
-	# Sign plates on both lintel faces.
-	_wbox(kit, "painted", along_x, g0 + 0.1, g1 - 0.1, LINTEL + 0.05, H + 0.02, across, depth + 0.03, Color(0.07, 0.075, 0.085))
 	# Floor threshold: hazard plate plus lit edges.
 	_wbox(kit, "hazard", along_x, g0 + 0.05, g1 - 0.05, 0.0, 0.012, across, T - 0.12, Color.WHITE)
 	for off in [-T * 0.5 + 0.03, T * 0.5 - 0.03]:
 		_wbox(kit, "door", along_x, g0 + 0.05, g1 - 0.05, 0.0, 0.016, across + off, 0.05, color)
-	# Lintel signs: own name facing out (the corridor), destination facing in.
+	# Floor signs: the destination just inside the room, this room's name in
+	# the corridor approach (when the corridor is long enough to hold it).
 	var mid := (g0 + g1) * 0.5
 	var out_dir := _v(along_x, 0.0, 0.0, outward).normalized()
-	var sign_y := (LINTEL + 0.05 + H + 0.02) * 0.5
-	var face := (depth + 0.03) * 0.5 + 0.006
-	_label(fx, node, own_name.to_upper(), _v(along_x, mid, sign_y, across) + out_dir * face, out_dir, 64, 0.0036, color.lightened(0.2))
-	_label(fx, node, dest_name.to_upper(), _v(along_x, mid, sign_y, across) - out_dir * face, -out_dir, 64, 0.0036, dest_color.lightened(0.2))
+	var inside := _v(along_x, mid, 0.022, fixed) - out_dir * 1.25
+	_door_floor_label(fx, node, dest_name, inside, -out_dir, dest_color, g1 - g0)
+	if corridor_len >= 5.0:
+		var outside := _v(along_x, mid, 0.022, fixed) + out_dir * (T + 1.1)
+		_door_floor_label(fx, node, own_name, outside, out_dir, color, g1 - g0)
+
+
+static func _door_floor_label(fx: ArtStationFX, node: Node3D, text: String, pos: Vector3, facing: Vector3, color: Color, width: float) -> void:
+	var chars := maxf(float(text.length()), 4.0)
+	var pixel := minf(0.0068, (width - 0.5) / (chars * 52.0))
+	var label := _label(fx, node, text.to_upper(), pos, facing, 72, pixel, Color(color.r, color.g, color.b, 0.95).lightened(0.15), true)
+	label.outline_size = 0
 
 
 # --- rooms ------------------------------------------------------------------------------
@@ -419,14 +429,15 @@ static func _room_gaps(room_id: String) -> Dictionary:
 			continue
 		var c := StationLayout.corridor_rect(corridor_id)
 		var other: String = spec.b if spec.a == room_id else spec.a
+		var clen := c.size.x if _corridor_along_x(corridor_id) else c.size.y
 		if absf(c.end.y - r.position.y) < 0.01:
-			gaps["n"].append([c.position.x, c.end.x, other])
+			gaps["n"].append([c.position.x, c.end.x, other, clen])
 		elif absf(c.position.y - r.end.y) < 0.01:
-			gaps["s"].append([c.position.x, c.end.x, other])
+			gaps["s"].append([c.position.x, c.end.x, other, clen])
 		elif absf(c.end.x - r.position.x) < 0.01:
-			gaps["w"].append([c.position.y, c.end.y, other])
+			gaps["w"].append([c.position.y, c.end.y, other, clen])
 		elif absf(c.position.x - r.end.x) < 0.01:
-			gaps["e"].append([c.position.y, c.end.y, other])
+			gaps["e"].append([c.position.y, c.end.y, other, clen])
 	return gaps
 
 
@@ -474,7 +485,7 @@ static func _build_room(fx: ArtStationFX, mats: Dictionary, room_id: String) -> 
 				_wall(kit, body, along_x, fixed, cursor, gap[0], outward, accent, accent, true)
 				long_segments.append([along_x, fixed, cursor, gap[0], outward])
 			var dest: String = gap[2]
-			_doorway(fx, kit, node, along_x, fixed, gap[0], gap[1], outward, color, spec.name, StationLayout.ROOMS[dest].color, StationLayout.ROOMS[dest].name)
+			_doorway(fx, kit, node, along_x, fixed, gap[0], gap[1], outward, color, spec.name, StationLayout.ROOMS[dest].color, StationLayout.ROOMS[dest].name, gap[3])
 			cursor = gap[1]
 		if end - cursor > 0.05:
 			_wall(kit, body, along_x, fixed, cursor, end, outward, accent, accent, true)
@@ -494,6 +505,16 @@ static func _build_room(fx: ArtStationFX, mats: Dictionary, room_id: String) -> 
 		if i < 2 and a1 - a0 >= 3.0:
 			var beacon_at := (a0 + a1) * 0.5 + (a1 - a0) * 0.25
 			_beacon(kit, _v(along_x, beacon_at, 2.58, fixed) + inward * 0.1, inward)
+		if i < 3 and a1 - a0 >= 4.0:
+			# Service pipes along the top of the wall (never over the floor).
+			var p0 := a0 + 0.25
+			var p1 := a1 - 0.25
+			kit.cylinder("painted", _v(along_x, p0, 3.0, fixed) + inward * 0.09, _v(along_x, p1, 3.0, fixed) + inward * 0.09, 0.05, Color(0.42, 0.44, 0.47), 8)
+			kit.cylinder("painted", _v(along_x, p0, 3.11, fixed) + inward * 0.06, _v(along_x, p1, 3.11, fixed) + inward * 0.06, 0.032, color.darkened(0.3), 8)
+			var br := p0 + 0.6
+			while br < p1:
+				kit.box("metal", _v(along_x, br, 3.04, fixed) + inward * 0.07, _s(along_x, 0.06, 0.2, 0.16), GUNMETAL)
+				br += 2.0
 	# Floor dressing: perimeter stripe with guide lights, centre emblem, label.
 	var inset := 0.65
 	var stripe_c := color.darkened(0.25)
@@ -511,7 +532,7 @@ static func _build_room(fx: ArtStationFX, mats: Dictionary, room_id: String) -> 
 	if not room_id in ["reactor", "airlock"]:
 		kit.cylinder("painted", centre3, centre3 + Vector3(0, 0.006, 0), 2.3, color.darkened(0.55), 40)
 		kit.torus("trim", centre3 + Vector3(0, 0.004, 0), 2.28, 2.42, color, Basis.from_scale(Vector3(1, 0.09, 1)), 48, 6)
-	var floor_label := _label(fx, node, String(spec.name).to_upper(), Vector3(spec.center.x + label_off.x, 0.02, spec.center.y + label_off.y), LABEL_FACING.get(room_id, Vector3(0, 0, 1)), 160 if r.size.x >= 8.0 else 90, 0.0105, Color(color.r, color.g, color.b, 0.9), true)
+	var floor_label := _label(fx, node, String(spec.name).to_upper(), Vector3(spec.center.x + label_off.x, 0.02, spec.center.y + label_off.y), LABEL_FACING.get(room_id, Vector3(0, 0, 1)), 120 if r.size.x >= 8.0 else 80, 0.0085, Color(color.r, color.g, color.b, 0.9), true)
 	floor_label.outline_size = 0
 	# Room-specific dressing.
 	match room_id:
@@ -555,6 +576,7 @@ static func _build_room(fx: ArtStationFX, mats: Dictionary, room_id: String) -> 
 	probe.box_projection = true
 	probe.intensity = 0.7
 	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.ambient_mode = ReflectionProbe.AMBIENT_COLOR
 	node.add_child(probe)
 	fx.probes.append(probe)
 	var rng := RandomNumberGenerator.new()
@@ -821,57 +843,75 @@ static func _dress_docking(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	var hull: Dictionary = StationLayout.SHUTTLE_HULL
 	var hc := Vector3(hull.center.x, 0, hull.center.y)
 	var hs: Vector2 = hull.size
-	var white := Color(0.88, 0.88, 0.86)
-	var fus_len := hs.x - 0.4
-	var radius := hs.y * 0.42
-	var fus_y := 1.55
-	var along := Basis(Vector3.BACK, PI / 2.0)  # cylinder Y -> world X
-	# Fuselage: flattened capsule, nose cone at -X, engine block at +X.
-	var cap := CapsuleMesh.new()
-	cap.radius = radius
-	cap.height = fus_len
-	cap.radial_segments = 24
-	cap.rings = 8
-	kit.mesh("painted", cap, Transform3D(along * Basis.from_scale(Vector3(1.0, 1.0, 0.92)), hc + Vector3(0.3, fus_y, 0)), white)
-	# Colour stripe and window band.
-	kit.cylinder("trim", hc + Vector3(-fus_len * 0.35, fus_y + 0.15, 0), hc + Vector3(fus_len * 0.45, fus_y + 0.15, 0), radius * 1.005, color, 24)
-	kit.cylinder("painted", hc + Vector3(-fus_len * 0.35, fus_y - 0.45, 0), hc + Vector3(fus_len * 0.45, fus_y - 0.45, 0), radius * 0.96, color.darkened(0.5), 24)
-	# Cockpit canopy.
-	kit.sphere("screen", hc + Vector3(-fus_len * 0.38, fus_y + 0.45, 0), 0.9, Color(0.25, 0.55, 0.8), 16, Vector3(1.3, 0.55, 0.85))
-	# Side windows (south side faces the room).
-	for i in range(4):
-		kit.bevel_box("screen", hc + Vector3(-1.6 + float(i) * 0.9, fus_y + 0.55, radius * 0.86), Vector3(0.5, 0.28, 0.1), 0.04, Color(1.0, 0.85, 0.6))
-	# Engines and tail fin.
-	for sz in [-0.62, 0.62]:
-		var e := hc + Vector3(fus_len * 0.5 + 0.1, fus_y - 0.1, sz)
-		kit.cylinder("metal", e - Vector3(0.6, 0, 0), e + Vector3(0.15, 0, 0), 0.45, GUNMETAL, 16, 0.52)
-		kit.cylinder("trim", e + Vector3(0.12, 0, 0), e + Vector3(0.17, 0, 0), 0.38, Color(0.4, 0.8, 1.0), 16)
-	kit.bevel_box("painted", hc + Vector3(fus_len * 0.38, fus_y + radius + 0.25, 0), Vector3(1.6, 0.9, 0.14), 0.05, white, Basis(Vector3.BACK, -0.35))
-	kit.box("trim", hc + Vector3(fus_len * 0.38, fus_y + radius + 0.25, 0), Vector3(1.4, 0.08, 0.16), color, Basis(Vector3.BACK, -0.35))
-	# Stub wings.
+	var white := Color(0.86, 0.87, 0.86)
+	var fus_len := hs.x - 1.4
+	var half_w := hs.y * 0.5 - 0.4
+	var base := hc + Vector3(-0.2, 0, 0)
+	# Hard-surface dropship: chamfered hull blocks, frustum nose, twin nacelles.
+	kit.bevel_box("painted", base + Vector3(0.2, 1.5, 0), Vector3(fus_len, 1.7, half_w * 2.0), 0.32, white)
+	kit.bevel_box("painted", base + Vector3(0.6, 2.5, 0), Vector3(fus_len * 0.62, 0.55, half_w * 1.4), 0.22, white)
+	kit.bevel_box("metal", base + Vector3(0.2, 0.62, 0), Vector3(fus_len - 0.6, 0.36, half_w * 1.7), 0.12, Color(0.2, 0.21, 0.23))
+	var nose := CylinderMesh.new()
+	nose.radial_segments = 4
+	nose.rings = 1
+	nose.bottom_radius = 1.25
+	nose.top_radius = 0.42
+	nose.height = 1.5
+	var nose_x := base.x + 0.2 - fus_len * 0.5 - 0.72
+	kit.mesh("painted", nose, Transform3D(Basis(Vector3.BACK, PI / 2.0) * Basis(Vector3.UP, PI / 4.0) * Basis.from_scale(Vector3(1.0, 1.0, 0.82)), Vector3(nose_x, 1.5, base.z)), white)
+	# Cockpit glazing on the nose's upper slope.
+	kit.box("screen", Vector3(nose_x + 0.05, 2.0, base.z), Vector3(1.0, 0.04, 1.1), Color(0.12, 0.3, 0.45), Basis(Vector3.BACK, 0.42))
+	kit.box("trim", Vector3(nose_x - 0.62, 1.5, base.z), Vector3(0.06, 0.12, 0.5), color)
+	# Livery stripes, panel seams, cabin windows (both sides).
 	for sz in [-1.0, 1.0]:
-		kit.bevel_box("painted", hc + Vector3(1.6, fus_y - 0.3, sz * (radius * 0.85 + 0.12)), Vector3(2.4, 0.16, 0.3), 0.05, white)
+		var side_z: float = base.z + sz * (half_w + 0.005)
+		kit.box("trim", Vector3(base.x + 0.2, 1.62, side_z), Vector3(fus_len - 1.0, 0.09, 0.02), color)
+		kit.box("painted", Vector3(base.x + 0.2, 1.42, side_z), Vector3(fus_len - 0.8, 0.22, 0.02), color.darkened(0.45))
+		var seam := base.x + 0.2 - fus_len * 0.5 + 0.9
+		while seam < base.x + 0.2 + fus_len * 0.5 - 0.6:
+			kit.box("painted", Vector3(seam, 1.5, side_z), Vector3(0.025, 1.3, 0.02), Color(0.35, 0.36, 0.38))
+			seam += 1.45
+		for i in range(4):
+			kit.bevel_box("screen", Vector3(base.x - 1.5 + float(i) * 0.85, 2.0, side_z), Vector3(0.48, 0.24, 0.06), 0.03, Color(1.0, 0.82, 0.55))
+	# Twin engine nacelles with glowing nozzles.
+	var tail_x := base.x + 0.2 + fus_len * 0.5
+	for sz in [-0.85, 0.85]:
+		var e := Vector3(tail_x, 1.65, base.z + sz)
+		kit.cylinder("metal", e - Vector3(1.4, 0, 0), e + Vector3(0.55, 0, 0), 0.5, GUNMETAL, 16)
+		kit.cylinder("metal", e + Vector3(0.55, 0, 0), e + Vector3(0.85, 0, 0), 0.5, GUNMETAL, 16, 0.42)
+		kit.cylinder("trim", e + Vector3(0.84, 0, 0), e + Vector3(0.87, 0, 0), 0.36, Color(0.45, 0.85, 1.0), 16)
+		kit.torus("painted", e + Vector3(-0.2, 0, 0), 0.5, 0.56, color.darkened(0.2), Basis(Vector3.BACK, PI / 2.0), 20, 6)
+	# Tail fin and stub wings.
+	kit.bevel_box("painted", Vector3(tail_x - 0.9, 2.62, base.z), Vector3(1.7, 0.9, 0.16), 0.05, white, Basis(Vector3.BACK, -0.45))
+	kit.box("trim", Vector3(tail_x - 0.8, 2.75, base.z), Vector3(1.2, 0.07, 0.18), color, Basis(Vector3.BACK, -0.45))
+	for sz in [-1.0, 1.0]:
+		kit.bevel_box("painted", Vector3(base.x + 1.0, 1.15, base.z + sz * (half_w + 0.12)), Vector3(2.6, 0.14, 0.32), 0.05, white)
+		kit.sphere("nav", Vector3(base.x + 1.0, 1.15, base.z + sz * (half_w + 0.3)), 0.06, Color(1, 0.15, 0.1) if sz < 0.0 else Color(0.2, 1, 0.3), 6)
 	# Landing struts.
-	for sx in [-3.0, 0.4, 3.4]:
-		for sz in [-0.8, 0.8]:
-			var strut := hc + Vector3(sx, 0, sz)
-			kit.cylinder("metal", strut + Vector3(0, 0.05, 0), strut + Vector3(0, fus_y - radius * 0.6, 0), 0.07, GUNMETAL, 8)
+	for sx in [-2.6, 0.4, 2.8]:
+		for sz in [-0.9, 0.9]:
+			var strut := base + Vector3(sx, 0, sz)
+			kit.cylinder("metal", strut + Vector3(0, 0.05, 0), strut + Vector3(0, 0.62, 0), 0.07, GUNMETAL, 8)
 			kit.cylinder("metal", strut, strut + Vector3(0, 0.06, 0), 0.22, GUNMETAL, 12)
+	_ao_rect(kit, hc, Vector2(hs.x * 0.5 - 0.3, hs.y * 0.5 - 0.3), 0.0, 0.6, Color(0.3, 0.3, 0.33))
 	_collider(body, hc + Vector3(0, 1.45, 0), Vector3(hs.x, 2.9, hs.y))
 	# Loading ramp from the side hatch down to the floor (west of the socket).
-	var hatch_x := hc.x - 2.8
-	var top := Vector3(hatch_x, 0.55, hc.z + hs.y * 0.5)
-	var foot := Vector3(hatch_x, 0.0, hc.z + hs.y * 0.5 + 1.7)
+	var hatch_x := hc.x - 2.2
+	var top := Vector3(hatch_x, 0.55, hc.z + hs.y * 0.5 - 0.4)
+	var foot := Vector3(hatch_x, 0.0, hc.z + hs.y * 0.5 + 1.6)
 	var ramp_len := top.distance_to(foot)
-	var ang := atan2(0.55, 1.7)
+	var ang := atan2(top.y - foot.y, foot.z - top.z)
 	var rb := Basis(Vector3.RIGHT, ang)
 	var rc := (top + foot) * 0.5 + rb * Vector3(0, -0.04, 0)
 	kit.bevel_box("metal", rc, Vector3(1.4, 0.08, ramp_len), 0.02, GUNMETAL, rb)
 	kit.box("hazard", rc + rb * Vector3(-0.62, 0.045, 0), Vector3(0.12, 0.01, ramp_len), Color.WHITE, rb)
 	kit.box("hazard", rc + rb * Vector3(0.62, 0.045, 0), Vector3(0.12, 0.01, ramp_len), Color.WHITE, rb)
 	_collider(body, rc, Vector3(1.4, 0.08, ramp_len), rb)
-	kit.bevel_box("painted", Vector3(hatch_x, 1.15, hc.z + radius * 0.82), Vector3(1.3, 1.5, 0.3), 0.06, DARK)
-	kit.box("door", Vector3(hatch_x, 1.15, hc.z + radius * 0.82 + 0.155), Vector3(1.1, 1.3, 0.01), color)
+	kit.bevel_box("painted", Vector3(hatch_x, 1.25, hc.z + hs.y * 0.5 - 0.4), Vector3(1.3, 1.4, 0.06), 0.03, DARK)
+	for hx in [-0.6, 0.6]:
+		kit.box("door", Vector3(hatch_x + hx, 1.25, hc.z + hs.y * 0.5 - 0.365), Vector3(0.04, 1.3, 0.01), color)
+	kit.box("door", Vector3(hatch_x, 1.92, hc.z + hs.y * 0.5 - 0.365), Vector3(1.24, 0.04, 0.01), color)
+	kit.box("screen", Vector3(hatch_x, 1.6, hc.z + hs.y * 0.5 - 0.36), Vector3(0.3, 0.2, 0.01), Color(1.0, 0.8, 0.5))
 	# Landing pad hazard border on the south side and around the ends.
 	kit.box_mm("hazard", Vector3(hc.x - hs.x * 0.5 - 0.3, 0.0, hc.z + hs.y * 0.5 + 0.15), Vector3(hc.x + hs.x * 0.5 + 0.3, 0.01, hc.z + hs.y * 0.5 + 0.35), Color.WHITE)
 	# Fuel tanks against the south wall.
@@ -1059,8 +1099,9 @@ static func _build_exterior(fx: ArtStationFX, mats: Dictionary) -> void:
 		kit.box("trim", fx_pos + Vector3(0, 1.42, 0), Vector3(0.14, 0.04, 8.0), Color(1.0, 0.45, 0.2))
 	kit.bevel_box("metal", Vector3(40.4, 1.6, -27.0), Vector3(10.0, 0.4, 0.4), 0.06, GUNMETAL)
 	kit.bevel_box("metal", Vector3(40.4, 1.6, -31.0), Vector3(10.0, 0.3, 0.3), 0.05, GUNMETAL)
-	# Comms mast and dish beside Command.
-	var mast := Vector3(-9.6, 0, -24.0)
+	# Comms mast and dish off Security's north-east corner (kept out of the
+	# planet's sight line from the west rooms).
+	var mast := Vector3(49.6, 0, -28.0)
 	kit.cylinder("metal", mast + Vector3(0, -0.8, 0), mast + Vector3(0, 7.0, 0), 0.18, GUNMETAL, 10)
 	kit.bevel_box("metal", mast + Vector3(1.0, 1.0, 0), Vector3(2.0, 0.3, 0.3), 0.04, GUNMETAL)
 	var dish := CylinderMesh.new()
@@ -1141,7 +1182,7 @@ static func _airlock_outer_wall(fx: ArtStationFX, kit: ArtMeshKit, body: StaticB
 	klaxon.name = "Klaxon"
 	klaxon.position = Vector3(fixed + 2.5, 2.7, mid)
 	klaxon.light_color = Color(1.0, 0.1, 0.05)
-	klaxon.omni_range = 7.0
+	klaxon.omni_range = 8.5
 	klaxon.shadow_enabled = false
 	klaxon.visible = false
 	node.add_child(klaxon)

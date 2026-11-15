@@ -28,7 +28,7 @@ const CORE_COLOR := Color(0.28, 0.92, 1.0)
 const HIGHLIGHT_COLOR := Color(0.37, 0.83, 1.0)
 const POWER_COLOR := Color(0.5, 0.85, 1.0)
 const ALARM_COLOR := Color(1.0, 0.08, 0.04)
-const SPARK_COLOR := Color(1.0, 0.62, 0.28)
+const SPARK_COLOR := Color(1.0, 0.48, 0.14)
 const BOLT_COLOR := Color(1.0, 0.45, 0.3)
 const REVIVE_COLOR := Color(0.35, 1.0, 0.55)
 const FROST_COLOR := Color(0.72, 0.9, 1.0)
@@ -133,7 +133,7 @@ void fragment() {
 	float along = pow(1.0 - UV.y, 1.3) * smoothstep(0.0, 0.12, UV.y);
 	float core = pow(across, 5.0) * smoothstep(0.7, 0.05, UV.y);
 	ALBEDO = mix(COLOR.rgb * tint, vec3(1.0), core * 0.85) * energy;
-	ALPHA = clamp(pow(across, 1.6) * along * COLOR.a * alpha, 0.0, 1.0);
+	ALPHA = clamp(pow(across, 2.6) * along * COLOR.a * alpha, 0.0, 1.0);
 }
 """,
 	# Soft noisy smoke / dust / steam puff, alpha blended and lightly lit.
@@ -143,6 +143,7 @@ render_mode blend_mix, cull_disabled, depth_draw_never, specular_disabled, shado
 uniform float opacity = 1.0;
 uniform float self_glow = 0.0;
 uniform vec3 glow_color = vec3(1.0, 0.5, 0.2);
+uniform float ambient_emit = 0.0;
 varying float v_seed;
 varying float v_life;
 %NOISE%
@@ -157,7 +158,7 @@ void fragment() {
 	float n = vfx_noise(p * 2.2 + vec2(v_seed, v_seed * 0.7) + v_life * 0.8) * 0.65 + vfx_noise(p * 5.0 - v_seed) * 0.35;
 	float mask = smoothstep(1.0, 0.15, r + (n - 0.5) * 0.55);
 	ALBEDO = COLOR.rgb;
-	EMISSION = glow_color * self_glow * (1.0 - v_life) * (1.0 - v_life);
+	EMISSION = glow_color * self_glow * (1.0 - v_life) * (1.0 - v_life) + COLOR.rgb * ambient_emit;
 	ROUGHNESS = 1.0;
 	BACKLIGHT = vec3(0.5);
 	ALPHA = clamp(mask * mask * COLOR.a * opacity, 0.0, 1.0);
@@ -194,6 +195,22 @@ uniform float trail = 0.0;
 uniform float dashes = 0.0;
 uniform float spin = 0.0;
 uniform float hot = 0.6;
+uniform sampler2D floor_mask : filter_linear, repeat_disable;
+uniform vec4 mask_rect = vec4(0.0);
+varying vec3 v_wp;
+float vfx_mask(vec3 wp) {
+	if (mask_rect.z <= 0.0) {
+		return 1.0;
+	}
+	vec2 muv = (wp.xz - mask_rect.xy) / mask_rect.zw;
+	if (muv.x < 0.0 || muv.y < 0.0 || muv.x > 1.0 || muv.y > 1.0) {
+		return 0.0;
+	}
+	return texture(floor_mask, muv).r;
+}
+void vertex() {
+	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float r = length(p);
@@ -208,7 +225,7 @@ void fragment() {
 		float seg = smoothstep(0.42, 0.5, abs(fract(ang * dashes + TIME * spin) - 0.5) * 2.0 * 0.5 + 0.25);
 		a *= mix(1.0, 0.25 + seg, 0.75);
 	}
-	a *= smoothstep(1.0, 0.97, r);
+	a *= smoothstep(1.0, 0.97, r) * vfx_mask(v_wp);
 	ALBEDO = mix(color, vec3(1.0), pow(ring, 6.0) * hot) * energy;
 	ALPHA = clamp(a * alpha, 0.0, 1.0);
 }
@@ -230,10 +247,28 @@ uniform float band_speed = 0.0;
 uniform float band_amt = 0.0;
 uniform float wobble = 0.0;
 uniform float hot = 0.3;
+uniform float near_fade = 0.0;
+uniform sampler2D floor_mask : filter_linear, repeat_disable;
+uniform vec4 mask_rect = vec4(0.0);
 varying float h;
+varying vec3 v_wn;
+varying vec3 v_wp;
 %NOISE%
+float vfx_mask(vec3 wp) {
+	if (mask_rect.z <= 0.0) {
+		return 1.0;
+	}
+	vec2 muv = (wp.xz - mask_rect.xy) / mask_rect.zw;
+	if (muv.x < 0.0 || muv.y < 0.0 || muv.x > 1.0 || muv.y > 1.0) {
+		return 0.0;
+	}
+	return texture(floor_mask, muv).r;
+}
+
 void vertex() {
 	h = VERTEX.y + 0.5;
+	v_wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
 	float vert = pow(clamp(1.0 - h, 0.0, 1.0), fade_pow) * smoothstep(0.0, max(bottom_soft, 1e-4), h);
@@ -248,8 +283,12 @@ void fragment() {
 	if (wobble > 0.0) {
 		shimmer = mix(1.0, vfx_noise(vec2(UV.x * 24.0, h * 6.0 - TIME * 1.5)) * 1.6, wobble);
 	}
-	float edge = mix(1.0, pow(1.0 - abs(dot(NORMAL, VIEW)), 1.6) * 1.6, rim);
-	float a = vert * bands * shimmer * edge;
+	float facing = abs(dot(normalize(v_wn), normalize(INV_VIEW_MATRIX[3].xyz - v_wp)));
+	float edge = mix(1.0, pow(1.0 - facing, 1.6) * 1.6, rim);
+	float a = vert * bands * shimmer * edge * vfx_mask(v_wp);
+	if (near_fade > 0.0) {
+		a *= 0.3 + 0.7 * smoothstep(1.5, near_fade, distance(INV_VIEW_MATRIX[3].xyz, v_wp));
+	}
 	ALBEDO = mix(color, vec3(1.0), clamp(pow(vert, 4.0) * hot, 0.0, 1.0)) * energy;
 	ALPHA = clamp(a * alpha, 0.0, 1.0);
 }
@@ -320,11 +359,15 @@ uniform vec3 color = vec3(1.0, 0.1, 0.05);
 uniform float energy = 1.0;
 uniform float alpha = 1.0;
 varying float h;
+varying vec3 v_wn;
+varying vec3 v_wp;
 void vertex() {
 	h = VERTEX.y + 0.5;
+	v_wn = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
-	float face = pow(abs(dot(NORMAL, VIEW)), 1.5);
+	float face = pow(abs(dot(normalize(v_wn), normalize(INV_VIEW_MATRIX[3].xyz - v_wp))), 2.0);
 	float a = pow(h, 1.8) * face * smoothstep(1.0, 0.93, h);
 	ALBEDO = mix(color, vec3(1.0), pow(h, 12.0) * 0.6) * energy;
 	ALPHA = clamp(a * alpha, 0.0, 1.0);
@@ -349,17 +392,19 @@ void fragment() {
 shader_type spatial;
 render_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;
 uniform vec3 color = vec3(0.37, 0.83, 1.0);
-uniform float energy = 2.0;
+uniform float energy = 1.6;
 varying vec3 world_pos;
+varying vec3 world_n;
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_n = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 }
 void fragment() {
-	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+	float fres = pow(1.0 - clamp(abs(dot(normalize(world_n), normalize(INV_VIEW_MATRIX[3].xyz - world_pos))), 0.0, 1.0), 3.0);
 	float scan = smoothstep(0.92, 1.0, fract(world_pos.y * 0.9 - TIME * 0.7));
 	float pulse = 0.8 + 0.2 * sin(TIME * 6.0);
 	ALBEDO = color * energy;
-	ALPHA = clamp(fres * 0.9 * pulse + scan * 0.35 + 0.04, 0.0, 1.0);
+	ALPHA = clamp(fres * 0.8 * pulse + scan * 0.18, 0.0, 1.0);
 }
 """,
 }
@@ -376,6 +421,7 @@ var _highlights := {}  # target instance id -> record
 var _ambient_root: Node3D
 var _ambient: Array = []  # timed ambient emitters
 var _trails: Array = []  # thrown-item ribbon trails
+var _movers: Array = []  # emitters drifting with a body
 var _rng := RandomNumberGenerator.new()
 
 
@@ -406,7 +452,7 @@ func burst(kind: String, at: Vector3, direction := Vector3.UP, color := Color.WH
 		"insert_cell":
 			_insert_cell(at, tint if custom else CELL_COLOR)
 		"shove_impact":
-			_shove(at, dir, tint if custom else Color(0.7, 0.88, 1.0))
+			_shove(at, dir, tint if custom else Color(0.4, 0.78, 1.0))
 		"footstep_dust":
 			_footstep(at, dir, tint if custom else Color(0.6, 0.59, 0.57))
 		"power_wave":
@@ -422,13 +468,13 @@ func burst(kind: String, at: Vector3, direction := Vector3.UP, color := Color.WH
 		"impact":
 			_impact(at, dir, tint if custom else BOLT_COLOR)
 		"downed":
-			_downed(at, tint if custom else Color(0.85, 0.82, 0.78))
+			_downed(at, tint if custom else Color(1.0, 0.42, 0.25))
 		"revive":
 			_revive(at, tint if custom else REVIVE_COLOR)
 		"airlock_vent":
 			_airlock_vent(at, dir, tint if custom else FROST_COLOR)
 		"spaced":
-			_spaced(at, dir, tint if custom else FROST_COLOR)
+			_spaced(at, direction, tint if custom else FROST_COLOR)
 		_:
 			push_warning("Vfx.burst: unknown kind " + kind)
 
@@ -437,7 +483,6 @@ func countdown_pulse(at: Vector3, color: Color) -> void:
 	if not is_inside_tree():
 		return
 	var ring := _ring(at + Vector3(0, 0.04, 0), Vector3.UP, 1.7, color, 0.75)
-	ring.data = {"energy": 3.2}
 	ring.update = func(s: FxSlot, k: float) -> void:
 		var e := _ease_out(k)
 		s.mat.set_shader_parameter("radius", lerpf(0.12, 0.96, e))
@@ -448,10 +493,11 @@ func countdown_pulse(at: Vector3, color: Color) -> void:
 	ring.update.call(ring, 0.0)
 	var tube := _acquire_slot("tube", 0.6)
 	tube.node.global_transform = Transform3D(Basis.IDENTITY, at)
-	_tube_params(tube, color, 3.0, 0.9, 0.1)
+	_tube_params(tube, color, 1.5, 4.0, 0.03)
+	tube.mat.set_shader_parameter("hot", 0.7)
 	tube.update = func(s: FxSlot, k: float) -> void:
 		var e := _ease_out(k)
-		s.node.scale = Vector3(lerpf(0.55, 0.62, e), 0.14, lerpf(0.55, 0.62, e))
+		s.node.scale = Vector3(lerpf(0.55, 0.62, e), 0.28, lerpf(0.55, 0.62, e))
 		s.node.global_position = at + Vector3(0, lerpf(0.05, 1.3, e), 0)
 		s.mat.set_shader_parameter("alpha", (1.0 - k) * minf(1.0, k * 8.0))
 	tube.update.call(tube, 0.0)
@@ -465,7 +511,7 @@ func tracer(from: Vector3, to: Vector3, color := BOLT_COLOR) -> void:
 	var total := from.distance_to(to)
 	var bolt := _acquire_slot("dash", 0.16)
 	bolt.mat.set_shader_parameter("tint", _vec(color))
-	bolt.mat.set_shader_parameter("energy", 5.0)
+	bolt.mat.set_shader_parameter("energy", 3.0)
 	bolt.update = func(s: FxSlot, k: float) -> void:
 		var head := minf(1.0, k / 0.3)
 		var tail := clampf((k - 0.15) / 0.85, 0.0, 1.0)
@@ -473,7 +519,7 @@ func tracer(from: Vector3, to: Vector3, color := BOLT_COLOR) -> void:
 		var a := from.lerp(to, tail)
 		var b := from.lerp(to, head)
 		var length := maxf(a.distance_to(b), 0.05)
-		s.node.global_transform = Transform3D(_basis_y(dir) * Basis.from_scale(Vector3(0.11 * (1.0 - 0.5 * k), length, 1.0)), (a + b) * 0.5)
+		s.node.global_transform = Transform3D(_basis_y(dir) * Basis.from_scale(Vector3(0.26 * (1.0 - 0.5 * k), length, 1.0)), (a + b) * 0.5)
 		s.mat.set_shader_parameter("alpha", 1.0 - k * k)
 	bolt.update.call(bolt, 0.0)
 	_impact(to, -dir, color)
@@ -579,10 +625,10 @@ func attach_item_fx(item: Node3D, kind: String) -> void:
 		pillar.name = "Pillar"
 		pillar.mesh = _tube_mesh()
 		pillar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		pillar.scale = Vector3(0.16, 9.0, 0.16)
+		pillar.scale = Vector3(0.08, 9.0, 0.08)
 		pillar.position = Vector3(0, 4.5, 0)
-		var pm := _material("tube", {"color": _vec(color), "energy": 2.2, "alpha": 0.0, "fade_pow": 1.4,
-			"bottom_soft": 0.01, "rim": 0.8, "band_count": 6.0, "band_speed": 0.6, "band_amt": 0.35, "hot": 0.5})
+		var pm := _material("tube", {"color": _vec(color), "energy": 2.0, "alpha": 0.0, "fade_pow": 1.3,
+			"bottom_soft": 0.08, "rim": 0.6, "band_count": 6.0, "band_speed": 0.6, "band_amt": 0.35, "hot": 0.25, "near_fade": 9.0})
 		pillar.material_override = pm
 		pillar.visible = false
 		root.add_child(pillar)
@@ -592,8 +638,8 @@ func attach_item_fx(item: Node3D, kind: String) -> void:
 		marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		marker.scale = Vector3.ONE * 0.8
 		marker.position = Vector3(0, 0.03, 0)
-		var mk := _material("ring", {"color": _vec(color), "energy": 2.5, "radius": 0.82, "width": 0.05,
-			"alpha": 0.0, "fill": 0.25, "dashes": 3.0, "spin": 0.25})
+		var mk := _material("ring", {"color": _vec(color), "energy": 1.8, "radius": 0.82, "width": 0.035,
+			"alpha": 0.0, "fill": 0.06, "dashes": 3.0, "spin": 0.25, "hot": 0.2})
 		marker.material_override = mk
 		marker.visible = false
 		root.add_child(marker)
@@ -676,7 +722,7 @@ func ambient_station(root: Node3D) -> void:
 	zap_glow.mesh = _quad_mesh()
 	zap_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	zap_glow.position = conduit
-	zap_glow.scale = Vector3.ONE * 0.7
+	zap_glow.scale = Vector3.ONE * 1.2
 	var zap_mat := _material("flare", {"color": _vec(Color(0.6, 0.75, 1.0)), "energy": 3.0, "alpha": 0.0, "streak": 0.6, "pull": 0.2})
 	zap_glow.material_override = zap_mat
 	_ambient_root.add_child(zap_glow)
@@ -693,9 +739,9 @@ func ambient_station(root: Node3D) -> void:
 	haze.name = "ReactorHaze"
 	haze.mesh = _tube_mesh()
 	haze.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	haze.position = REACTOR_CORE + Vector3(0, 4.75 + 2.2, 0)
-	haze.scale = Vector3(0.7, 4.4, 0.7)
-	haze.material_override = _material("tube", {"color": _vec(violet), "energy": 1.6, "alpha": 0.32, "fade_pow": 1.8,
+	haze.position = REACTOR_CORE + Vector3(0, 4.75 + 1.8, 0)
+	haze.scale = Vector3(0.5, 3.6, 0.5)
+	haze.material_override = _material("tube", {"color": _vec(violet), "energy": 1.1, "alpha": 0.16, "fade_pow": 2.0,
 		"bottom_soft": 0.08, "rim": 0.9, "band_count": 5.0, "band_speed": 0.7, "band_amt": 0.5, "wobble": 0.7, "hot": 0.0})
 	_ambient_root.add_child(haze)
 
@@ -789,15 +835,16 @@ func _insert_cell(at: Vector3, color: Color) -> void:
 		var delay := 0.14 * float(i)
 		var tube := _acquire_slot("tube", 0.75 + delay)
 		tube.node.global_transform = Transform3D(Basis.IDENTITY, at)
-		_tube_params(tube, color, 3.6, 0.6, 0.12)
+		_tube_params(tube, color, 1.6, 4.0, 0.03)
+		tube.mat.set_shader_parameter("hot", 0.7)
 		tube.node.visible = false
 		tube.update = func(s: FxSlot, k: float) -> void:
 			var local := clampf((s.t - delay) / 0.75, 0.0, 1.0)
 			s.node.visible = s.t >= delay
 			var e := _ease_out(local)
-			s.node.scale = Vector3(0.36 + 0.05 * e, 0.16, 0.36 + 0.05 * e)
+			s.node.scale = Vector3(0.36 + 0.05 * e, 0.34, 0.36 + 0.05 * e)
 			s.node.global_position = at + Vector3(0, lerpf(0.05, 1.6, e), 0)
-			s.mat.set_shader_parameter("alpha", (1.0 - local) * minf(1.0, local * 10.0))
+			s.mat.set_shader_parameter("alpha", 0.8 * (1.0 - local) * minf(1.0, local * 10.0))
 		tube.update.call(tube, 0.0)
 	var ring := _ring(seat, Vector3.UP, 0.85, color, 0.4)
 	ring.update = func(s: FxSlot, k: float) -> void:
@@ -809,8 +856,9 @@ func _insert_cell(at: Vector3, color: Color) -> void:
 	sp.spread = 180.0
 	sp.initial_velocity_min = 1.5
 	sp.initial_velocity_max = 3.8
-	var flare := _flare(seat, 1.4, arc_color, 0.35)
+	var flare := _flare(seat, 1.1, arc_color, 0.35)
 	flare.mat.set_shader_parameter("streak", 0.8)
+	flare.mat.set_shader_parameter("falloff", 9.0)
 	flare.update = func(s: FxSlot, k: float) -> void:
 		s.mat.set_shader_parameter("alpha", (1.0 - k) * (0.6 + 0.4 * _rng.randf()))
 	flare.update.call(flare, 0.0)
@@ -829,7 +877,7 @@ func _shove(at: Vector3, dir: Vector3, color: Color) -> void:
 		s.node.global_position = chest + flat * lerpf(0.2, 0.75, e)
 		s.mat.set_shader_parameter("radius", lerpf(0.12, 0.95, e))
 		s.mat.set_shader_parameter("width", lerpf(0.16, 0.03, e))
-		s.mat.set_shader_parameter("fill", 0.35 * (1.0 - k))
+		s.mat.set_shader_parameter("fill", 0.14 * (1.0 - k))
 		s.mat.set_shader_parameter("alpha", 1.0 - k)
 	ring.update.call(ring, 0.0)
 	var ground := _ring(at + Vector3(0, 0.04, 0), Vector3.UP, 1.6, color, 0.36)
@@ -845,14 +893,16 @@ func _shove(at: Vector3, dir: Vector3, color: Color) -> void:
 		var e := _ease_out(k)
 		var length := lerpf(1.8, 0.4, e)
 		var center := chest - flat * 0.6 + flat * lerpf(0.0, 1.6, e)
-		s.node.global_transform = Transform3D(_basis_y(flat) * Basis.from_scale(Vector3(0.32, length, 1.0)), center)
+		s.node.global_transform = Transform3D(_basis_y(flat) * Basis.from_scale(Vector3(0.26, length, 1.0)), center)
 		s.mat.set_shader_parameter("alpha", 1.0 - k)
 	dash.update.call(dash, 0.0)
 	var sp := _emit("spark", chest + flat * 0.2, (flat + Vector3(0, 0.25, 0)).normalized(), Color(1.0, 0.85, 0.6).lerp(color, 0.3))
 	sp.spread = 38.0
 	sp.initial_velocity_min = 3.5
 	sp.initial_velocity_max = 7.5
-	var flare := _flare(chest, 1.1, color, 0.16)
+	var flare := _flare(chest + flat * 0.35, 0.8, color, 0.12)
+	flare.mat.set_shader_parameter("falloff", 10.0)
+	flare.mat.set_shader_parameter("streak", 0.7)
 	flare.update = func(s: FxSlot, k: float) -> void:
 		s.mat.set_shader_parameter("alpha", 1.0 - k)
 	flare.update.call(flare, 0.0)
@@ -868,22 +918,25 @@ func _footstep(at: Vector3, dir: Vector3, color: Color) -> void:
 func _power_wave(at: Vector3, color: Color) -> void:
 	var floor_at := Vector3(at.x, 0.05, at.z)
 	var ring := _ring(floor_at, Vector3.UP, 1.0, color, POWER_WAVE_TIME)
+	_apply_floor_mask(ring.mat)
 	ring.update = func(s: FxSlot, k: float) -> void:
 		var r := maxf(POWER_WAVE_RADIUS * _ease_out_quad(k), 0.5)
 		var sc := r * 1.04 + 0.5
 		s.node.scale = Vector3(sc, 1.0, sc)
 		s.mat.set_shader_parameter("radius", r / sc)
-		s.mat.set_shader_parameter("width", 0.6 / sc)
-		s.mat.set_shader_parameter("trail", 7.0 / sc)
-		s.mat.set_shader_parameter("energy", 4.0)
+		s.mat.set_shader_parameter("width", 0.5 / sc)
+		s.mat.set_shader_parameter("trail", minf(7.0, r * 0.25) / sc)
+		s.mat.set_shader_parameter("energy", 2.6)
+		s.mat.set_shader_parameter("hot", 0.5)
 		s.mat.set_shader_parameter("alpha", (1.0 - k * k) * minf(1.0, k * 20.0))
 	ring.update.call(ring, 0.0)
 	var wall := _acquire_slot("tube", POWER_WAVE_TIME)
-	_tube_params(wall, color, 3.2, 1.3, 0.02)
+	_tube_params(wall, color, 2.2, 1.6, 0.02)
 	wall.mat.set_shader_parameter("band_count", 3.0)
 	wall.mat.set_shader_parameter("band_speed", 2.0)
 	wall.mat.set_shader_parameter("band_amt", 0.35)
 	wall.mat.set_shader_parameter("wobble", 0.35)
+	_apply_floor_mask(wall.mat)
 	wall.update = func(s: FxSlot, k: float) -> void:
 		var r := maxf(POWER_WAVE_RADIUS * _ease_out_quad(k), 0.5)
 		var hgt := lerpf(3.4, 1.6, k)
@@ -893,14 +946,15 @@ func _power_wave(at: Vector3, color: Color) -> void:
 	var core := Vector3(at.x, 0, at.z)
 	var rise := _emit("rise", core + Vector3(0, 4.6, 0), Vector3.UP, color)
 	rise.spread = 30.0
-	var flare := _flare(core + Vector3(0, 2.6, 0), 9.0, color, 0.9)
+	var flare := _flare(core + Vector3(0, 2.6, 0), 7.0, color, 0.9)
 	flare.mat.set_shader_parameter("streak", 1.0)
+	flare.mat.set_shader_parameter("falloff", 8.0)
 	flare.mat.set_shader_parameter("pull", 1.6)
 	flare.update = func(s: FxSlot, k: float) -> void:
-		s.mat.set_shader_parameter("alpha", pow(1.0 - k, 2.0))
-		s.node.scale = Vector3.ONE * lerpf(5.0, 9.0, _ease_out(k))
+		s.mat.set_shader_parameter("alpha", 0.8 * pow(1.0 - k, 2.0))
+		s.node.scale = Vector3.ONE * lerpf(4.0, 8.0, _ease_out(k))
 	flare.update.call(flare, 0.0)
-	_flash(core + Vector3(0, 3.0, 0), color, 6.0, 16.0, 1.1)
+	_flash(core + Vector3(0, 3.0, 0), color, 3.0, 16.0, 1.1)
 
 
 func _blackout(at: Vector3, color: Color) -> void:
@@ -915,7 +969,7 @@ func _blackout(at: Vector3, color: Color) -> void:
 		flare.update = func(s: FxSlot, k: float) -> void:
 			s.mat.set_shader_parameter("alpha", (1.0 - k) * (0.3 + 0.7 * float(_rng.randf() > 0.35)))
 		flare.update.call(flare, 0.0)
-	var light := _flash(Vector3(at.x, CEILING_Y - 0.3, at.z), Color(0.75, 0.85, 1.0), 2.5, 7.0, 0.8)
+	var light := _flash(Vector3(at.x, CEILING_Y - 0.3, at.z), Color(1.0, 0.8, 0.6), 2.5, 7.0, 0.8)
 	light.update = func(s: FxSlot, k: float) -> void:
 		var l := s.node as OmniLight3D
 		l.light_energy = 2.5 * (1.0 - k) * float(_rng.randf() > 0.45)
@@ -928,36 +982,38 @@ func _launch(at: Vector3, dir: Vector3, color: Color) -> void:
 	ex.spread = 9.0
 	var sm := _emit("smoke", at + exhaust_dir * 0.8, exhaust_dir, Color(0.46, 0.45, 0.45), burn + 0.2)
 	sm.spread = 40.0
-	var flare := _flare(at, 3.4, color, burn + 0.3)
+	var flare := _flare(at, 2.6, color, burn + 0.3)
 	flare.mat.set_shader_parameter("streak", 1.0)
+	flare.mat.set_shader_parameter("falloff", 9.0)
 	flare.mat.set_shader_parameter("pull", 0.8)
 	flare.update = func(s: FxSlot, k: float) -> void:
 		var fade := minf(1.0, s.t * 6.0) * clampf((s.dur - s.t) / 0.5, 0.0, 1.0)
 		s.mat.set_shader_parameter("alpha", fade * (0.82 + 0.18 * _rng.randf()))
-		s.node.scale = Vector3.ONE * (3.0 + 0.5 * _rng.randf())
+		s.node.scale = Vector3.ONE * (2.4 + 0.4 * _rng.randf())
 	flare.update.call(flare, 0.0)
 	var plume := _acquire_slot("tube", burn + 0.3)
-	_tube_params(plume, color, 3.0, 1.6, 0.02)
-	plume.mat.set_shader_parameter("rim", 0.0)
-	plume.mat.set_shader_parameter("band_count", 7.0)
-	plume.mat.set_shader_parameter("band_speed", -9.0)
-	plume.mat.set_shader_parameter("band_amt", 0.45)
-	plume.mat.set_shader_parameter("wobble", 0.5)
+	_tube_params(plume, color, 2.4, 2.2, 0.02)
+	plume.mat.set_shader_parameter("rim", 0.7)
+	plume.mat.set_shader_parameter("band_count", 5.0)
+	plume.mat.set_shader_parameter("band_speed", 6.0)
+	plume.mat.set_shader_parameter("band_amt", 0.3)
+	plume.mat.set_shader_parameter("wobble", 0.8)
+	plume.mat.set_shader_parameter("hot", 0.5)
 	plume.update = func(s: FxSlot, k: float) -> void:
 		var fade := minf(1.0, s.t * 5.0) * clampf((s.dur - s.t) / 0.5, 0.0, 1.0)
-		var length := 3.2 * (0.9 + 0.1 * _rng.randf())
-		var b := _basis_y(-exhaust_dir) * Basis.from_scale(Vector3(0.32, length, 0.32))
+		var length := 2.6 * (0.9 + 0.1 * _rng.randf())
+		var b := _basis_y(exhaust_dir) * Basis.from_scale(Vector3(0.26, length, 0.26))
 		s.node.global_transform = Transform3D(b, at + exhaust_dir * length * 0.5)
-		s.mat.set_shader_parameter("alpha", fade * 0.9)
+		s.mat.set_shader_parameter("alpha", fade * 0.8)
 	plume.update.call(plume, 0.0)
 	var ground := Vector3(at.x, 0.05, at.z)
-	var ring := _ring(ground, Vector3.UP, 6.0, color, 1.1)
+	var ring := _ring(ground, Vector3.UP, 4.5, color, 1.0)
 	ring.update = func(s: FxSlot, k: float) -> void:
 		var e := _ease_out(k)
 		s.mat.set_shader_parameter("radius", lerpf(0.05, 0.95, e))
-		s.mat.set_shader_parameter("width", lerpf(0.05, 0.015, e))
-		s.mat.set_shader_parameter("trail", 0.08)
-		s.mat.set_shader_parameter("alpha", 1.0 - k)
+		s.mat.set_shader_parameter("width", lerpf(0.04, 0.012, e))
+		s.mat.set_shader_parameter("energy", 1.6)
+		s.mat.set_shader_parameter("alpha", (1.0 - k) * 0.8)
 	ring.update.call(ring, 0.0)
 	var light := _flash(at + exhaust_dir * 0.6, color, 5.0, 12.0, burn + 0.3)
 	light.update = func(s: FxSlot, k: float) -> void:
@@ -978,9 +1034,9 @@ func _alarm(at: Vector3, color: Color) -> void:
 		var fade := minf(1.0, s.t * 8.0) * clampf((s.dur - s.t) / 0.35, 0.0, 1.0)
 		var arm: Node3D = s.parts[1]
 		arm.rotation.y = float(s.data.yaw) - s.t * TAU * 0.9
-		(s.parts[0] as SpotLight3D).light_energy = 9.0 * fade
-		(s.parts[2] as ShaderMaterial).set_shader_parameter("alpha", 0.55 * fade)
-		(s.parts[3] as ShaderMaterial).set_shader_parameter("alpha", 0.55 * fade)
+		(s.parts[0] as SpotLight3D).light_energy = 6.0 * fade
+		(s.parts[2] as ShaderMaterial).set_shader_parameter("alpha", 0.45 * fade)
+		(s.parts[3] as ShaderMaterial).set_shader_parameter("alpha", 0.45 * fade)
 		s.mat.set_shader_parameter("alpha", fade * (0.7 + 0.3 * absf(sin(s.t * TAU * 1.8))))
 	slot.update.call(slot, 0.0)
 
@@ -988,13 +1044,13 @@ func _alarm(at: Vector3, color: Color) -> void:
 func _muzzle(at: Vector3, dir: Vector3, color: Color) -> void:
 	var flare := _flare(at + dir * 0.08, 0.75, color, 0.07)
 	flare.mat.set_shader_parameter("streak", 0.9)
-	flare.mat.set_shader_parameter("energy", 4.0)
+	flare.mat.set_shader_parameter("falloff", 8.0)
 	flare.update = func(s: FxSlot, k: float) -> void:
 		s.mat.set_shader_parameter("alpha", 1.0 - k)
 	flare.update.call(flare, 0.0)
 	var cone := _acquire_slot("dash", 0.08)
 	cone.mat.set_shader_parameter("tint", _vec(color))
-	cone.mat.set_shader_parameter("energy", 4.0)
+	cone.mat.set_shader_parameter("energy", 2.2)
 	cone.update = func(s: FxSlot, k: float) -> void:
 		var length := lerpf(0.55, 0.3, k)
 		s.node.global_transform = Transform3D(_basis_y(dir) * Basis.from_scale(Vector3(0.22, length, 1.0)), at + dir * (length * 0.5 + 0.04))
@@ -1028,45 +1084,51 @@ func _downed(at: Vector3, color: Color) -> void:
 	var ring := _ring(at + Vector3(0, 0.04, 0), Vector3.UP, 1.5, color, 0.5)
 	ring.update = func(s: FxSlot, k: float) -> void:
 		s.mat.set_shader_parameter("radius", lerpf(0.15, 0.95, _ease_out(k)))
-		s.mat.set_shader_parameter("width", lerpf(0.06, 0.02, k))
+		s.mat.set_shader_parameter("width", lerpf(0.045, 0.015, k))
 		s.mat.set_shader_parameter("dashes", 14.0)
-		s.mat.set_shader_parameter("energy", 2.2)
+		s.mat.set_shader_parameter("energy", 1.7)
 		s.mat.set_shader_parameter("alpha", 1.0 - k)
 	ring.update.call(ring, 0.0)
 
 
 func _revive(at: Vector3, color: Color) -> void:
-	var tube := _acquire_slot("tube", 1.3)
-	_tube_params(tube, color, 2.6, 1.2, 0.05)
-	tube.mat.set_shader_parameter("rim", 0.8)
-	tube.mat.set_shader_parameter("band_count", 5.0)
-	tube.mat.set_shader_parameter("band_speed", 1.4)
-	tube.mat.set_shader_parameter("band_amt", 0.6)
-	tube.mat.set_shader_parameter("wobble", 0.4)
-	tube.update = func(s: FxSlot, k: float) -> void:
-		var h := lerpf(0.6, 2.4, _ease_out(k))
-		var r := lerpf(0.75, 0.5, k)
-		s.node.global_transform = Transform3D(Basis.from_scale(Vector3(r, h, r)), at + Vector3(0, h * 0.5, 0))
-		s.mat.set_shader_parameter("alpha", minf(1.0, k * 6.0) * (1.0 - k) * 0.8)
-	tube.update.call(tube, 0.0)
-	var sp := _emit("sparkle", at + Vector3(0, 0.5, 0), Vector3.UP, color)
+	# Two heal-scan rings climbing the body, rising motes and a floor halo.
+	for i in range(2):
+		var delay := 0.22 * float(i)
+		var tube := _acquire_slot("tube", 1.0 + delay)
+		tube.node.global_transform = Transform3D(Basis.IDENTITY, at)
+		_tube_params(tube, color, 1.6, 4.0, 0.03)
+		tube.mat.set_shader_parameter("hot", 0.6)
+		tube.mat.set_shader_parameter("rim", 0.6)
+		tube.node.visible = false
+		tube.update = func(s: FxSlot, k: float) -> void:
+			var local := clampf((s.t - delay) / 1.0, 0.0, 1.0)
+			s.node.visible = s.t >= delay
+			var e := _ease_out(local)
+			var r := lerpf(0.75, 0.5, e)
+			s.node.global_transform = Transform3D(Basis.from_scale(Vector3(r, 0.4, r)), at + Vector3(0, lerpf(0.1, 2.1, e), 0))
+			s.mat.set_shader_parameter("alpha", 0.8 * (1.0 - local) * minf(1.0, local * 8.0))
+		tube.update.call(tube, 0.0)
+	var sp := _emit("sparkle", at + Vector3(0, 0.9, 0), Vector3.UP, color)
 	sp.spread = 25.0
-	var rise := _emit("rise", at + Vector3(0, 0.2, 0), Vector3.UP, color)
-	rise.spread = 12.0
+	var rise := _emit("rise", at + Vector3(0, 0.3, 0), Vector3.UP, color)
+	rise.spread = 10.0
 	rise.initial_velocity_min = 0.8
-	rise.initial_velocity_max = 2.6
-	var ring := _ring(at + Vector3(0, 0.04, 0), Vector3.UP, 1.2, color, 0.8)
+	rise.initial_velocity_max = 2.4
+	var ring := _ring(at + Vector3(0, 0.04, 0), Vector3.UP, 1.2, color, 1.0)
 	ring.update = func(s: FxSlot, k: float) -> void:
-		s.mat.set_shader_parameter("radius", lerpf(0.95, 0.35, _ease_out(k)))
-		s.mat.set_shader_parameter("width", 0.05)
-		s.mat.set_shader_parameter("fill", 0.2)
+		s.mat.set_shader_parameter("radius", lerpf(0.95, 0.4, _ease_out(k)))
+		s.mat.set_shader_parameter("width", 0.04)
+		s.mat.set_shader_parameter("fill", 0.15)
+		s.mat.set_shader_parameter("dashes", 10.0)
+		s.mat.set_shader_parameter("spin", -0.5)
 		s.mat.set_shader_parameter("alpha", sin(k * PI))
 	ring.update.call(ring, 0.0)
 	_flash(at + Vector3(0, 1.2, 0), color, 2.0, 4.0, 0.9)
 
 
 func _airlock_vent(at: Vector3, dir: Vector3, color: Color) -> void:
-	var fog := _emit("fog", at + dir * 0.5, dir, Color(0.82, 0.88, 0.94), 1.1)
+	var fog := _emit("fog", at + Vector3(0, 1.1, 0) + dir * 0.5, dir, Color(0.82, 0.88, 0.94), 1.1)
 	fog.spread = 20.0
 	var deb := _emit("debris", at + Vector3(0, 1.0, 0), dir, Color(0.7, 0.75, 0.8))
 	deb.spread = 18.0
@@ -1097,8 +1159,17 @@ func _airlock_vent(at: Vector3, dir: Vector3, color: Color) -> void:
 	_flash(at + Vector3(0, 1.5, 0), color, 2.0, 6.0, 0.5)
 
 
-func _spaced(at: Vector3, dir: Vector3, color: Color) -> void:
+## velocity: the body's drift in m/s (a unit vector means 3 m/s). The emitter
+## travels with it for 1.4 s, leaving an ice-crystal wake.
+func _spaced(at: Vector3, velocity: Vector3, color: Color) -> void:
+	var vel := velocity
+	if vel.length_squared() < 1e-6:
+		vel = Vector3.UP
+	if absf(vel.length() - 1.0) < 0.01:
+		vel *= 3.0
+	var dir := vel.normalized()
 	var fr := _emit("frost", at + Vector3(0, 0.9, 0), -dir, color, 1.4)
+	_movers.append({"e": fr, "vel": vel, "until": _time + 1.4})
 	fr.spread = 25.0
 	fr.initial_velocity_min = 0.4
 	fr.initial_velocity_max = 1.5
@@ -1129,6 +1200,12 @@ func _process(delta: float) -> void:
 			if is_instance_valid(e):
 				e.emitting = false
 			_stops.remove_at(i)
+	for i in range(_movers.size() - 1, -1, -1):
+		var mv: Dictionary = _movers[i]
+		if _time >= float(mv.until) or not is_instance_valid(mv.e):
+			_movers.remove_at(i)
+		else:
+			(mv.e as CPUParticles3D).global_position += (mv.vel as Vector3) * delta
 	for i in range(_items.size() - 1, -1, -1):
 		var rec: Dictionary = _items[i]
 		if not is_instance_valid(rec.item) or not is_instance_valid(rec.root):
@@ -1219,7 +1296,7 @@ func _update_item(rec: Dictionary, delta: float) -> void:
 				var ang := sd * TAU + s * TAU * 1.2 + (t - lag * 2.0) * 0.9
 				var rad := 0.42 + 0.12 * sin(sd * 11.0 + t)
 				pos = Vector3(cos(ang) * rad, 0.15 + s * 1.85, sin(ang) * rad)
-				a = sin(s * PI) * 0.55
+				a = sin(s * PI) * 0.85
 			elif core:
 				var strand := float(i % 2)
 				var s := fposmod(sd + (t - lag) * 0.32, 1.0)
@@ -1257,9 +1334,9 @@ func _update_item(rec: Dictionary, delta: float) -> void:
 		marker.visible = f > 0.001
 		if pillar.visible:
 			# Keep the beam vertical even if the core is tilted.
-			pillar.global_transform = Transform3D(Basis.from_scale(Vector3(0.16, 9.0, 0.16)), (rec.item as Node3D).global_position + Vector3(0, 4.5, 0))
+			pillar.global_transform = Transform3D(Basis.from_scale(Vector3(0.08, 9.0, 0.08)), (rec.item as Node3D).global_position + Vector3(0, 4.5, 0))
 			marker.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 0.8), (rec.item as Node3D).global_position + Vector3(0, 0.03, 0))
-			(rec.pillar_mat as ShaderMaterial).set_shader_parameter("alpha", f * (0.34 + 0.06 * sin(t * 2.0)))
+			(rec.pillar_mat as ShaderMaterial).set_shader_parameter("alpha", f * (0.22 + 0.05 * sin(t * 2.0)))
 			(rec.marker_mat as ShaderMaterial).set_shader_parameter("alpha", f * (0.7 + 0.3 * sin(t * 3.0)))
 
 
@@ -1327,6 +1404,9 @@ func _acquire_emitter(preset: String) -> CPUParticles3D:
 	for i in range(_stops.size() - 1, -1, -1):
 		if _stops[i].e == oldest:
 			_stops.remove_at(i)
+	for i in range(_movers.size() - 1, -1, -1):
+		if _movers[i].e == oldest:
+			_movers.remove_at(i)
 	return _reset_emitter(oldest, preset)
 
 
@@ -1373,53 +1453,53 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.scale_amount_curve = _curve([[0.0, 0.2], [0.12, 1.0], [0.6, 0.7], [1.0, 0.0]])
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 1)], [0.7, Color(1, 1, 1, 0.8)], [1.0, Color(1, 1, 1, 0)]])
 		"spark", "skitter", "shower", "conduit":
-			e.amount = {"spark": 18, "skitter": 8, "shower": 20, "conduit": 10}[preset]
-			e.lifetime = {"spark": 0.45, "skitter": 0.5, "shower": 0.65, "conduit": 0.6}[preset]
+			e.amount = {"spark": 18, "skitter": 8, "shower": 24, "conduit": 14}[preset]
+			e.lifetime = {"spark": 0.45, "skitter": 0.5, "shower": 1.0, "conduit": 0.7}[preset]
 			e.lifetime_randomness = 0.5
 			e.explosiveness = 0.18 if preset == "shower" else 1.0
 			e.particle_flag_align_y = true
 			var q := QuadMesh.new()
-			q.size = Vector2(0.03, 0.34) if preset != "skitter" else Vector2(0.025, 0.2)
+			q.size = Vector2(0.045, 0.55) if preset == "shower" else (Vector2(0.03, 0.34) if preset != "skitter" else Vector2(0.025, 0.2))
 			e.mesh = q
-			e.material_override = _material("streak", {"energy": 5.0})
+			e.material_override = _material("streak", {"energy": 3.6})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.06 if preset != "shower" else 0.2
 			e.spread = 35.0
-			e.initial_velocity_min = {"spark": 3.5, "skitter": 1.4, "shower": 0.6, "conduit": 1.2}[preset]
-			e.initial_velocity_max = {"spark": 7.0, "skitter": 3.4, "shower": 3.0, "conduit": 3.0}[preset]
+			e.initial_velocity_min = {"spark": 3.5, "skitter": 1.4, "shower": 1.0, "conduit": 1.2}[preset]
+			e.initial_velocity_max = {"spark": 7.0, "skitter": 3.4, "shower": 4.5, "conduit": 3.0}[preset]
 			e.gravity = Vector3(0, -9.8, 0)
 			e.damping_min = 0.5
 			e.damping_max = 2.5
 			e.scale_amount_min = 0.6
 			e.scale_amount_max = 1.1
 			e.scale_amount_curve = _curve([[0.0, 1.0], [0.7, 0.75], [1.0, 0.0]])
-			e.color_ramp = _ramp([[0.0, Color(1.3, 1.25, 1.1, 1)], [0.35, Color(1, 1, 1, 1)], [1.0, Color(0.8, 0.35, 0.2, 0)]])
+			e.color_ramp = _ramp([[0.0, Color(1.2, 1.15, 1.05, 1)], [0.3, Color(1, 1, 1, 1)], [1.0, Color(0.85, 0.4, 0.25, 0)]])
 			if preset == "conduit":
 				e.direction = Vector3(0, -0.2, 1).normalized()
 				e.spread = 45.0
 				e.color = Color(0.75, 0.85, 1.0)
 		"puff", "step":
 			var puff := preset == "puff"
-			e.amount = 10 if puff else 4
+			e.amount = 10 if puff else 5
 			e.lifetime = 0.9 if puff else 0.6
 			e.explosiveness = 0.95
 			e.lifetime_randomness = 0.35
-			e.material_override = _material("smoke", {"opacity": 0.55 if puff else 0.32})
+			e.material_override = _material("smoke", {"opacity": 0.55 if puff else 0.3, "ambient_emit": 0.08})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.18 if puff else 0.06
 			e.spread = 80.0
 			e.initial_velocity_min = 0.3
 			e.initial_velocity_max = 1.4 if puff else 0.6
-			e.radial_accel_min = 1.0 if puff else 0.3
-			e.radial_accel_max = 3.0 if puff else 0.8
+			e.radial_accel_min = 1.0 if puff else 0.8
+			e.radial_accel_max = 3.0 if puff else 1.6
 			e.damping_min = 2.0
 			e.damping_max = 3.5
 			e.gravity = Vector3(0, 0.25, 0)
 			e.angle_max = 360.0
 			e.angular_velocity_min = -40.0
 			e.angular_velocity_max = 40.0
-			e.scale_amount_min = 0.3 if puff else 0.14
-			e.scale_amount_max = 0.6 if puff else 0.24
+			e.scale_amount_min = 0.3 if puff else 0.16
+			e.scale_amount_max = 0.6 if puff else 0.3
 			e.scale_amount_curve = _curve([[0.0, 0.35], [0.3, 0.8], [1.0, 1.0]])
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 0.0)], [0.12, Color(1, 1, 1, 0.9)], [1.0, Color(1, 1, 1, 0.0)]])
 		"rise", "plume":
@@ -1454,7 +1534,7 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.one_shot = false
 			e.explosiveness = 0.0
 			e.lifetime_randomness = 0.3
-			e.material_override = glow.call(3.2, 0.0, 0.5)
+			e.material_override = glow.call(2.4, 0.0, 0.5)
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.18
 			e.spread = 9.0
@@ -1474,7 +1554,7 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.one_shot = false
 			e.explosiveness = 0.0
 			e.lifetime_randomness = 0.35
-			e.material_override = _material("smoke", {"opacity": 0.6 if not steam else 0.3, "self_glow": 0.0 if steam else 0.6})
+			e.material_override = _material("smoke", {"opacity": 0.7 if not steam else 0.42, "self_glow": 0.0 if steam else 1.2, "ambient_emit": 0.35 if steam else 0.05})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.3 if not steam else 0.05
 			e.spread = 40.0 if not steam else 9.0
@@ -1510,8 +1590,8 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.angle_max = 90.0
 			e.angular_velocity_min = -200.0
 			e.angular_velocity_max = 200.0
-			e.scale_amount_min = 0.05
-			e.scale_amount_max = 0.12
+			e.scale_amount_min = 0.07
+			e.scale_amount_max = 0.16
 			e.scale_amount_curve = _curve([[0.0, 1.0], [1.0, 0.0]])
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 1)], [1.0, Color(1, 1, 1, 0)]])
 		"debris":
@@ -1523,7 +1603,7 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			var dq := QuadMesh.new()
 			dq.size = Vector2(0.035, 0.55)
 			e.mesh = dq
-			e.material_override = _material("streak", {"energy": 2.2})
+			e.material_override = _material("streak", {"energy": 3.0})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.6
 			e.spread = 22.0
@@ -1536,24 +1616,24 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.scale_amount_max = 1.2
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 1)], [1.0, Color(1, 1, 1, 0)]])
 		"fog":
-			e.amount = 18
+			e.amount = 22
 			e.lifetime = 1.4
 			e.one_shot = false
 			e.explosiveness = 0.0
 			e.lifetime_randomness = 0.35
-			e.material_override = _material("smoke", {"opacity": 0.5})
+			e.material_override = _material("smoke", {"opacity": 0.75, "ambient_emit": 0.45})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-			e.emission_sphere_radius = 0.6
+			e.emission_sphere_radius = 0.7
 			e.spread = 18.0
-			e.initial_velocity_min = 5.0
-			e.initial_velocity_max = 10.0
+			e.initial_velocity_min = 6.0
+			e.initial_velocity_max = 12.0
 			e.damping_min = 2.0
 			e.damping_max = 3.0
 			e.angle_max = 360.0
 			e.angular_velocity_min = -60.0
 			e.angular_velocity_max = 60.0
-			e.scale_amount_min = 0.6
-			e.scale_amount_max = 1.0
+			e.scale_amount_min = 0.8
+			e.scale_amount_max = 1.4
 			e.scale_amount_curve = _curve([[0.0, 0.4], [0.5, 1.6], [1.0, 3.0]])
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 0)], [0.08, Color(1, 1, 1, 0.8)], [1.0, Color(1, 1, 1, 0)]])
 		"ambient_dust":
@@ -1635,7 +1715,7 @@ func _build_slot(kind: String) -> FxSlot:
 				var cone := MeshInstance3D.new()
 				var cm := CylinderMesh.new()
 				cm.top_radius = 0.02
-				cm.bottom_radius = 2.4
+				cm.bottom_radius = 1.5
 				cm.height = 1.0
 				cm.radial_segments = 16
 				cm.rings = 1
@@ -1644,7 +1724,7 @@ func _build_slot(kind: String) -> FxSlot:
 				cone.mesh = cm
 				cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				cone.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0) * Basis.from_scale(Vector3(1, 7.0, 1)), Vector3(0, 0, -3.5))
-				var cmat := _material("cone", {"energy": 1.4})
+				var cmat := _material("cone", {"energy": 0.9})
 				cone.material_override = cmat
 				tilt.add_child(cone)
 				arm.add_child(holder)
@@ -1702,8 +1782,8 @@ func _release(s: FxSlot) -> void:
 func _ring(at: Vector3, normal: Vector3, size: float, color: Color, duration: float) -> FxSlot:
 	var s := _acquire_slot("ring", duration)
 	s.node.global_transform = Transform3D(_basis_y(normal) * Basis.from_scale(Vector3(size, 1.0, size)), at)
-	for p in [["color", _vec(color)], ["energy", 3.0], ["radius", 0.5], ["width", 0.05], ["alpha", 1.0],
-			["fill", 0.0], ["trail", 0.0], ["dashes", 0.0], ["spin", 0.0], ["hot", 0.6]]:
+	for p in [["color", _vec(color)], ["energy", 2.0], ["radius", 0.5], ["width", 0.05], ["alpha", 1.0],
+			["fill", 0.0], ["trail", 0.0], ["dashes", 0.0], ["spin", 0.0], ["hot", 0.35], ["mask_rect", Vector4.ZERO]]:
 		s.mat.set_shader_parameter(p[0], p[1])
 	return s
 
@@ -1711,7 +1791,7 @@ func _ring(at: Vector3, normal: Vector3, size: float, color: Color, duration: fl
 func _flare(at: Vector3, size: float, color: Color, duration: float) -> FxSlot:
 	var s := _acquire_slot("flare", duration)
 	s.node.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * size), at)
-	for p in [["color", _vec(color)], ["energy", 3.0], ["alpha", 1.0], ["falloff", 5.0], ["streak", 0.0],
+	for p in [["color", _vec(color)], ["energy", 2.2], ["alpha", 1.0], ["falloff", 5.0], ["streak", 0.0],
 			["core", 1.0], ["ring", 0.0], ["pull", 0.4]]:
 		s.mat.set_shader_parameter(p[0], p[1])
 	return s
@@ -1720,7 +1800,7 @@ func _flare(at: Vector3, size: float, color: Color, duration: float) -> FxSlot:
 func _tube_params(s: FxSlot, color: Color, energy: float, fade_pow: float, bottom_soft: float) -> void:
 	for p in [["color", _vec(color)], ["energy", energy], ["alpha", 1.0], ["fade_pow", fade_pow],
 			["bottom_soft", bottom_soft], ["top_soft", 0.0], ["rim", 0.4], ["band_count", 0.0], ["band_speed", 0.0],
-			["band_amt", 0.0], ["wobble", 0.0], ["hot", 0.3]]:
+			["band_amt", 0.0], ["wobble", 0.0], ["hot", 0.12], ["mask_rect", Vector4.ZERO]]:
 		s.mat.set_shader_parameter(p[0], p[1])
 
 
@@ -1845,6 +1925,37 @@ func _material(key: String, params := {}) -> ShaderMaterial:
 	for p in params:
 		m.set_shader_parameter(p, params[p])
 	return m
+
+
+static var _mask_tex: ImageTexture
+static var _mask_rect := Vector4.ZERO
+
+
+## Clips the power wave to the station's walkable floor (rooms + corridors), so it
+## rolls through the deck instead of spilling out over open space.
+static func _apply_floor_mask(m: ShaderMaterial) -> void:
+	if _mask_tex == null:
+		var bounds := Rect2()
+		var rects: Array[Rect2] = []
+		for room_id in StationLayout.ROOMS:
+			rects.append(StationLayout.room_rect(room_id))
+		for corridor_id in StationLayout.CORRIDORS:
+			rects.append(StationLayout.corridor_rect(corridor_id))
+		bounds = rects[0]
+		for r in rects:
+			bounds = bounds.merge(r)
+		bounds = bounds.grow(2.0)
+		var px_per_m := 4.0
+		var img := Image.create(int(ceil(bounds.size.x * px_per_m)), int(ceil(bounds.size.y * px_per_m)), false, Image.FORMAT_L8)
+		img.fill(Color.BLACK)
+		for r in rects:
+			# Grow slightly so the wave also licks the base of the walls.
+			var g := r.grow(0.3)
+			img.fill_rect(Rect2i(Vector2i((g.position - bounds.position) * px_per_m), Vector2i(g.size * px_per_m)), Color.WHITE)
+		_mask_tex = ImageTexture.create_from_image(img)
+		_mask_rect = Vector4(bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y)
+	m.set_shader_parameter("floor_mask", _mask_tex)
+	m.set_shader_parameter("mask_rect", _mask_rect)
 
 
 static func _quad_mesh() -> QuadMesh:

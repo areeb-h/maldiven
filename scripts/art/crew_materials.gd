@@ -57,30 +57,33 @@ void fragment() {
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	if (id < 0.5) {
 		// Painted composite armour: clearcoat, edge-worn to bare alloy.
-		float wear = smoothstep(0.5, 0.95, edge * (0.45 + nhi * 0.9));
-		alb = primary * shade * (0.9 + 0.2 * nlo);
-		alb = mix(alb, mix(primary, vec3(0.9), 0.6), clamp(edge * 0.35, 0.0, 1.0));
-		alb = mix(alb, vec3(0.55, 0.56, 0.58), wear * 0.7);
-		met = mix(0.08, 0.85, wear);
-		rough = 0.32 + 0.14 * nlo + wear * 0.05;
-		cc = 0.7 * (1.0 - wear);
-		nd = 0.18;
+		float wear = smoothstep(0.62, 0.95, edge * (0.5 + nhi * 0.7));
+		alb = primary * shade * (0.95 + 0.1 * nlo);
+		alb = mix(alb, mix(primary, vec3(0.95), 0.45), clamp(edge * 0.3, 0.0, 1.0));
+		alb = mix(alb, vec3(0.6, 0.61, 0.63), wear * 0.6);
+		met = mix(0.05, 0.85, wear);
+		rough = 0.36 + 0.1 * nlo;
+		cc = 0.8 * (1.0 - wear);
+		nd = 0.05;
 	} else if (id < 1.5) {
 		// Graphite composite.
-		alb = secondary * shade * (0.8 + 0.4 * nlo);
-		alb = mix(alb, vec3(0.32, 0.33, 0.35), edge * 0.55 * smoothstep(0.3, 0.8, nhi));
-		met = 0.5;
-		rough = 0.38 + 0.2 * nhi;
-		cc = 0.25;
-		nd = 0.3;
+		alb = secondary * shade * (0.93 + 0.14 * nlo);
+		alb = mix(alb, vec3(0.2, 0.21, 0.23), edge * 0.18);
+		met = 0.45;
+		rough = 0.42 + 0.12 * nhi;
+		cc = 0.3;
+		nd = 0.08;
 	} else if (id < 2.5) {
 		// Woven pressure-suit fabric with a soft sheen.
-		vec2 w = UV * 150.0;
-		nmap = vec3(0.5 + 0.22 * cos(w.x) * sin(w.y * 0.5), 0.5 + 0.22 * sin(w.x * 0.5) * cos(w.y), 1.0);
-		alb = fabric * shade * (0.85 + 0.3 * nlo);
-		rough = 0.82;
-		rim = 0.35;
-		nd = 0.5;
+		// Ripstop weave, faded out where it would alias.
+		vec2 w = UV * 520.0;
+		float fade = 1.0 - smoothstep(0.6, 2.0, length(fwidth(w)));
+		nmap = vec3(0.5 + 0.2 * fade * cos(w.x) * sin(w.y * 0.5), 0.5 + 0.2 * fade * sin(w.x * 0.5) * cos(w.y), 1.0);
+		float grid = fade * smoothstep(0.92, 0.99, max(abs(sin(UV.x * 60.0)), abs(sin(UV.y * 60.0))));
+		alb = fabric * shade * (0.92 + 0.16 * nlo) * (1.0 - 0.25 * grid);
+		rough = 0.78;
+		rim = 0.3;
+		nd = 0.35;
 	} else if (id < 3.5) {
 		alb = vec3(0.6, 0.62, 0.66) * shade;
 		met = 1.0;
@@ -178,23 +181,20 @@ void fragment() {
 	// Inner HUD glow: scanlines, a sweep and a couple of side readouts.
 	vec2 uv = UV;
 	float edge_mask = smoothstep(0.0, 0.12, uv.x) * smoothstep(1.0, 0.88, uv.x) * smoothstep(0.0, 0.15, uv.y) * smoothstep(1.0, 0.8, uv.y);
-	float lines = 0.5 + 0.5 * sin(uv.y * 220.0);
-	float sweep = exp(-pow((fract(uv.y * 0.6 - TIME * 0.35) - 0.5) * 18.0, 2.0));
-	float side = step(abs(uv.x - 0.5), 0.36) * step(0.3, abs(uv.x - 0.5));
-	float bars = side * step(0.42, uv.y) * step(uv.y, 0.62) * step(0.45, fract(uv.y * 18.0));
-	float reticle = smoothstep(0.012, 0.0, abs(length((uv - vec2(0.5, 0.52)) * vec2(2.4, 1.0)) - 0.09)) * 0.6;
-	float hud_v = (0.05 + 0.07 * lines + 0.35 * sweep) * edge_mask + bars * 0.45 + reticle * 0.4;
+	float lines = smoothstep(0.7, 1.0, sin(uv.y * 160.0));
+	float sweep = exp(-pow((fract(uv.y * 0.6 - TIME * 0.3) - 0.5) * 14.0, 2.0));
+	float side = step(abs(uv.x - 0.5), 0.37) * step(0.31, abs(uv.x - 0.5));
+	float bars = side * step(0.44, uv.y) * step(uv.y, 0.64) * step(0.55, fract(uv.y * 16.0));
+	float hud_v = (0.02 + 0.1 * sweep) * edge_mask + bars * 0.18 + lines * 0.0;
 	vec3 hud_c = mix(accent, vec3(0.7, 0.95, 1.0), 0.25);
 	float g = hash(vec2(floor(uv.y * 40.0), floor(TIME * 24.0)));
 	hud_c = mix(hud_c, vec3(1.0, 0.15, 0.08), glitch);
 	hud_v *= mix(1.0, step(0.35, g) * (0.5 + g * 1.5), glitch);
 	ALBEDO = tint;
 	METALLIC = 0.0;
-	ROUGHNESS = 0.05;
-	SPECULAR = 0.9;
-	CLEARCOAT = 1.0;
-	CLEARCOAT_ROUGHNESS = 0.03;
-	EMISSION = env * fres * reflect_strength * 2.0 + hud_c * hud_v * ndv * hud * 1.4;
+	ROUGHNESS = 0.06;
+	SPECULAR = 1.0;
+	EMISSION = env * fres * reflect_strength * 2.4 + hud_c * hud_v * ndv * hud;
 }
 """
 
@@ -270,7 +270,7 @@ static func palette(color: Color) -> Dictionary:
 	return {
 		"primary": primary,
 		"secondary": Color(0.085, 0.09, 0.1),
-		"fabric": Color(0.16, 0.165, 0.18).lerp(primary, 0.06),
+		"fabric": Color(0.2, 0.205, 0.22).lerp(primary, 0.05),
 		"accent": accent,
 		"trim": Color(0.74, 0.75, 0.77),
 	}
@@ -292,7 +292,7 @@ static func _template(kind: String, color: Color) -> ShaderMaterial:
 		"visor":
 			m.shader = shader("visor")
 			m.set_shader_parameter("accent", pal["accent"])
-			m.set_shader_parameter("tint", Color(0.035, 0.045, 0.06).lerp(pal["primary"], 0.06))
+			m.set_shader_parameter("tint", Color(0.012, 0.016, 0.024))
 		"ghost_visor":
 			m.shader = shader("ghost_visor")
 			m.set_shader_parameter("accent", pal["accent"])
