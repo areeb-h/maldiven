@@ -4,24 +4,29 @@ extends Node3D
 ## materials, signage, environment) and animates alarm pulses. Created and wired
 ## by StationBuilder; StationBuilder.set_power_state() forwards here.
 
+## Emissive energies stay <= 2.0: the Mobile renderer's RGB10A2 buffer clips
+## there, so states differ by colour, area, pulse and on/off instead.
 const STATES := {
 	"emergency": {
-		"ambient": 0.55, "ambient_color": Color(0.42, 0.42, 0.52), "sun": 0.35,
-		"light": 1.7, "light_mix": 0.0, "pulse": 1.0,
-		"trim": 0.18, "door": 1.6, "emergency": 3.2, "ceiling": 0.0, "guide": 1.3, "screen": 0.35,
-		"beacon": 6.0, "reactor": 0.3, "label": 0.9, "nav": 2.0, "glow": 0.85, "exposure": 1.05,
+		"ambient": 0.5, "ambient_color": Color(0.42, 0.42, 0.55), "sun": 0.45, "fill": 0.35,
+		"light": 1.6, "light_mix": 0.0, "pulse": 1.0,
+		"trim": 0.25, "door": 1.2, "emergency": 1.9, "ceiling": 0.0, "guide": 1.2, "screen": 0.5,
+		"beacon": 2.0, "reactor": 0.35, "label": 0.9, "nav": 1.5, "glow": 1.3, "exposure": 1.05,
+		"fog_color": Color(0.25, 0.07, 0.05), "fog_density": 0.01,
 	},
 	"restored": {
-		"ambient": 0.75, "ambient_color": Color(0.6, 0.65, 0.74), "sun": 1.25,
-		"light": 1.5, "light_mix": 1.0, "pulse": 0.0,
-		"trim": 2.4, "door": 3.2, "emergency": 0.0, "ceiling": 1.8, "guide": 0.9, "screen": 2.0,
-		"beacon": 0.0, "reactor": 5.0, "label": 1.5, "nav": 2.0, "glow": 0.75, "exposure": 1.0,
+		"ambient": 0.7, "ambient_color": Color(0.62, 0.66, 0.76), "sun": 1.3, "fill": 0.25,
+		"light": 1.4, "light_mix": 1.0, "pulse": 0.0,
+		"trim": 1.6, "door": 1.9, "emergency": 0.0, "ceiling": 1.4, "guide": 0.8, "screen": 1.4,
+		"beacon": 0.0, "reactor": 2.0, "label": 1.3, "nav": 1.5, "glow": 1.2, "exposure": 1.0,
+		"fog_color": Color(0.08, 0.1, 0.14), "fog_density": 0.005,
 	},
 	"blackout": {
-		"ambient": 0.05, "ambient_color": Color(0.25, 0.3, 0.45), "sun": 0.02,
+		"ambient": 0.05, "ambient_color": Color(0.25, 0.3, 0.45), "sun": 0.02, "fill": 0.0,
 		"light": 0.0, "light_mix": 0.0, "pulse": 0.0,
-		"trim": 0.0, "door": 0.25, "emergency": 0.0, "ceiling": 0.0, "guide": 1.8, "screen": 0.04,
-		"beacon": 0.0, "reactor": 0.12, "label": 0.1, "nav": 0.4, "glow": 0.9, "exposure": 1.0,
+		"trim": 0.0, "door": 0.25, "emergency": 0.0, "ceiling": 0.0, "guide": 1.6, "screen": 0.04,
+		"beacon": 0.0, "reactor": 0.12, "label": 0.1, "nav": 0.4, "glow": 1.4, "exposure": 1.1,
+		"fog_color": Color(0.01, 0.015, 0.03), "fog_density": 0.02,
 	},
 }
 const EMERGENCY_LIGHT := Color(1.0, 0.3, 0.16)
@@ -37,6 +42,7 @@ var labels: Array[Label3D] = []
 var label_colors: Array[Color] = []
 var probes: Array[ReflectionProbe] = []
 var sun: DirectionalLight3D
+var fill: DirectionalLight3D
 var env: Environment
 var current: Dictionary = {}
 var _from: Dictionary = {}
@@ -144,9 +150,15 @@ func _apply_static() -> void:
 	if sun != null:
 		sun.light_energy = current.sun
 		sun.visible = current.sun > 0.01
+	if fill != null:
+		fill.light_energy = current.fill
+		fill.visible = current.fill > 0.01
+	if env != null:
+		env.fog_light_color = current.fog_color
+		env.fog_density = current.fog_density
 	for i in range(labels.size()):
 		if is_instance_valid(labels[i]):
-			var c := label_colors[i] * float(current.label)
+			var c := label_colors[i] * minf(float(current.label), 1.0) + label_colors[i] * maxf(float(current.label) - 1.0, 0.0) * 0.5
 			c.a = clampf(float(current.label) * 1.2, 0.15, 1.0)
 			labels[i].modulate = c
 			labels[i].outline_modulate = Color(0, 0, 0, clampf(float(current.label), 0.0, 0.8))

@@ -499,14 +499,17 @@ static func _pbr_static(key: String, paint: bool) -> StandardMaterial3D:
 	m.roughness_texture = texture("metal_paint_orm")
 	m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
 	if paint:
-		m.roughness = 1.0
+		# Glossy toy paint: texture roughness (~0.55) scaled to ~0.3.
+		m.roughness = 0.6
 		m.metallic = 1.0
 		m.metallic_texture = texture("metal_paint_orm")
 		m.metallic_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_BLUE
 		m.metallic_specular = 0.5
 	else:
-		m.roughness = 0.75
-		m.metallic = 0.65
+		# Brushed metal trims.
+		m.roughness = 0.6
+		m.metallic = 0.8
+		m.anisotropy_enabled = false
 		m.metallic_specular = 0.6
 	m.uv1_triplanar = true
 	m.uv1_world_triplanar = true

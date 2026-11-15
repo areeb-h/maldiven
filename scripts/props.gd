@@ -20,13 +20,13 @@ static func _mat(key: String) -> Material:
 	var m: Material
 	match key:
 		"cell_glow":
-			m = ArtMaterials.glow(3.2)
+			m = ArtMaterials.glow(2.0)
 		"core_glow":
-			m = ArtMaterials.glow(4.5, false, 0.6)
+			m = ArtMaterials.glow(2.0, false, 0.5)
 		"core_halo":
 			m = ArtMaterials.forcefield(CORE_GLOW)
 		"accent":
-			m = ArtMaterials.glow(2.2)
+			m = ArtMaterials.glow(1.8)
 		"glass":
 			m = ArtMaterials.glass(Color(0.6, 0.8, 1.0), 0.06)
 		"visor":
@@ -68,25 +68,28 @@ static func _build_gun() -> Node3D:
 	var root = GUN_SCRIPT.new()
 	root.name = "Gun"
 	var kit := ArtMeshKit.new()
-	var body_c := Color(0.22, 0.24, 0.27)
-	var shell := Color(0.85, 0.86, 0.84)
-	# Grip (raked back), receiver, shroud and emitter barrel along -Z.
-	kit.bevel_box("painted", Vector3(0, 0.09, 0.1), Vector3(0.07, 0.18, 0.09), 0.02, body_c, Basis(Vector3.RIGHT, -0.3))
-	kit.bevel_box("painted", Vector3(0, 0.22, -0.02), Vector3(0.09, 0.11, 0.34), 0.025, shell)
-	kit.bevel_box("painted", Vector3(0, 0.25, -0.17), Vector3(0.1, 0.08, 0.2), 0.02, body_c)
-	kit.cylinder("metal", Vector3(0, 0.235, -0.26), Vector3(0, 0.235, -0.36), 0.032, GUNMETAL, 10)
-	kit.cylinder("metal", Vector3(0, 0.235, -0.36), Vector3(0, 0.235, -0.4), 0.042, GUNMETAL, 10)
-	kit.cylinder("accent", Vector3(0, 0.235, -0.4), Vector3(0, 0.235, -0.405), 0.03, Color(0.3, 0.9, 1.0), 10)
-	kit.bevel_box("metal", Vector3(0, 0.15, 0.0), Vector3(0.05, 0.04, 0.12), 0.01, GUNMETAL)
-	kit.bevel_box("painted", Vector3(0, 0.29, 0.0), Vector3(0.04, 0.04, 0.12), 0.01, body_c)
-	kit.box("hazard", Vector3(0.046, 0.22, -0.02), Vector3(0.005, 0.03, 0.2), Color.WHITE)
-	kit.box("hazard", Vector3(-0.046, 0.22, -0.02), Vector3(0.005, 0.03, 0.2), Color.WHITE)
+	var graphite := Color(0.2, 0.21, 0.24)
+	var shell := Color(0.93, 0.93, 0.9)
+	var accent := Color(1.0, 0.45, 0.2)
+	# Chunky toy blaster: rounded grip, fat body, bulb emitter, barrel along -Z.
+	kit.bevel_box("painted", Vector3(0, 0.1, 0.11), Vector3(0.085, 0.2, 0.11), 0.035, graphite, Basis(Vector3.RIGHT, -0.28))
+	kit.bevel_box("painted", Vector3(0, 0.235, -0.03), Vector3(0.12, 0.14, 0.36), 0.05, shell)
+	kit.bevel_box("painted", Vector3(0, 0.31, 0.0), Vector3(0.07, 0.05, 0.2), 0.025, accent)
+	var barrel := CapsuleMesh.new()
+	barrel.radius = 0.045
+	barrel.height = 0.24
+	barrel.radial_segments = 14
+	barrel.rings = 4
+	kit.mesh("painted", barrel, Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(0, 0.235, -0.26)), graphite)
+	kit.torus("metal", Vector3(0, 0.235, -0.22), 0.04, 0.065, Color(0.7, 0.72, 0.75), Basis(Vector3.RIGHT, PI / 2.0), 16, 6)
+	kit.sphere("accent", Vector3(0, 0.235, -0.385), 0.04, Color(0.3, 0.9, 1.0), 12)
+	kit.torus("painted", Vector3(0, 0.13, 0.03), 0.04, 0.06, graphite, Basis(Vector3.BACK, PI / 2.0), 14, 6)
 	var mats := _base_mats()
 	for i in range(3):
 		var key := "cell%d" % i
-		kit.box(key, Vector3(0.048, 0.2, 0.07 - float(i) * 0.05), Vector3(0.008, 0.04, 0.035), Color(0.3, 1.0, 0.75))
-		kit.box(key, Vector3(-0.048, 0.2, 0.07 - float(i) * 0.05), Vector3(0.008, 0.04, 0.035), Color(0.3, 1.0, 0.75))
-		var m := ArtMaterials.glow(3.5)
+		for sx in [-1.0, 1.0]:
+			kit.sphere(key, Vector3(sx * 0.062, 0.235, 0.09 - float(i) * 0.065), 0.024, Color(0.3, 1.0, 0.75), 10, Vector3(0.6, 1, 1))
+		var m := ArtMaterials.glow(2.0)
 		mats[key] = m
 		root.cell_mats.append(m)
 	root.add_child(kit.to_instance(mats, "Mesh"))
@@ -96,56 +99,46 @@ static func _build_gun() -> Node3D:
 
 static func _build_cell(root: Node3D) -> void:
 	var kit := ArtMeshKit.new()
-	kit.cylinder("metal", Vector3(0, 0, 0), Vector3(0, 0.07, 0), 0.155, GUNMETAL, 16, 0.15)
-	kit.cylinder("painted", Vector3(0, 0.07, 0), Vector3(0, 0.53, 0), 0.13, DARK, 16)
-	kit.cylinder("metal", Vector3(0, 0.53, 0), Vector3(0, 0.6, 0), 0.15, GUNMETAL, 16, 0.12)
-	for y in [0.16, 0.3, 0.44]:
-		kit.cylinder("cell_glow", Vector3(0, y - 0.022, 0), Vector3(0, y + 0.022, 0), 0.137, CELL_GLOW, 16)
-	# Side window showing the charge column, terminals and a carry handle.
-	kit.box("cell_glow", Vector3(0, 0.3, 0.128), Vector3(0.05, 0.36, 0.02), CELL_GLOW * 0.8)
-	for sx in [-0.05, 0.05]:
-		kit.cylinder("metal", Vector3(sx, 0.6, 0), Vector3(sx, 0.64, 0), 0.025, Color(0.7, 0.6, 0.35), 8)
-	kit.torus("painted", Vector3(0, 0.62, 0), 0.06, 0.085, Color(0.85, 0.7, 0.2), Basis(Vector3.RIGHT, PI / 2.0), 16, 6)
-	kit.box("hazard", Vector3(0, 0.1, 0), Vector3(0.27, 0.04, 0.27), Color.WHITE)
+	# Chunky battery: rounded graphite casing, fat amber glow bands, terminal knob.
+	kit.cylinder("painted", Vector3(0, 0.07, 0), Vector3(0, 0.5, 0), 0.16, DARK, 20)
+	kit.sphere("painted", Vector3(0, 0.07, 0), 0.16, DARK, 20, Vector3(1, 0.45, 1))
+	kit.sphere("painted", Vector3(0, 0.5, 0), 0.16, DARK, 20, Vector3(1, 0.45, 1))
+	for y in [0.18, 0.39]:
+		kit.cylinder("cell_glow", Vector3(0, y - 0.035, 0), Vector3(0, y + 0.035, 0), 0.168, CELL_GLOW, 20)
+	kit.torus("metal", Vector3(0, 0.285, 0), 0.15, 0.185, Color(0.72, 0.74, 0.77), Basis.IDENTITY, 24, 8)
+	kit.cylinder("metal", Vector3(0, 0.55, 0), Vector3(0, 0.6, 0), 0.06, Color(0.85, 0.7, 0.3), 12)
+	kit.sphere("cell_glow", Vector3(0, 0.6, 0), 0.05, CELL_GLOW, 10)
+	kit.torus("painted", Vector3(0, 0.56, 0), 0.075, 0.11, Color(0.95, 0.75, 0.2), Basis(Vector3.RIGHT, PI / 2.0), 16, 8)
 	var mats := _base_mats()
 	mats["cell_glow"] = _mat("cell_glow")
-	var mi := kit.to_instance(mats, "Mesh")
-	root.add_child(mi)
+	root.add_child(kit.to_instance(mats, "Mesh"))
 
 
 static func _build_core(root: Node3D) -> void:
 	var kit := ArtMeshKit.new()
-	kit.cylinder("metal", Vector3(0, 0, 0), Vector3(0, 0.06, 0), 0.2, GUNMETAL, 20, 0.18)
-	kit.torus("accent", Vector3(0, 0.062, 0), 0.14, 0.17, CORE_GLOW, Basis.from_scale(Vector3(1, 0.3, 1)), 24, 4)
-	for i in range(3):
-		var ang := TAU * float(i) / 3.0
-		var p := Vector3(cos(ang), 0, sin(ang)) * 0.15
-		kit.bevel_box("painted", p + Vector3(0, 0.15, 0), Vector3(0.05, 0.2, 0.05), 0.012, DARK, Basis(Vector3.UP, -ang) * Basis(Vector3.BACK, 0.25))
+	# Rounded cradle with a lit collar.
+	kit.cylinder("painted", Vector3(0, 0, 0), Vector3(0, 0.07, 0), 0.2, DARK, 24, 0.17)
+	kit.torus("accent", Vector3(0, 0.075, 0), 0.12, 0.16, CORE_GLOW, Basis.from_scale(Vector3(1, 0.5, 1)), 24, 6)
 	var mats := _base_mats()
 	root.add_child(kit.to_instance(mats, "Base"))
-	# Floating crystal: hexagonal bipyramid with two orbit rings and a halo.
+	# Glowing cyan orb inside a rounded cage, spinning slowly.
 	var spin := Node3D.new()
 	spin.name = "Crystal"
 	spin.set_script(SPINNER)
-	spin.position = Vector3(0, 0.38, 0)
+	spin.position = Vector3(0, 0.36, 0)
 	root.add_child(spin)
 	var ck := ArtMeshKit.new()
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 0.13
-	cone.height = 0.2
-	cone.radial_segments = 6
-	cone.rings = 1
-	ck.mesh("core_glow", cone, Transform3D(Basis.IDENTITY, Vector3(0, 0.1, 0)), CORE_GLOW)
-	ck.mesh("core_glow", cone, Transform3D(Basis(Vector3.RIGHT, PI), Vector3(0, -0.1, 0)), CORE_GLOW)
-	ck.torus("metal", Vector3.ZERO, 0.2, 0.225, Color(0.75, 0.78, 0.82), Basis(Vector3.RIGHT, 1.15), 32, 6)
-	ck.torus("metal", Vector3.ZERO, 0.2, 0.225, Color(0.75, 0.78, 0.82), Basis(Vector3.BACK, 1.15), 32, 6)
-	ck.sphere("core_halo", Vector3.ZERO, 0.26, Color.WHITE, 16)
+	ck.sphere("core_glow", Vector3.ZERO, 0.15, CORE_GLOW, 20)
+	for ang in [0.0, PI / 2.0]:
+		ck.torus("metal", Vector3.ZERO, 0.2, 0.235, Color(0.85, 0.87, 0.9), Basis(Vector3.UP, ang) * Basis(Vector3.RIGHT, PI / 2.0), 32, 8)
+	ck.torus("metal", Vector3.ZERO, 0.2, 0.235, Color(0.85, 0.87, 0.9), Basis.IDENTITY, 32, 8)
+	ck.sphere("painted", Vector3(0, 0.22, 0), 0.05, DARK, 10)
+	ck.sphere("painted", Vector3(0, -0.22, 0), 0.05, DARK, 10)
+	ck.sphere("core_halo", Vector3.ZERO, 0.24, Color.WHITE, 18)
 	var cmats := mats.duplicate()
 	cmats["core_glow"] = _mat("core_glow")
 	cmats["core_halo"] = _mat("core_halo")
-	var cmi := ck.to_instance(cmats, "Mesh", false)
-	spin.add_child(cmi)
+	spin.add_child(ck.to_instance(cmats, "Mesh", false))
 	var light := OmniLight3D.new()
 	light.name = "Glow"
 	light.light_color = CORE_GLOW
@@ -153,7 +146,7 @@ static func _build_core(root: Node3D) -> void:
 	light.omni_range = 3.2
 	light.omni_attenuation = 1.3
 	light.shadow_enabled = false
-	light.position = Vector3(0, 0.38, 0)
+	light.position = Vector3(0, 0.36, 0)
 	root.add_child(light)
 
 

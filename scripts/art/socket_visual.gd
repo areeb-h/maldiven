@@ -57,13 +57,13 @@ func _status_color() -> Color:
 func _apply() -> void:
 	var energy := 2.5
 	if active:
-		energy = 1.0 + 7.0 * pow(maxf(0.0, sin(_t * TAU * 2.2)), 2.0)
+		energy = 0.4 + 1.6 * pow(maxf(0.0, sin(_t * TAU * 2.2)), 2.0)
 	elif locked:
-		energy = 1.2 + 0.4 * sin(_t * 2.0)
+		energy = 1.1 + 0.3 * sin(_t * 2.0)
 	elif filled:
-		energy = 3.0
+		energy = 1.9
 	else:
-		energy = 1.6 + 1.2 * (0.5 + 0.5 * sin(_t * 3.0))
+		energy = 0.9 + 1.0 * (0.5 + 0.5 * sin(_t * 3.0))
 	var c := _status_color()
 	if status_mat != null:
 		status_mat.set_shader_parameter("tint", Vector3(c.r, c.g, c.b))
@@ -71,4 +71,4 @@ func _apply() -> void:
 	if field_mat != null and locked:
 		field_mat.set_shader_parameter("energy", 0.8 + 0.2 * sin(_t * 5.0))
 	if alarm != null and active:
-		alarm.light_energy = energy * 0.35
+		alarm.light_energy = energy * 1.2

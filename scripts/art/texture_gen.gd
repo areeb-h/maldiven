@@ -126,7 +126,7 @@ func _floor_plate(size: int) -> void:
 			var h := bevel * 0.55 + tread * 0.35 + bolt * 0.4 + fine[i] * 0.03
 			height[i] = h
 			var variation := 0.94 + 0.12 * fmod(float(plate_id) * 0.37 + 0.2, 1.0)
-			var grime := clampf(_sstep(0.62, 0.95, blot[i]) * 0.45 + seam * 0.8 + (1.0 - bevel) * 0.35 + (1.0 - tread) * 0.15 * big[i], 0.0, 1.0)
+			var grime := clampf(_sstep(0.7, 0.95, blot[i]) * 0.3 + seam * 0.8 + (1.0 - bevel) * 0.35 + (1.0 - tread) * 0.15 * big[i], 0.0, 1.0)
 			var steel := Color(0.40, 0.415, 0.43) * variation * (0.86 + 0.28 * big[i])
 			var worn := Color(0.66, 0.67, 0.68)
 			var dirt := Color(0.12, 0.11, 0.1)
@@ -181,11 +181,11 @@ func _wall_panel(size: int) -> void:
 			height[i] = h
 			# Paint chips concentrate on the raised frame edges.
 			var edge_zone := (1.0 - _sstep(6.0, 16.0, edge)) * 0.6 + (1.0 - _sstep(36.0, 46.0, edge)) * _sstep(30.0, 36.0, edge) * 0.5
-			var chip := _sstep(0.84, 0.9, chips[i] + edge_zone * 0.45) * (1.0 - seam)
+			var chip := _sstep(0.9, 0.95, chips[i] + edge_zone * 0.4) * (1.0 - seam)
 			# Vertical grime streaks running down from the seams.
 			var streak := streak_src[x] * 0.7 + streak_src[(y / 4) * size + x] * 0.3
-			var drip := _sstep(0.5, 0.8, streak) * pow(float(py) / float(panel_h), 2.0) * 0.4
-			var paint := Color(0.86, 0.85, 0.83) * (0.95 + 0.06 * mottle[i])
+			var drip := _sstep(0.5, 0.8, streak) * pow(float(py) / float(panel_h), 3.0) * 0.18
+			var paint := Color(0.88, 0.87, 0.85) * (0.97 + 0.04 * mottle[i])
 			var bare := Color(0.62, 0.63, 0.64)
 			var dirt := Color(0.25, 0.23, 0.21)
 			var c := paint.lerp(bare, chip)
@@ -193,7 +193,7 @@ func _wall_panel(size: int) -> void:
 			c = c.lerp(Color(0.62, 0.62, 0.63), screw * 0.8)
 			_put(albedo, i, c)
 			var ao := (0.5 + 0.5 * outer) * (1.0 - vent * 0.4) * (1.0 - 0.25 * (1.0 - _sstep(34.0, 52.0, edge)) * recess)
-			var rough := clampf(0.5 + mottle[i] * 0.15 - chip * 0.25 + drip * 0.2, 0.15, 1.0)
+			var rough := clampf(0.48 + mottle[i] * 0.08 - chip * 0.15 + drip * 0.2 + seam * 0.3, 0.15, 1.0)
 			var metal := clampf(chip * 0.55 + screw * 0.6, 0.0, 1.0)
 			_put(orm, i, Color(ao, rough, metal))
 	_save("wall_panel", size, albedo, orm, height, 5.0)

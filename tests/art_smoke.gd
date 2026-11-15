@@ -29,9 +29,12 @@ func run() -> void:
 		return
 	if station.find_children("*", "WorldEnvironment", true, false).is_empty():
 		fail("station needs a WorldEnvironment")
-	var suns := station.find_children("*", "DirectionalLight3D", true, false)
-	if suns.size() != 1 or not (suns[0] as DirectionalLight3D).shadow_enabled:
-		fail("station needs exactly one shadowed DirectionalLight3D")
+	var shadowed := 0
+	for sun in station.find_children("*", "DirectionalLight3D", true, false):
+		if (sun as DirectionalLight3D).shadow_enabled:
+			shadowed += 1
+	if shadowed != 1:
+		fail("station needs exactly one shadowed DirectionalLight3D, has %d" % shadowed)
 	for i in range(3):
 		await physics_frame
 	var space := world.get_world_3d().direct_space_state

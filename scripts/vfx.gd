@@ -713,7 +713,7 @@ func ambient_station(root: Node3D) -> void:
 		_ambient_root.add_child(steam)
 		_ambient.append({"e": steam, "kind": "steam", "next": _rng.randf_range(1.0, 4.0), "off": -1.0})
 	var cargo: Dictionary = StationLayout.ROOMS["cargo"]
-	var conduit := Vector3(cargo.center.x - 1.5, 2.85, cargo.center.y - cargo.size.y * 0.5 + 0.12)
+	var conduit := Vector3(cargo.center.x - 4.5, 2.85, cargo.center.y - cargo.size.y * 0.5 + 0.12)
 	var zap := _new_emitter("conduit")
 	zap.name = "ConduitSparks"
 	zap.position = conduit
@@ -722,8 +722,8 @@ func ambient_station(root: Node3D) -> void:
 	zap_glow.mesh = _quad_mesh()
 	zap_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	zap_glow.position = conduit
-	zap_glow.scale = Vector3.ONE * 1.2
-	var zap_mat := _material("flare", {"color": _vec(Color(0.6, 0.75, 1.0)), "energy": 3.0, "alpha": 0.0, "streak": 0.6, "pull": 0.2})
+	zap_glow.scale = Vector3.ONE * 0.8
+	var zap_mat := _material("flare", {"color": _vec(Color(0.6, 0.75, 1.0)), "energy": 2.2, "alpha": 0.0, "streak": 0.8, "falloff": 9.0, "pull": 0.2})
 	zap_glow.material_override = zap_mat
 	_ambient_root.add_child(zap_glow)
 	_ambient.append({"e": zap, "kind": "zap", "mat": zap_mat, "next": _rng.randf_range(0.5, 2.0), "off": -1.0})
@@ -920,26 +920,26 @@ func _power_wave(at: Vector3, color: Color) -> void:
 	var ring := _ring(floor_at, Vector3.UP, 1.0, color, POWER_WAVE_TIME)
 	_apply_floor_mask(ring.mat)
 	ring.update = func(s: FxSlot, k: float) -> void:
-		var r := maxf(POWER_WAVE_RADIUS * _ease_out_quad(k), 0.5)
+		var r := maxf(POWER_WAVE_RADIUS * pow(k, 1.15), 0.5)
 		var sc := r * 1.04 + 0.5
 		s.node.scale = Vector3(sc, 1.0, sc)
 		s.mat.set_shader_parameter("radius", r / sc)
-		s.mat.set_shader_parameter("width", 0.5 / sc)
-		s.mat.set_shader_parameter("trail", minf(7.0, r * 0.25) / sc)
-		s.mat.set_shader_parameter("energy", 2.6)
+		s.mat.set_shader_parameter("width", 1.0 / sc)
+		s.mat.set_shader_parameter("trail", minf(6.0, r * 0.25) / sc)
+		s.mat.set_shader_parameter("energy", 3.0)
 		s.mat.set_shader_parameter("hot", 0.5)
 		s.mat.set_shader_parameter("alpha", (1.0 - k * k) * minf(1.0, k * 20.0))
 	ring.update.call(ring, 0.0)
 	var wall := _acquire_slot("tube", POWER_WAVE_TIME)
-	_tube_params(wall, color, 2.2, 1.6, 0.02)
+	_tube_params(wall, color, 2.6, 1.4, 0.02)
 	wall.mat.set_shader_parameter("band_count", 3.0)
 	wall.mat.set_shader_parameter("band_speed", 2.0)
 	wall.mat.set_shader_parameter("band_amt", 0.35)
 	wall.mat.set_shader_parameter("wobble", 0.35)
 	_apply_floor_mask(wall.mat)
 	wall.update = func(s: FxSlot, k: float) -> void:
-		var r := maxf(POWER_WAVE_RADIUS * _ease_out_quad(k), 0.5)
-		var hgt := lerpf(3.4, 1.6, k)
+		var r := maxf(POWER_WAVE_RADIUS * pow(k, 1.15), 0.5)
+		var hgt := lerpf(3.2, 2.2, k)
 		s.node.global_transform = Transform3D(Basis.from_scale(Vector3(r, hgt, r)), floor_at + Vector3(0, hgt * 0.5 - 0.04, 0))
 		s.mat.set_shader_parameter("alpha", (1.0 - k) * minf(1.0, k * 14.0))
 	wall.update.call(wall, 0.0)
@@ -1484,7 +1484,7 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.lifetime = 0.9 if puff else 0.6
 			e.explosiveness = 0.95
 			e.lifetime_randomness = 0.35
-			e.material_override = _material("smoke", {"opacity": 0.55 if puff else 0.3, "ambient_emit": 0.08})
+			e.material_override = _material("smoke", {"opacity": 0.55 if puff else 0.22, "ambient_emit": 0.05})
 			e.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			e.emission_sphere_radius = 0.18 if puff else 0.06
 			e.spread = 80.0
@@ -1549,7 +1549,7 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.color_ramp = _ramp([[0.0, Color(1.4, 1.3, 1.1, 1)], [0.25, Color(1, 0.75, 0.45, 0.9)], [0.6, Color(0.9, 0.35, 0.12, 0.45)], [1.0, Color(0.4, 0.1, 0.05, 0)]])
 		"smoke", "steam":
 			var steam := preset == "steam"
-			e.amount = 20 if not steam else 14
+			e.amount = 20 if not steam else 16
 			e.lifetime = 2.4 if not steam else 1.5
 			e.one_shot = false
 			e.explosiveness = 0.0
@@ -1568,8 +1568,8 @@ func _new_emitter(preset: String) -> CPUParticles3D:
 			e.angle_max = 360.0
 			e.angular_velocity_min = -30.0
 			e.angular_velocity_max = 30.0
-			e.scale_amount_min = 0.7 if not steam else 0.12
-			e.scale_amount_max = 1.2 if not steam else 0.22
+			e.scale_amount_min = 0.7 if not steam else 0.22
+			e.scale_amount_max = 1.2 if not steam else 0.36
 			e.scale_amount_curve = _curve([[0.0, 0.3], [0.4, 1.4], [1.0, 2.6]] if not steam else [[0.0, 0.4], [1.0, 4.5]])
 			e.color_ramp = _ramp([[0.0, Color(1, 1, 1, 0)], [0.1, Color(1, 1, 1, 0.75)], [1.0, Color(1, 1, 1, 0)]])
 			if steam:
@@ -1707,7 +1707,6 @@ func _build_slot(kind: String) -> FxSlot:
 			var cones: Array = []
 			for side in [0.0, PI]:
 				var holder := Node3D.new()
-				holder.rotation = Vector3(-0.32, side, 0.0) if side == 0.0 else Vector3(0.32, side, 0.0)
 				holder.rotation = Vector3(0.0, side, 0.0)
 				var tilt := Node3D.new()
 				tilt.rotation.x = -0.32
@@ -1990,6 +1989,10 @@ static func _tube_mesh() -> CylinderMesh:
 
 static func _curve(points: Array) -> Curve:
 	var c := Curve.new()
+	var top := 1.0
+	for p in points:
+		top = maxf(top, float(p[1]))
+	c.max_value = top
 	for p in points:
 		c.add_point(Vector2(p[0], p[1]))
 	return c
