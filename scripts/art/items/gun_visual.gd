@@ -2,7 +2,7 @@ class_name GunVisual
 extends Node3D
 ## The only gun: a chunky toy-scifi sidearm. Glossy white upper shell with an orange
 ## spine, satin graphite frame and grip, rubber grip panels sized for the crew's
-## three-finger glove, three glowing charge cells on each flank plus a rear charge
+## glove (2.8 x 4.8 x 10 cm), three glowing charge cells on each flank plus a rear charge
 ## readout the shooter sees over the shoulder (0-3 lit; the last one throbs), a
 ## vented shroud, a brushed muzzle crown with a cyan glow ring and an under-barrel
 ## capacitor pod. One draw call.
@@ -47,18 +47,19 @@ static func mesh() -> ArrayMesh:
 	var k := ItemKit.new()
 	var tilt := Basis(Vector3.RIGHT, GRIP_TILT)
 	var up := tilt * Vector3.UP
-	# Grip sized for the crew glove: 3.3 cm wide (core + rubber panels), 4.8 cm
-	# front-to-back, 10 cm from the frame to the pommel, centred on the origin.
+	# Grip fitted to the crew glove (hands' clipping solver): 2.8 cm wide with the
+	# rubber panels, 4.8 cm front-to-back, 10 cm frame to pommel, centred on the origin.
 	k.part(ItemKit.GRAPHITE, 0.9)
-	k.rounded_box(GRIP_C, Vector3(0.026, 0.092, 0.048), 0.011, tilt)
+	k.rounded_box(GRIP_C, Vector3(0.023, 0.092, 0.048), 0.009, tilt)
 	k.part(ItemKit.RUBBER)
 	for s in [-1.0, 1.0]:
-		k.rounded_box(GRIP_C + tilt * Vector3(s * 0.0143, -0.004, 0.001), Vector3(0.0044, 0.07, 0.04), 0.002, tilt)
+		k.rounded_box(GRIP_C + tilt * Vector3(s * 0.0125, -0.004, 0.001), Vector3(0.003, 0.07, 0.04), 0.0, tilt)
 	k.part(ItemKit.SHELL_B)
-	k.rounded_box(GRIP_C - up * 0.045 + tilt * Vector3(0, 0, -0.001), Vector3(0.032, 0.012, 0.052), 0.0055, tilt)
-	# Frame (lower receiver) in graphite; a one-finger trigger guard and trigger.
+	k.rounded_box(GRIP_C - up * 0.045 + tilt * Vector3(0, 0, -0.001), Vector3(0.03, 0.012, 0.052), 0.0055, tilt)
+	# Frame (lower receiver) in graphite, ending 4.4 cm behind the grip centre so
+	# it clears the glove cuff; a one-finger trigger guard and trigger.
 	k.part(ItemKit.GRAPHITE)
-	k.rounded_box(Vector3(0.0, 0.066, 0.045), Vector3(0.046, 0.036, 0.23), 0.012)
+	k.rounded_box(Vector3(0.0, 0.066, 0.058), Vector3(0.046, 0.036, 0.204), 0.012)
 	k.part(ItemKit.GRAPHITE, 1.1)
 	k.tube(PackedVector3Array([Vector3(0, 0.05, 0.022), Vector3(0, 0.012, 0.025), Vector3(0, -0.003, 0.046),
 		Vector3(0, 0.006, 0.07), Vector3(0, 0.05, 0.076)]), 0.005, 6, 10)

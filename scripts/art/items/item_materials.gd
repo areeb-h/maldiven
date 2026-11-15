@@ -468,10 +468,12 @@ void fragment() {
 		float jitter = 0.9 + 0.1 * step(0.93, fract(sin(floor(t * 12.0) * 91.7) * 4375.5));
 		vec2 c = abs(UV - 0.5) * 2.0;
 		float border = smoothstep(0.86, 0.94, max(c.x, c.y)) * (1.0 - smoothstep(0.97, 1.0, max(c.x, c.y)));
-		float fill = (1.0 - smoothstep(0.9, 1.0, max(c.x, c.y))) * 0.16;
+		float inside = 1.0 - smoothstep(0.88, 1.0, max(c.x, c.y * 1.02));
+		float fill = inside * 0.07;
 		float panel = v_group > 0.5 ? (border * 0.9 + fill) : (pow(1.0 - UV.y, 1.6) * 0.32 * (0.6 + 0.4 * pow(fres, 0.5)));
 		add = status_color * status_energy * panel * scanl * jitter;
-		cover = (v_group > 0.5 ? fill * 1.6 : 0.0) * 0.55;
+		// The panel also darkens what is behind it so the label reads on bright walls.
+		cover = v_group > 0.5 ? inside * 0.62 : 0.0;
 	} else if (id < 22.5) {
 		// Clear glass: fresnel sheen plus two soft streak reflections.
 		vec3 wn = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);

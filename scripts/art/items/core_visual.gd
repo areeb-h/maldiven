@@ -5,15 +5,20 @@ extends Node3D
 ## cradle with a lit collar. Two emitter rings precess around the cage, the orb's
 ## bright limb blooms through glow and one small omni light tints whoever carries it.
 ## Silhouette: a glowing ball in a cage, nothing like the tall cell canister.
-## Origin at the bottom centre; ~0.62 m tall, ~0.6 m across the rings.
+## Origin at the bottom centre; 0.565 m tall (orb centre 0.324, cage radius 0.193,
+## rings 0.245) after SCALE.
 ## Draw calls: body + rings (2); the VFX layer adds its own halo and motes.
 
 const CYAN := Color(0.25, 0.95, 1.0)
 const SHELL := Color(0.9, 0.91, 0.9)
+## Display scale of the modelled core (kept below a carrier's visor at the carry anchor).
+const SCALE := 0.9
 const ORB_Y := 0.36
 const ORB_R := 0.142
 const CAGE_R := 0.214
 const RING_R := 0.272
+## Rings ride a little above the orb equator, away from the cradling hands.
+const RING_LIFT := 0.035
 
 static var _body_mesh: ArrayMesh
 static var _ring_mesh: ArrayMesh
@@ -28,10 +33,12 @@ static func build() -> Node3D:
 	root.name = "Core"
 	root._t = randf() * 10.0
 	var mat := material()
-	root.add_child(ItemKit.mesh_instance(body_mesh(), mat, "Mesh"))
+	var body := ItemKit.mesh_instance(body_mesh(), mat, "Mesh")
+	body.scale = Vector3.ONE * SCALE
+	root.add_child(body)
 	root.rings = Node3D.new()
 	root.rings.name = "Rings"
-	root.rings.position = Vector3(0, ORB_Y, 0)
+	root.rings.position = Vector3(0, (ORB_Y + RING_LIFT) * SCALE, 0)
 	root.add_child(root.rings)
 	root.rings.add_child(ItemKit.mesh_instance(ring_mesh(), mat, "RingMesh", false))
 	root.light = OmniLight3D.new()
@@ -42,7 +49,7 @@ static func build() -> Node3D:
 	root.light.omni_range = 3.0
 	root.light.omni_attenuation = 1.4
 	root.light.shadow_enabled = false
-	root.light.position = Vector3(0, ORB_Y, 0)
+	root.light.position = Vector3(0, ORB_Y * SCALE, 0)
 	root.add_child(root.light)
 	root._pose()
 	return root
@@ -63,7 +70,7 @@ func _process(delta: float) -> void:
 ## Rings precess slowly (a gyroscope), the light breathes with the plasma.
 func _pose() -> void:
 	if rings != null:
-		rings.basis = Basis(Vector3.UP, _t * 0.55) * Basis(Vector3.RIGHT, 0.12 * sin(_t * 0.8))
+		rings.basis = (Basis(Vector3.UP, _t * 0.55) * Basis(Vector3.RIGHT, 0.05 * sin(_t * 0.8))).scaled(Vector3.ONE * SCALE)
 	if light != null:
 		light.light_energy = 1.0 + 0.12 * sin(_t * 5.03) + 0.05 * sin(_t * 13.0)
 
@@ -138,7 +145,8 @@ static func ring_mesh() -> ArrayMesh:
 		return _ring_mesh
 	var k := ItemKit.new()
 	for i in 2:
-		var tilt := Basis(Vector3.BACK, 0.42 if i == 0 else -0.42) * Basis(Vector3.RIGHT, 0.3 if i == 0 else -0.3)
+		# Shallow tilts keep the sweep (~±6 cm) clear of the carrier's hands.
+		var tilt := Basis(Vector3.BACK, 0.2 if i == 0 else -0.2) * Basis(Vector3.RIGHT, 0.1 if i == 0 else -0.1)
 		var r := RING_R - float(i) * 0.016
 		k.part(ItemKit.GLOW_B, 0.9)
 		k.ring(Vector3.ZERO, r, 0.0055, tilt, 24, 4)

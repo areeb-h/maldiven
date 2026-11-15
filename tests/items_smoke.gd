@@ -96,7 +96,7 @@ func _check_gun(gun: Node3D, box: AABB) -> void:
 		low /= float(count)
 		if absf(low.x) > 0.01 or absf(low.z) > 0.05:
 			fail("gun grip is not under the origin (lowest geometry centred at %s)" % low)
-	# Grip width / depth for the crew glove (hand spec 3-3.5 x 4.5-5.5 cm): exact
+	# Grip width / depth for the crew glove (hand spec 2.6-2.8 x 4.5-5.5 cm): exact
 	# cross-section of the mesh with a plane through the lower grip, in the grip's
 	# own (tilted) frame, clear of the trigger guard.
 	var to_grip := Transform3D(Basis(Vector3.RIGHT, GunVisual.GRIP_TILT), GunVisual.GRIP_C).affine_inverse()
@@ -120,8 +120,8 @@ func _check_gun(gun: Node3D, box: AABB) -> void:
 						grip = AABB(q, Vector3.ZERO) if first else grip.expand(q)
 						first = false
 	print("  grip cross-section: %.3f wide x %.3f deep" % [grip.size.x, grip.size.z])
-	if grip.size.x < 0.028 or grip.size.x > 0.036 or grip.size.z < 0.044 or grip.size.z > 0.056:
-		fail("gun grip %.3f x %.3f m must fit the glove (3-3.5 x 4.5-5.5 cm)" % [grip.size.x, grip.size.z])
+	if grip.size.x < 0.025 or grip.size.x > 0.0295 or grip.size.z < 0.044 or grip.size.z > 0.056:
+		fail("gun grip %.3f x %.3f m must fit the glove (2.6-2.8 x 4.5-5.5 cm)" % [grip.size.x, grip.size.z])
 	if not gun.has_method("set_ammo"):
 		fail("gun needs set_ammo")
 		return

@@ -97,8 +97,8 @@ static func _labels(b: Build) -> void:
 	title.font = UiStyle.font("head")
 	title.font_size = 64
 	title.pixel_size = 0.0028
-	title.outline_size = 12
-	title.outline_modulate = Color(0.0, 0.03, 0.06, 0.55)
+	title.outline_size = 14
+	title.outline_modulate = Color(0.0, 0.025, 0.05, 0.8)
 	title.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	title.shaded = false
 	title.double_sided = true
@@ -112,8 +112,8 @@ static func _labels(b: Build) -> void:
 	status.font = UiStyle.font("bold")
 	status.font_size = 48
 	status.pixel_size = 0.0025
-	status.outline_size = 10
-	status.outline_modulate = Color(0.0, 0.02, 0.04, 0.6)
+	status.outline_size = 14
+	status.outline_modulate = Color(0.0, 0.02, 0.04, 0.85)
 	status.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	status.shaded = false
 	status.double_sided = true

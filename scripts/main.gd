@@ -51,6 +51,10 @@ var _connecting := false
 
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--dedicated"):
+		set_process(false)  # headless PC server: no menus; scripts/server/ runs the session
+		add_child(load("res://scripts/server/dedicated_server.gd").new())
+		return
 	_bot_args = _parse_bot_args()
 	var layer := CanvasLayer.new()
 	layer.layer = 10

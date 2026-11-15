@@ -2,8 +2,8 @@ extends RefCounted
 ## Armory (Security): a wall weapon locker. Red lower cabinet with hazard kick and
 ## status strip, a backlit display bay where the gun hangs on brushed hooks
 ## (barrel to the right, flank to the room), a sliding glass door, a right-hand
-## service column with a status screen, and a header with warning lamps and the
-## label projector. While locked a red forcefield covers the closed door; on
+## service column with a status screen, and a header with warning lamps under
+## the holographic label. While locked a red forcefield covers the closed door; on
 ## unlock the door slides right behind the column. Front face at z = 0.
 
 const RED := Color(0.8, 0.2, 0.22)
@@ -43,9 +43,13 @@ static func build(b: SocketKit.Build) -> void:
 	k.part(ItemKit.DECAL)
 	k.decal(Vector3(-0.38, 0.62, 0.0255), Vector3.RIGHT, Vector3.UP, Vector2(0.26, 0.08), ItemKit.DECAL_TEXT)
 	k.decal(Vector3(0.38, 0.62, 0.0255), Vector3.RIGHT, Vector3.UP, Vector2(0.14, 0.14), ItemKit.DECAL_BOLT)
-	# Display bay: backlit panel, light bars, two brushed hooks.
-	k.part(ItemKit.SHELL_A, 0.95)
+	# Display bay: dark padded back (the white gun pops), light bars, two brushed hooks.
+	k.part(ItemKit.GRAPHITE, 1.25)
 	k.rounded_box(Vector3(bay_c.x, bay_c.y, -D + 0.05), Vector3(bay_w - 0.06, bay_h - 0.06, 0.02), 0.01)
+	k.part(ItemKit.SHELL_B, 0.7)
+	k.rounded_box(Vector3(bay_c.x, bay_c.y + 0.3, -D + 0.062), Vector3(bay_w - 0.2, 0.05, 0.006), 0.0)
+	k.part(ItemKit.DECAL)
+	k.decal(Vector3(bay_c.x + 0.2, bay_c.y - 0.3, -D + 0.0615), Vector3.RIGHT, Vector3.UP, Vector2(0.24, 0.06), ItemKit.DECAL_TEXT)
 	k.part(ItemKit.GLOW_A, 0.75)
 	for y in [BAY_Y.x + 0.03, BAY_Y.y - 0.03]:
 		k.rounded_box(Vector3(bay_c.x, y, -0.25), Vector3(bay_w - 0.02, 0.018, 0.4), 0.0)
@@ -75,9 +79,9 @@ static func build(b: SocketKit.Build) -> void:
 	k.disc(Vector3(0.6, 2.12, 0.026), Vector3.BACK, 0.04, 10, 0.016)
 	k.part(ItemKit.STATUS, 0.9)
 	k.rounded_box(Vector3(0, 2.12, 0.027), Vector3(0.8, 0.03, 0.006), 0.0)
-	b.label_at = Vector3(0, 2.62, -0.05)
+	# In front of the header: the station's own ARMORY sign sits above the alcove.
+	b.label_at = Vector3(-0.05, 2.1, 0.34)
 	b.label_width = 1.0
-	SocketKit.emitter(b, Vector3(0, H + 0.002, -0.15))
 	# Glass door: a brushed frame round a clear pane; slides right on unlock.
 	var door := ItemKit.new()
 	var door_fx := ItemKit.new()
