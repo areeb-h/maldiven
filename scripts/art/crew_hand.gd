@@ -80,8 +80,8 @@ const _POSE_DATA := {
 		"t": [-0.1, 0.05, 0.42, -0.05, 0.0]},
 	"relaxed": {"w": Vector3(0.12, 0.0, -0.04), "f": [Vector4(0.24, 0.36, 0.22, 0.06), Vector4(0.3, 0.44, 0.26, 0.0), Vector4(0.36, 0.5, 0.3, -0.05), Vector4(0.44, 0.58, 0.34, -0.1)],
 		"t": [0.12, 0.12, 0.3, 0.16, 0.18]},
-	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.42, 1.72, 0.92, 0.0), Vector4(1.46, 1.74, 0.92, 0.0), Vector4(1.5, 1.74, 0.9, -0.02), Vector4(1.54, 1.74, 0.88, -0.05)],
-		"t": [0.62, 0.62, 0.02, 0.5, 0.38]},
+	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.30, 1.30, 0.0), Vector4(1.11, 1.54, 0.90, 0.0), Vector4(1.04, 1.60, 0.80, -0.02), Vector4(0.67, 1.51, 0.95, -0.05)],
+		"t": [-0.01, 0.47, 0.47, 0.37, 1.13]},
 	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.22, 0.28, 0.24, 0.07), Vector4(0.24, 0.28, 0.24, 0.01), Vector4(0.26, 0.28, 0.24, -0.05), Vector4(0.3, 0.3, 0.26, -0.11)],
 		"t": [-0.08, 0.16, 0.5, 0.06, 0.12]},
 	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.18, 0.22, 0.2, 0.2), Vector4(0.2, 0.22, 0.2, 0.06), Vector4(0.22, 0.22, 0.2, -0.08), Vector4(0.26, 0.24, 0.2, -0.24)],
@@ -114,19 +114,23 @@ const _POSE_LIFE := {
 	"point": [0.4, "", 0.0], "thumbs_up": [0.4, "", 0.0], "wave": [0.5, "", 0.0], "push": [0.2, "", 0.0],
 	"brace": [0.3, "", 0.0], "limp": [0.3, "", 0.0], "ghost": [0.0, "", 0.0], "curl": [0.8, "", 0.6],
 }
-## Item anchors for the canonical right hand: the item's root (Props origin = bottom
-## centre) in hand space. Item +Y runs along the knuckle line toward the thumb (world
-## up when the palm faces the body with the thumb up), item -Z (the gun's barrel) runs
-## along the fingers.
+## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
+## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
+## toward the palm normal, and item -Z (the gun's barrel) runs along the fingers.
+## `scale` is the item's uniform scale in the hand.
 const _GRIP_ANCHORS := {
-	# Power cell (casing radius 0.16): held from the side, palm on the casing over the
-	# brushed-metal mid ring, fingers wrapping round the curve.
-	"cell": {"tilt": 0.0, "at": Vector3(0.188, -0.068, -0.283)},
-	# Core orb (cage radius 0.235): cradled from below-side, palm turned 35 deg up.
-	"core": {"tilt": 0.61, "at": Vector3(0.262, -0.071, -0.36)},
-	# Blaster: grip in the palm, barrel along the extended index finger.
-	"gun": {"tilt": 0.0, "at": Vector3(0.062, -0.0, -0.118)},
+	# Power cell (Props casing radius 0.16, glow band 0.168): held from the side over the
+	# upper glow band, palm on the casing, fingers wrapping round the curve.
+	"cell": {"tilt": 0.0, "scale": 1.0, "pivot": Vector3(0.0, 0.39, 0.0), "center": Vector3(0.1866, -0.063, 0.0)},
+	# Core (cage radius 0.235, field 0.24): cradled from below-side, palm turned 35 deg up.
+	"core": {"tilt": 0.61, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2585, -0.064, 0.0)},
+	# Blaster: grip in the palm, barrel along the extended index finger. The Props
+	# blaster grip is 11 cm deep (a 7.4 cm palm cannot close round it), so the held
+	# blaster is shown at pistol scale.
+	"gun": {"tilt": 0.0, "scale": 0.72, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0485, -0.045, 0.0)},
 }
+## Uniform scale the blaster takes in the hand (see _GRIP_ANCHORS).
+const GUN_SCALE := 0.72
 
 static var _mesh_cache := {}
 static var _tri_cache := {}
@@ -322,9 +326,13 @@ func get_grip_anchor(kind: String) -> Transform3D:
 static func grip_anchor(kind: String, p_side: int) -> Transform3D:
 	var spec: Dictionary = _GRIP_ANCHORS.get(kind, _GRIP_ANCHORS["gun"])
 	var th: float = spec.tilt
+	var sc: float = spec.scale
 	var y := Vector3(sin(th), 0.0, cos(th))
 	var z := Vector3(0.0, 1.0, 0.0)
-	var xf := Transform3D(Basis(y.cross(z), y, z), spec.at)
+	var rot := Basis(y.cross(z), y, z)
+	var pivot: Vector3 = spec.pivot
+	var center: Vector3 = spec.center
+	var xf := Transform3D(rot.scaled_local(Vector3(sc, sc, sc)), center - rot * (pivot * sc))
 	return xf if p_side > 0 else _mirror_xf(xf)
 
 
