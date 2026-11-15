@@ -2,6 +2,20 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · icons-v2
+
+Commit `31b1c34` · studio/station renders · 9 frames · [folder](2026-11-15-icons-v2/)
+
+Bespoke icon set (48 icons plus 14 aliases): crew helmet with LED eyes vs infiltrator helmet with a red V-slit, the real cell/core/blaster/shuttle/pod silhouettes, two-tone by default plus full-colour and hex/rounded badges. Readable from 18 px; shapes stay distinct under deuteranopia and protanopia. 00 is the old generic set for comparison.
+
+| | |
+| --- | --- |
+| ![before overview](2026-11-15-icons-v2/00_before_overview.jpg)<br>before overview | ![after overview](2026-11-15-icons-v2/01_after_overview.jpg)<br>after overview |
+| ![after deuteranopia](2026-11-15-icons-v2/02_after_deuteranopia.jpg)<br>after deuteranopia | ![zoom face](2026-11-15-icons-v2/03_zoom_face.jpg)<br>zoom face |
+| ![zoom mask](2026-11-15-icons-v2/04_zoom_mask.jpg)<br>zoom mask | ![zoom cell](2026-11-15-icons-v2/05_zoom_cell.jpg)<br>zoom cell |
+| ![zoom core](2026-11-15-icons-v2/06_zoom_core.jpg)<br>zoom core | ![zoom airlock](2026-11-15-icons-v2/07_zoom_airlock.jpg)<br>zoom airlock |
+| ![zoom throw](2026-11-15-icons-v2/08_zoom_throw.jpg)<br>zoom throw |   |
+
 ## 2026-11-15 · character-v3
 
 Commit `7f1781a` · studio/station renders · 22 frames · [folder](2026-11-15-character-v3/)
