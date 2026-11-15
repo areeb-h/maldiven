@@ -67,7 +67,10 @@ func _run() -> void:
 		Net.start_round()
 	else:
 		await _wait(float(args.get("bot-join-delay", "1.0")))
-		for attempt in range(10):
+		# Keep trying for the whole bot timeout: a rendered or loaded host can
+		# take much longer than usual to open its lobby.
+		var give_up := Time.get_ticks_msec() + int(float(args.get("bot-timeout", "120")) * 900.0)
+		while Time.get_ticks_msec() < give_up:
 			main._join("127.0.0.1")
 			var started := Time.get_ticks_msec()
 			while not Net.is_online() and Time.get_ticks_msec() - started < 3000:
