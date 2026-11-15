@@ -12,7 +12,7 @@ reuses the same studio rig.
 | `set_characters.gd` | Set 1: lineup hero, colour roster, every LED face, suit variants, portraits, "one of you is lying", turntable, squad selfie. |
 | `set_station.gd` | Set 2: exterior with the planet, tilt-shift overhead, every room's establishing shot, the corridor, the power wave. |
 | `set_items.gd` | Set 3: product shots of the gun, cell and core, the three together, every socket. |
-| `set_moments.gd` | Set 4: core run, shove, gun stand-off, rescue, airlock, ghost, blackout, shuttle. |
+| `set_moments.gd` | Set 4: core run, shove, gun stand-off, rescue, airlock, ghost, blackout, shuttle, spaced. |
 
 ## Running
 
@@ -72,6 +72,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" $GODOT --path . \
 | | `ghost` | `06_ghost.png` | A ghost drifts past the Reactor as power returns. |
 | | `blackout` | `07_blackout.png` | Flashlights in the blackout. |
 | | `shuttle` | `08_shuttle_escape.png` | Loading the core into the shuttle during the countdown. |
+| | `spaced` | `09_spaced.png` | The airlock vents; a crewmate tumbles out towards the gas giant. |
 
 ## Adding a shot
 
