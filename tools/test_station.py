@@ -77,8 +77,10 @@ def main():
     engine, _ = validate_engine(args.godot or ensure_engine())
     run(engine, 'import', ['--editor', '--import', '--quit'], None, timeout=300)
     run(engine, 'rules unit tests', ['--script', 'res://tests/rules_test.gd'], 'PASS: rules')
-    if (ROOT / 'tests' / 'art_smoke.gd').exists():
-        run(engine, 'art smoke test', ['--script', 'res://tests/art_smoke.gd'], 'PASS: art smoke')
+    for script, marker in [('art_smoke', 'PASS: art smoke'), ('audio_smoke', 'PASS: audio smoke'),
+                           ('crew_model_smoke', 'PASS: crew model'), ('vfx_smoke', 'PASS: vfx smoke')]:
+        if (ROOT / 'tests' / f'{script}.gd').exists():
+            run(engine, script.replace('_', ' '), ['--script', f'res://tests/{script}.gd'], marker)
     if not args.skip_net:
         net_round(engine, 'crew')
         net_round(engine, 'infiltrator')

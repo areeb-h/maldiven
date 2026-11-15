@@ -3,7 +3,20 @@ extends RefCounted
 ## Accumulates triangles per material key and bakes them into one ArrayMesh with
 ## one surface per key, so a whole room is a handful of draw calls.
 
-var _surfaces: Dictionary = {}  # key -> {"v": PackedVector3Array, "n": ..., "c": PackedColorArray, "uv": PackedVector2Array}
+var _surfaces: Dictionary = {}  # key -> _Surface
+
+
+class _Surface:
+	var v := PackedVector3Array()
+	var n := PackedVector3Array()
+	var c := PackedColorArray()
+	var uv := PackedVector2Array()
+
+	func add(p: Vector3, normal: Vector3, color: Color, tex: Vector2) -> void:
+		v.append(p)
+		n.append(normal)
+		c.append(color)
+		uv.append(tex)
 var xform := Transform3D.IDENTITY  # applied to everything added (local -> kit space)
 
 const _FACES := [
@@ -16,9 +29,9 @@ const _FACES := [
 ]
 
 
-func _surface(key: String) -> Dictionary:
+func _surface(key: String) -> _Surface:
 	if not _surfaces.has(key):
-		_surfaces[key] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "c": PackedColorArray(), "uv": PackedVector2Array()}
+		_surfaces[key] = _Surface.new()
 	return _surfaces[key]
 
 
@@ -29,15 +42,12 @@ func has_key(key: String) -> bool:
 func vertex_count() -> int:
 	var total := 0
 	for key in _surfaces:
-		total += (_surfaces[key]["v"] as PackedVector3Array).size()
+		total += (_surfaces[key] as _Surface).v.size()
 	return total
 
 
-func _push(s: Dictionary, p: Vector3, n: Vector3, c: Color, uv: Vector2) -> void:
-	(s["v"] as PackedVector3Array).append(xform * p)
-	(s["n"] as PackedVector3Array).append((xform.basis * n).normalized())
-	(s["c"] as PackedColorArray).append(c)
-	(s["uv"] as PackedVector2Array).append(uv)
+func _push(s: _Surface, p: Vector3, n: Vector3, c: Color, uv: Vector2) -> void:
+	s.add(xform * p, (xform.basis * n).normalized(), c, uv)
 
 
 ## Triangle with automatic winding so that it faces along `n` (Godot: clockwise front).
@@ -216,15 +226,15 @@ func build(materials: Dictionary) -> ArrayMesh:
 	var keys := _surfaces.keys()
 	keys.sort()
 	for key in keys:
-		var s: Dictionary = _surfaces[key]
-		if (s["v"] as PackedVector3Array).is_empty() or not materials.has(key):
+		var s: _Surface = _surfaces[key]
+		if s.v.is_empty() or not materials.has(key):
 			continue
 		var arrays := []
 		arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX] = s["v"]
-		arrays[Mesh.ARRAY_NORMAL] = s["n"]
-		arrays[Mesh.ARRAY_COLOR] = s["c"]
-		arrays[Mesh.ARRAY_TEX_UV] = s["uv"]
+		arrays[Mesh.ARRAY_VERTEX] = s.v
+		arrays[Mesh.ARRAY_NORMAL] = s.n
+		arrays[Mesh.ARRAY_COLOR] = s.c
+		arrays[Mesh.ARRAY_TEX_UV] = s.uv
 		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		am.surface_set_material(am.get_surface_count() - 1, materials[key])
 	return am
