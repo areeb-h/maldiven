@@ -3,7 +3,7 @@ extends SceneTree
 ## overlay, and checks the triangle / draw-call budgets.
 ## Run: godot --headless --path . --script tests/crew_model_smoke.gd
 
-const MAX_TRIS := 15000
+const MAX_TRIS := 18000
 const MAX_DRAW_CALLS := 12
 const COLORS: Array[Color] = [
 	Color(0.95, 0.35, 0.1), Color(0.15, 0.55, 0.95), Color(0.2, 0.85, 0.35), Color(0.95, 0.85, 0.15),

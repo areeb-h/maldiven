@@ -179,20 +179,30 @@ func _shot(key: String, state: String) -> void:
 	await _save("%s_%s" % [key, state])
 
 
+var overcam: Camera3D
+
+
+func _overcam(rot: Vector3, dist: float, target := Vector3(31, 0, 2)) -> void:
+	if overcam == null:
+		overcam = Camera3D.new()
+		overcam.fov = 50
+		overcam.far = 1500.0
+		world.add_child(overcam)
+	var b := Basis.from_euler(rot)
+	overcam.global_transform = Transform3D(b, target + b * Vector3(0, 0, dist))
+	overcam.current = true
+
+
 func _overview(state: String) -> void:
-	pivot.global_position = Vector3(31, 0, 2)
-	pivot.rotation = Vector3(-0.78, 0.0, 0)
-	arm.spring_length = 0.0
-	camera.position = Vector3(0, 0, 62)
 	if avatar != null:
 		avatar.position = Vector3(0, -50, 0)
+	_overcam(Vector3(-0.9, 0.0, 0), 78.0)
 	await _frames(4)
 	await _save("overview_%s" % state)
-	pivot.rotation = Vector3(-0.62, -0.75, 0)
-	camera.position = Vector3(0, 0, 70)
+	_overcam(Vector3(-0.55, -0.7, 0), 70.0)
 	await _frames(4)
 	await _save("overview2_%s" % state)
-	camera.position = Vector3.ZERO
+	camera.current = true
 
 
 func _save(label: String) -> void:
@@ -208,18 +218,15 @@ func _measure() -> void:
 	await create_timer(2.0).timeout
 	var cams := {
 		"overview": func():
-			pivot.global_position = Vector3(31, 0, 2)
-			pivot.rotation = Vector3(-0.78, 0.0, 0)
-			arm.spring_length = 0.0
-			camera.position = Vector3(0, 0, 62),
+			_overcam(Vector3(-0.9, 0.0, 0), 78.0),
 		"commons_gameplay": func():
-			camera.position = Vector3.ZERO
+			camera.current = true
 			_set_player(3.5, 0.0, 0.0, -1.0),
 		"commons_gameplay_east": func():
-			camera.position = Vector3.ZERO
+			camera.current = true
 			_set_player(-2.0, -1.0, 1.0, 0.35),
 		"reactor_gameplay": func():
-			camera.position = Vector3.ZERO
+			camera.current = true
 			_set_player(62.0, 15.2, 0.0, 1.0),
 	}
 	for state in ["restored", "emergency"]:

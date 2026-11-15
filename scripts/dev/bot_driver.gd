@@ -183,6 +183,7 @@ func _first_crew_index(world: StationWorld, ids: Array) -> int:
 func _teleport(world: StationWorld, pos: Vector3, look_yaw := INF) -> void:
 	world.local.position = Vector3(pos.x, 0.15, pos.z)
 	world.local.velocity = Vector3.ZERO
+	world.local.snap_smoothing()
 	if look_yaw != INF:
 		world.local.yaw = look_yaw
 		world.local._facing = look_yaw + PI

@@ -119,6 +119,102 @@ func pose_overlay(m: CrewModel, t: float, speed := 0.0, carrying := false) -> vo
 		m.set_motion(speed, true, carrying, false, STEP)
 
 
+## Pose override (no CrewModel API for it yet): arms raised in surrender, palms
+## open. Bones are in chest space; the arm rests along -Y and its forearm hinges
+## on local X, so the upper arm is turned to make the elbow bend point up.
+## Call after the last pose()/set_motion step.
+func hands_up(m: CrewModel) -> void:
+	for side in 2:
+		var s := 1.0 if side == 0 else -1.0
+		var up := CrewBody.L_ARM if side == 0 else CrewBody.R_ARM
+		var raise := Basis(Vector3(0, 0, -s), Vector3(-s, 0, 0), Vector3(0, 1, 0))
+		m.bones[up].basis = Basis(Vector3.UP, -s * 0.45) * Basis(Vector3.BACK, s * 0.32) * raise
+		m.bones[up + 1].basis = Basis(Vector3.RIGHT, -1.75)
+		m.bones[up + 2].basis = Basis(Vector3.RIGHT, -0.15)
+		var fingers := CrewBody.L_FINGERS if side == 0 else CrewBody.R_FINGERS
+		m.bones[fingers].basis = Basis(Vector3.BACK, s * 0.05)
+		m.bones[fingers + 1].basis = Basis.from_euler(Vector3(0.0, 0.0, -s * 0.2))
+	m._upload()
+
+
+## Pose override: turns the head (on top of the current pose) by yaw/pitch degrees.
+## Positive yaw looks to the character's left, positive pitch looks down.
+func turn_head(m: CrewModel, yaw_deg: float, pitch_deg := 0.0) -> void:
+	var head := m.bones[CrewBody.HEAD]
+	head.basis = head.basis * Basis.from_euler(Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0))
+	m._upload()
+
+
+## Gives `m` a hand-held flashlight like gameplay's (Props.make_flashlight) aimed at
+## `target`, lights the helmet lamp, and adds a faint additive beam cone so the
+## light reads in the dark (the Mobile renderer has no volumetric fog).
+func flashlight(m: CrewModel, target: Vector3, beam_energy := 0.22, shadows := true) -> SpotLight3D:
+	m.set_flashlight_on(true)
+	var light := Props.make_flashlight()
+	set_root.add_child(light)
+	var origin := m.global_transform * Vector3(-0.08, 1.38, 0.32)
+	light.look_at_from_position(origin, target, Vector3.UP)
+	light.shadow_enabled = shadows
+	light.light_energy = 6.0
+	var length := minf(origin.distance_to(target) * 1.25, 9.0)
+	var cone := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.03
+	mesh.bottom_radius = tan(deg_to_rad(light.spot_angle * 0.85)) * length
+	mesh.height = length
+	mesh.radial_segments = 32
+	mesh.rings = 8
+	mesh.cap_top = false
+	mesh.cap_bottom = false
+	cone.mesh = mesh
+	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ShaderMaterial.new()
+	mat.shader = _beam_shader()
+	mat.set_shader_parameter("tint", Vector3(light.light_color.r, light.light_color.g, light.light_color.b))
+	mat.set_shader_parameter("energy", beam_energy)
+	mat.set_shader_parameter("height", length)
+	cone.material_override = mat
+	light.add_child(cone)
+	# Cylinder axis is +Y; the light shines along -Z.
+	cone.transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0, 0, -length * 0.5))
+	return light
+
+
+static var _beam: Shader
+
+
+static func _beam_shader() -> Shader:
+	if _beam == null:
+		_beam = Shader.new()
+		_beam.code = """
+shader_type spatial;
+render_mode blend_add, unshaded, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform vec3 tint = vec3(1.0);
+uniform float energy = 0.2;
+uniform float height = 6.0;
+varying float along;
+void vertex() {
+	along = clamp(0.5 - VERTEX.y / height, 0.0, 1.0);
+}
+void fragment() {
+	float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
+	float fade = smoothstep(0.0, 0.12, along) * pow(1.0 - along, 1.6);
+	ALBEDO = tint * energy * pow(facing, 2.5) * fade;
+}
+"""
+	return _beam
+
+
+## Moves `node` along a ballistic arc from `from` to `to` over `frames` rendered
+## frames (spinning it as it goes), so attached trails draw a real path.
+func fly(node: Node3D, from: Vector3, to: Vector3, arc: float, frames: int, spin := Vector3(4.0, 6.0, 2.0)) -> void:
+	for i in frames + 1:
+		var k := float(i) / float(frames)
+		node.position = from.lerp(to, k) + Vector3(0, arc * 4.0 * k * (1.0 - k), 0)
+		node.rotation = spin * k
+		await get_tree().process_frame
+
+
 ## Lets faces, lamps and hit flashes settle, then freezes every model so the
 ## frame holds still while the slow software renderer catches up.
 func freeze_crew() -> void:

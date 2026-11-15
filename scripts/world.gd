@@ -264,6 +264,7 @@ func client_event(event: Dictionary) -> void:
 			if int(event.target) == my_id and local != null:
 				local.position = event.at
 				local.velocity = Vector3.ZERO
+				local.snap_smoothing()
 			sfx.play("revive", event.at)
 			_fx("burst", ["revive", event.at])
 		"spaced":
@@ -326,9 +327,9 @@ func _process(delta: float) -> void:
 		var me: Dictionary = rules.players.get(my_id, {})
 		local.stunned = float(me.get("stunned_until", 0.0)) > rules.elapsed
 		local.aiming = rules.holds_gun(my_id)
-		if me.get("state", StationRules.OK) == StationRules.DOWNED:
-			local.position = me.pos  # the host places downed bodies
-		elif not host:
+		var downed: bool = me.get("state", StationRules.OK) == StationRules.DOWNED
+		local.forced_position = me.pos if downed else null  # the host places downed bodies
+		if not downed and not host:
 			rules.set_pose(my_id, local.position, local.facing_yaw())
 		_pose_timer -= delta
 		if _pose_timer <= 0.0:

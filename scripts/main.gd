@@ -25,6 +25,8 @@ var _orbit_camera: Camera3D
 var _orbit_angle := 0.6
 var _bot: Node
 var _bot_args := {}
+var _fader: ColorRect
+var _fade_tween: Tween
 
 
 func _ready() -> void:
@@ -39,12 +41,21 @@ func _ready() -> void:
 	_build_overlay()
 	_build_home()
 	_build_lobby()
+	var fade_layer := CanvasLayer.new()
+	fade_layer.layer = 100
+	add_child(fade_layer)
+	_fader = ColorRect.new()
+	_fader.color = Color(0.0, 0.0, 0.02, 1.0)
+	_fader.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fader.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_layer.add_child(_fader)
 	Net.roster_changed.connect(_on_roster_changed)
 	Net.session_ended.connect(_on_session_ended)
 	Net.round_began.connect(_on_round_began)
 	Net.returned_to_lobby.connect(_on_returned_to_lobby)
 	Net.rooms_changed.connect(_refresh_rooms)
 	_show_home("")
+	_fade_in(0.8)
 	if not _bot_args.is_empty():
 		_bot = BotDriver.new()
 		_bot.args = _bot_args
@@ -392,6 +403,7 @@ func _show_home(message: String) -> void:
 	_ui.show()
 	_home.show()
 	_lobby.hide()
+	_enter(_home)
 	_status.add_theme_color_override("font_color", UiStyle.DANGER)
 	_status.text = message
 	Net.start_listening()
@@ -405,6 +417,7 @@ func _show_lobby() -> void:
 	_ui.show()
 	_home.hide()
 	_lobby.show()
+	_enter(_lobby)
 	_on_roster_changed()
 
 
@@ -471,6 +484,7 @@ func _on_round_began() -> void:
 		_show_home(""))
 	add_child(_world)
 	_ui.hide()
+	_fade_in(0.6)
 
 
 func _on_returned_to_lobby() -> void:
@@ -483,6 +497,24 @@ func _free_world() -> void:
 		if Net.world == _world:
 			Net.world = null
 		_world = null
+
+
+## Fade in from black: every screen change goes through this, so nothing cuts.
+func _fade_in(seconds := 0.35) -> void:
+	if _fade_tween != null:
+		_fade_tween.kill()
+	_fader.modulate.a = 1.0
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(_fader, "modulate:a", 0.0, seconds).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Slide and fade a screen's content in with a slight upward motion.
+func _enter(screen: Control) -> void:
+	screen.modulate.a = 0.0
+	screen.position.y = 18.0
+	var tween := create_tween().set_parallel()
+	tween.tween_property(screen, "modulate:a", 1.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(screen, "position:y", 0.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func current_world() -> StationWorld:

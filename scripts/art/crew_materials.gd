@@ -79,23 +79,32 @@ float glyph(vec2 p, int n) {
 """
 
 const _SUIT_FRAGMENT := """
-// Inset panel seam + corner rivets on box faces (UV centred, UV2 = half extents).
+// Engraved panel line inset evenly from the plate edge (a rounded rectangle concentric
+// with the plate outline; CrewMeshKit.outline_radius uses the same corner rule), plus
+// small rivets in the corners. UV is centred on the face, UV2 = its half extents.
+const float PANEL_INSET = 0.011;
+
 vec2 panel_detail(vec2 uv, vec2 hx, float fade, float flatness, out float cav) {
 	cav = 0.0;
 	vec2 tilt = vec2(0.0);
-	if (min(hx.x, hx.y) > 0.024 && fade > 0.0) {
-		vec2 q = abs(uv) - (hx - 0.017);
-		float box = max(q.x, q.y);
-		float g = (1.0 - smoothstep(0.0005, 0.0017, abs(box))) * fade * flatness;
-		vec2 dv = q.x > q.y ? vec2(sign(uv.x), 0.0) : vec2(0.0, sign(uv.y));
-		tilt += dv * sign(box) * g * 0.7;
-		cav += g * 0.55;
-		if (min(hx.x, hx.y) > 0.034) {
-			vec2 d = uv - sign(uv) * (hx - 0.028);
+	float m = min(hx.x, hx.y);
+	if (m > 0.024 && fade > 0.0) {
+		float rc = max(clamp(m * 0.4, 0.008, 0.035) - PANEL_INSET, 0.003);
+		vec2 q = abs(uv) - (hx - PANEL_INSET - rc);
+		float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rc;
+		vec2 gq = (q.x > 0.0 && q.y > 0.0) ? normalize(q) : (q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
+		vec2 grad = gq * sign(uv);
+		float w = 0.0007 + fwidth(sd);
+		float groove = (1.0 - smoothstep(0.0, w, abs(sd))) * fade * flatness;
+		float lip = smoothstep(w, w * 2.2, sd) * (1.0 - smoothstep(w * 2.2, w * 3.5, sd)) * fade * flatness;
+		tilt += grad * sign(sd) * groove * 0.55;
+		cav += groove * 0.55 - lip * 0.25;
+		if (m > 0.034) {
+			vec2 d = uv - sign(uv) * (hx - PANEL_INSET - rc);
 			float rl = length(d);
-			float head = (1.0 - smoothstep(0.0026, 0.0034, rl)) * fade * flatness;
-			tilt += d / 0.003 * 0.45 * head;
-			cav += (1.0 - smoothstep(0.0, 0.0007, abs(rl - 0.0034))) * 0.5 * fade;
+			float head = (1.0 - smoothstep(0.0024, 0.0032, rl)) * fade * flatness;
+			tilt += d / 0.003 * 0.4 * head;
+			cav += (1.0 - smoothstep(0.0, 0.0007, abs(rl - 0.0032))) * 0.4 * fade * flatness;
 		}
 	}
 	return tilt;

@@ -24,6 +24,13 @@ var number := 0  # 1..8, shown on the suit
 var variant := 0  # cosmetic helmet/backpack style
 var carried := false
 var input_enabled := true  # false while a menu covers the screen
+var forced_position = null  # Vector3 set by the host for downed bodies, else null
+# Render-rate smoothing: physics runs at a fixed 60 Hz, screens may run at
+# 90/120 Hz. The visual and camera are drawn between the last two physics
+# positions so motion stays smooth at any refresh rate.
+var _physics_prev := Vector3.ZERO
+var _physics_now := Vector3.ZERO
+var _visual_base := Vector3.ZERO
 
 var move_input := Vector2.ZERO
 var yaw := 0.0
@@ -167,6 +174,7 @@ func set_remote_pose(pos: Vector3, facing: float, moving: float) -> void:
 		return
 	if pos.distance_to(_target_pos) > 6.0:
 		position = pos  # teleport/respawn: snap instead of sliding through walls
+		snap_smoothing()
 	_target_pos = pos
 	_target_yaw = facing
 	_remote_moving = moving
@@ -211,7 +219,7 @@ func set_life_state(state: String) -> void:
 		_set_transparency(visual, 0.0)
 	if not _model_api:
 		visual.rotation.x = -PI / 2.0 if state == "downed" else 0.0
-		visual.position.y = 0.25 if state == "downed" else 0.0
+		_visual_base = Vector3(0, 0.25 if state == "downed" else 0.0, 0)
 	var standing := state == "ok"
 	collision_layer = (4 if is_local else 2) if standing else 0
 	collision_mask = 0 if ghost else (1 | 2 if standing else 1)
@@ -239,22 +247,44 @@ func moving_amount() -> float:
 func respawn() -> void:
 	position = _spawn
 	velocity = Vector3.ZERO
+	snap_smoothing()
+
+
+## Call after any teleport so the render smoothing doesn't streak across it.
+func snap_smoothing() -> void:
+	_physics_prev = global_position
+	_physics_now = global_position
 
 
 func _physics_process(delta: float) -> void:
 	if is_local:
+		_physics_prev = _physics_now
 		if life_state == "dead":
 			_ghost_physics(delta)
 		elif life_state == "downed":
 			velocity = Vector3.ZERO
+			if forced_position != null:
+				position = forced_position
 		else:
 			_local_physics(delta)
-		_camera_fx(delta)
-	else:
-		position = position.lerp(_target_pos, minf(1.0, delta * 12.0))
-		_facing = lerp_angle(_facing, _target_yaw, minf(1.0, delta * 12.0))
-	visual.rotation.y = _facing + _visual_yaw_offset
+		_physics_now = global_position
+		if _physics_prev.distance_to(_physics_now) > 3.0:
+			_physics_prev = _physics_now  # teleported: don't interpolate across it
 	_animate(delta, moving_amount())
+
+
+func _process(delta: float) -> void:
+	if is_local:
+		var smoothed := _physics_prev.lerp(_physics_now, Engine.get_physics_interpolation_fraction())
+		visual.position = _visual_base + (smoothed - global_position)
+		_camera_fx(delta, smoothed)
+	else:
+		# Remote players: ease toward the latest network pose every rendered frame.
+		var blend := 1.0 - exp(-delta * 14.0)
+		position = position.lerp(_target_pos, blend)
+		_facing = lerp_angle(_facing, _target_yaw, blend)
+		visual.position = _visual_base
+	visual.rotation.y = _facing + _visual_yaw_offset
 
 
 func _input_axis() -> Vector2:
@@ -267,7 +297,6 @@ func _input_axis() -> Vector2:
 
 
 func _local_physics(delta: float) -> void:
-	pivot.rotation = Vector3(pitch, yaw, 0)
 	var axis := _input_axis()
 	if stunned:
 		axis = Vector2.ZERO
@@ -311,7 +340,6 @@ func _local_physics(delta: float) -> void:
 
 
 func _ghost_physics(delta: float) -> void:
-	pivot.rotation = Vector3(pitch, yaw, 0)
 	var axis := _input_axis()
 	var direction := Basis(Vector3.UP, yaw) * Vector3(axis.x, 0, axis.y)
 	var speed := RUN_SPEED * speed_factor
@@ -337,12 +365,13 @@ func _auto_recenter(delta: float, speed: float) -> void:
 	yaw += difference * minf(1.0, delta * 1.4 * clampf(speed / RUN_SPEED, 0.3, 1.0))
 
 
-func _camera_fx(delta: float) -> void:
+func _camera_fx(delta: float, smoothed: Vector3) -> void:
 	if camera == null:
 		return
+	pivot.rotation = Vector3(pitch, yaw, 0)
 	# Smooth follow, over-the-shoulder when aiming, pulled back when carrying.
 	var shoulder := Basis(Vector3.UP, yaw) * Vector3(0.75, 0.0, 0.0) if aiming else Vector3.ZERO
-	var follow_target := global_position + Vector3(0, 1.6 if life_state != "downed" else 0.9, 0) + shoulder
+	var follow_target := smoothed + Vector3(0, 1.6 if life_state != "downed" else 0.9, 0) + shoulder
 	pivot.global_position = pivot.global_position.lerp(follow_target, 1.0 - exp(-delta * 14.0))
 	var length := 3.4 if aiming else (5.8 if carrying_body or carry_point.get_child_count() > 0 else 5.0)
 	arm.spring_length = lerpf(arm.spring_length, length, minf(1.0, delta * 6.0))

@@ -318,6 +318,8 @@ func set_role(next_role: String) -> void:
 func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 	var phase := rules.phase
 	var briefing := phase == StationRules.Phase.BRIEFING and role != ""
+	if briefing and not _briefing.visible:
+		_pop_in(_briefing)
 	_briefing.visible = briefing
 	if briefing:
 		_briefing_footer.text = "Round starts in %d" % int(ceil(StationRules.BRIEFING_SECONDS - rules.elapsed))
@@ -418,6 +420,17 @@ func _show_result(rules: StationRules) -> void:
 			_timeline.append_text(text + "\n")
 	_lobby_button.visible = is_host
 	_result.show()
+	_pop_in(_result)
+
+
+## Cards appear with a quick scale-and-fade, never a hard cut.
+func _pop_in(card: Control) -> void:
+	card.pivot_offset = card.size / 2.0
+	card.scale = Vector2(0.92, 0.92)
+	card.modulate.a = 0.0
+	var tween := create_tween().set_parallel()
+	tween.tween_property(card, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(card, "modulate:a", 1.0, 0.22)
 
 
 func flash_alert(text: String, kind: String) -> void:
@@ -429,6 +442,9 @@ func flash_alert(text: String, kind: String) -> void:
 	_alert.add_theme_color_override("font_color", color.lightened(0.3))
 	_alert_panel.modulate.a = 1.0
 	_alert_time = 4.5
+	_alert_panel.pivot_offset = Vector2(_alert_panel.size.x / 2.0, 0.0)
+	_alert_panel.scale = Vector2(1.08, 1.08)
+	create_tween().tween_property(_alert_panel, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _process(delta: float) -> void:
