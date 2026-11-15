@@ -6,7 +6,8 @@ Usage:  python3 tools/generate_music.py            (all)
         python3 tools/generate_music.py loops      (only the in-game loops)
 
 Writes assets/audio/music/:
-  trailer_theme.wav    80 s, 44.1 kHz stereo, mastered ~-14 LUFS, peaks <= -1 dBFS
+  trailer_theme.wav    80.5 s, 44.1 kHz stereo, mastered ~-14 LUFS, peaks <= -1 dBFS; timed to
+                       keyart's cut (CUT dict mirrors tools/trailer/cut.gd: edit it and re-run)
   trailer_cues.txt     timestamps of every hit, generated from the same event list
   lobby_theme.wav      32 s loop, 90 BPM   (chill, curious)          ~-23 LUFS
   round_tension.wav    32 s loop, 75 BPM   (subtle, sparse)           ~-27 LUFS
@@ -551,17 +552,32 @@ def whoosh(dur, sr, rng, f0=6000.0, f1=300.0):
 # Trailer
 # --------------------------------------------------------------------------
 
+# Beat times follow keyart's cut (tools/trailer/cut.gd BEATS + cue()/crossed() times).
+# Picture is the master: if the cut changes, update CUT below and re-render.
+CUT = {
+    "visor": 4.6, "title": 7.0, "trust": 7.8, "assemble": 9.5, "wave_hello": 14.7, "reactor": 17.0,
+    "cell": 18.0, "power": 18.5, "lights_beat": 20.5, "lights": 20.8, "vault": 23.5, "field": 25.1,
+    "lying": 28.0, "snaps": [29.3, 30.0, 30.7, 31.4, 32.1], "gun_beat": 33.5, "gun_pickup": 34.3,
+    "shot": 37.2, "betrayal": 38.5, "shove": 40.67, "core_grab": 42.7, "chase": 44.5, "drag": 48.5,
+    "console": 52.5, "vent": 55.05, "spaced": 55.5, "countdown": 59.0,
+    "cuts": [59.0, 60.1, 61.1, 62.0, 62.8, 63.5, 64.1, 64.6, 65.05, 65.45, 65.8, 66.1, 66.4],
+    "launch_sfx": 66.5, "launch": 67.0, "end_card": 72.5, "tagline": 73.9, "platforms": 75.3,
+    "black": 79.7, "end": 80.5,
+}
+
+
 def trailer():
     sr = TRAILER_SR
     rng = ga.rng_for("trailer_theme")
-    D = 80.0
+    C = CUT
+    D = C["end"]
     mx = Mix(D, sr)
     cues = []
+    gaps = []  # (start, end): score cut to digital silence
 
     def cue(t, text):
         cues.append((t, text))
 
-    # drums, rendered once
     K = [kick(sr, rng, w) for w in (1.0, 0.95, 1.05)]
     SN = [snare(sr, rng) for _ in range(3)]
     CL = clap(sr, rng)
@@ -572,141 +588,202 @@ def trailer():
     TAIKO = taiko(sr, rng)
     HB = heartbeat(sr, rng)
     CR = crash(sr, rng)
+    CLUSTER = chord("D3", "Eb3", "A3", "D4", "Eb4")
 
-    # ---- 0-10 s: cold open drone + heartbeat --------------------------------
-    cue(0.0, "Cold open: low drone, heartbeat pulse")
-    n = int(11.0 * sr)
+    def impact(t, size=1.0, notes=None, boom=2.0, crash_g=0.4, whoosh_dur=0.0, peak=3200.0):
+        mx.add(TAIKO, t, gain=1.0 * size, rev=0.35)
+        mx.add(K[0], t, gain=0.9 * size)
+        if boom:
+            mx.add(sub_boom(sr, boom), t, gain=0.8 * size)
+        if crash_g:
+            mx.add(CR, t, gain=crash_g * size, rev=0.4)
+        if whoosh_dur:
+            mx.add(whoosh(whoosh_dur, sr, rng), t, gain=0.28 * size, rev=0.4)
+        if notes:
+            mx.add(brass(notes, 2.2, sr, rng, peak=peak), t, gain=0.55 * size, rev=0.45)
+
+    def riser_into(t_end, dur, gain=0.22, roll=True, f1=8000.0):
+        nz, tone = riser(dur, sr, rng, 300.0, f1)
+        mx.add(nz, t_end - dur, gain=gain, rev=0.2)
+        mx.add(widen(to_stereo(tone, 0.0)), t_end - dur, gain=gain * 0.45, rev=0.2)
+        rc = crash(sr, rng, min(2.0, dur))[::-1]
+        mx.add(rc, t_end - len(rc) / sr, gain=0.3, rev=0.3)
+        if roll:
+            tr, t0 = t_end - dur * 0.8, t_end - dur * 0.8
+            while tr < t_end - 0.03:
+                u = (tr - t0) / (t_end - t0)
+                mx.add(SN[int(tr * 7) % 3], tr, pan=0.1, gain=0.1 + 0.4 * u ** 2, rev=0.2)
+                tr += 0.25 * (1.0 - u) + 0.045 * u
+
+    def suck(t_hit, gap=0.12):
+        gaps.append((t_hit - gap, t_hit))
+
+    def stab(t, notes=CLUSTER, gain=0.45, swell=1.0, bell_f=hz("Eb5")):
+        if swell:
+            rs = pad_chord(notes, swell, sr, rng, fc=1800.0, attack=swell * 0.9, release=0.05, sub=False)
+            mx.add(rs * np.linspace(0, 1, rs.shape[1])[None, :] ** 2, t - swell, gain=0.3, rev=0.2)
+        mx.add(brass(notes, 1.6, sr, rng, peak=2600.0, res=0.9), t, gain=gain, rev=0.5)
+        if bell_f:
+            mx.add(bell(bell_f, 2.5, sr, index=2.5, ratio=1.41), t, pan=0.3, gain=0.12, rev=0.6, dly=0.3)
+
+    def bass_note(t, f0, dur, peak=900.0, gain=0.3, res=0.8, square=0.3):
+        nn = int(dur * 0.92 * sr)
+        tt = np.arange(nn) / sr
+        fc = 180.0 + peak * np.exp(-tt / 0.05)
+        v = filtered_saw(f0, nn, sr, fc, rng, res=res, square=square) * env_ahr(nn, sr, 0.003, 0.02)
+        v += 0.5 * np.sin(TAU * f0 * tt) * env_ahr(nn, sr, 0.003, 0.02)
+        mx.add(v, t, gain=gain)
+
+    def pad(t, notes, dur, fc, gain=0.4, attack=0.5, release=0.6, spread=0.22, w=1.3, voices=5, sub=True):
+        pc = pad_chord(notes, dur, sr, rng, fc=fc, attack=attack, release=release, spread=spread, voices=voices,
+                       sub=sub)
+        mx.add(widen(pc, w), t, gain=gain, rev=0.35)
+
+    # ---- 0-7: cold open in the blackout ------------------------------------
+    cue(0.0, "Cold open (blackout): low drone, heartbeat quickening")
+    n = int(9.5 * sr)
     t = np.arange(n) / sr
     drone = (np.sin(TAU * hz("D1") * t) + 0.7 * np.sin(TAU * hz("D2") * 1.0015 * t)
              + 0.45 * np.sin(TAU * hz("A2") * t + 0.3) + 0.25 * np.sin(TAU * hz("D3") * 0.9985 * t))
     drone *= 1.0 + 0.15 * np.sin(TAU * 0.11 * t)
     air = stft_filter(noise(n, rng), sr, lambda tt: 300.0 + 250.0 * np.sin(TAU * 0.07 * tt) ** 2, kind="bp", q=2.0)
     dark = to_stereo(drone, 0.0) * 0.5 + to_stereo(ga.unit_rms(air), np.sin(TAU * 0.05 * t) * 0.6) * 0.12
-    dark *= env_ahr(n, sr, 2.5, 1.5)[None, :]
-    mx.add(dark, 0.0, gain=0.5, rev=0.25)
-    hb_t = 1.0
-    i = 0
-    while hb_t < 10.0:
-        mx.add(HB, hb_t, gain=0.9 * min(1.0, 0.45 + hb_t / 8.0), rev=0.15)
+    mx.add(dark * env_ahr(n, sr, 2.0, 2.0)[None, :], 0.0, gain=0.5, rev=0.25)
+    hb_t, i = 0.8, 0
+    while hb_t < C["title"] - 0.3:
+        mx.add(HB, hb_t, gain=0.9 * min(1.0, 0.45 + hb_t / 6.0), rev=0.15)
         i += 1
-        hb_t += 1.05 - 0.035 * i  # the pulse quickens as the crew wakes
-    for tb, f, p in ((2.6, hz("A5"), -0.5), (5.1, hz("F5"), 0.5), (7.4, hz("E5"), -0.2), (9.0, hz("D6"), 0.4)):
+        hb_t += (0.95 - 0.03 * i) if hb_t < C["visor"] else 0.55  # the pulse jumps when the visor wakes
+    for tb, f, p in ((1.7, hz("A5"), -0.5), (3.3, hz("F5"), 0.5)):
         mx.add(bell(f, 3.0, sr, index=1.0, ratio=3.5), tb, pan=p, gain=0.08, rev=0.6, dly=0.3)
+    cue(C["visor"], "Red visor wakes: low stinger")
+    stab(C["visor"], chord("D2", "Eb3", "A3"), gain=0.3, swell=0.6, bell_f=hz("Eb6"))
+    mx.add(sub_boom(sr, 1.6, 34.0), C["visor"], gain=0.5)
+    riser_into(C["title"], 1.4, gain=0.18, roll=False)
 
-    # ---- 10-25 s: warm hopeful pad, crew assembles -------------------------
-    cue(10.0, "Warm hopeful pad enters (crew assembles); chords D - Bm - G - A at 10.0 / 13.75 / 17.5 / 21.25")
+    # ---- 7-9.5: title sting ----------------------------------------------------
+    cue(C["title"], "TITLE STING hit (DRIFT STATION)")
+    impact(C["title"], 0.9, chord("D2", "A2", "D3", "F3", "A3"), boom=2.2, crash_g=0.3)
+    cue(C["trust"], '"TRUST NO ONE": low dissonant brass')
+    mx.add(brass(chord("D2", "Eb3", "A3"), 1.6, sr, rng, peak=1400.0, att=0.15, tau=0.8, res=0.6), C["trust"],
+           gain=0.35, rev=0.5)
+    mx.add(bell(hz("Eb5"), 2.0, sr, index=2.0, ratio=1.41), C["trust"], pan=-0.3, gain=0.08, rev=0.6, dly=0.3)
+
+    # ---- 9.5-17: the crew assembles (warm, hopeful) ---------------------------
+    cue(C["assemble"], "Warm hopeful pad + pluck arp (crew assembles): D - Bm - G - A every 1.875 s")
+    seg = (C["reactor"] - C["assemble"]) / 4.0
     prog = [chord("D3", "A3", "D4", "F#4", "E5"), chord("B2", "F#3", "D4", "F#4", "A4"),
             chord("G2", "D3", "B3", "D4", "F#4"), chord("A2", "E3", "C#4", "E4", "A4")]
-    for k, ch in enumerate(prog):
-        t0 = 10.0 + 3.75 * k
-        last = k == 3
-        dur = 3.75 + (0.6 if last else 0.9)
-        pc = pad_chord(ch, dur, sr, rng, fc=lambda tt, k=k: 700.0 + 450.0 * k + 500.0 * np.clip(tt / 2.0, 0, 1),
-                       attack=1.2 if k == 0 else 0.5, release=0.9)
-        mx.add(widen(pc, 1.3), t0, gain=0.5, rev=0.35)
     arp_notes = [["D4", "F#4", "A4", "E5"], ["D4", "F#4", "B4", "D5"], ["D4", "G4", "B4", "D5"], ["C#4", "E4", "A4", "E5"]]
-    step = 3.75 / 16.0
-    for k, ns in enumerate(arp_notes):
+    for k, ch in enumerate(prog):
+        t0 = C["assemble"] + seg * k
+        pad(t0, ch, seg + (1.6 if k == 3 else 0.8), lambda tt, k=k: 700.0 + 400.0 * k + 500.0 * np.clip(tt / 1.5, 0, 1),
+            gain=0.5, attack=1.0 if k == 0 else 0.4, release=0.8)
+        root = ("D2", "B1", "G1", "A1")[k]
+        nn = int(seg * sr)
+        tt = np.arange(nn) / sr
+        b = filtered_saw(hz(root), nn, sr, 380.0, rng) * env_ahr(nn, sr, 0.3, 0.3)
+        b += 0.6 * np.sin(TAU * hz(root) * tt) * env_ahr(nn, sr, 0.3, 0.3)
+        mx.add(b, t0, gain=0.22 if k else 0.14)
         for j in range(16):
-            tn = 10.0 + 3.75 * k + j * step
-            if tn < 11.875:
-                continue  # arp joins after the pad has bloomed
-            f = hz(ns[[0, 1, 2, 3, 2, 1, 3, 2][j % 8]]) * (2.0 if j in (7, 15) else 1.0)
+            tn = t0 + j * seg / 16.0
+            if tn < C["assemble"] + 0.9:
+                continue
+            f = hz(arp_notes[k][[0, 1, 2, 3, 2, 1, 3, 2][j % 8]]) * (2.0 if j in (7, 15) else 1.0)
             mx.add(pluck(f, 0.5, sr), tn, pan=0.35 * math.sin(j * 0.9), gain=0.09 * (0.8 + 0.2 * (j % 2 == 0)),
                    rev=0.25, dly=0.25)
-    for k, root in enumerate(("D2", "B1", "G1", "A1")):
-        n = int(3.75 * sr)
-        tt = np.arange(n) / sr
-        b = filtered_saw(hz(root), n, sr, 380.0, rng) * env_ahr(n, sr, 0.3, 0.3)
-        b += 0.6 * np.sin(TAU * hz(root) * tt) * env_ahr(n, sr, 0.3, 0.3)
-        mx.add(b, 10.0 + 3.75 * k, gain=0.22 if k else 0.14)
+    mx.add(bell(hz("A5"), 2.0, sr, index=0.8, ratio=2.0), C["wave_hello"], pan=0.4, gain=0.07, rev=0.5, dly=0.3)
 
-    # ---- 25-30 s: riser into the "power restored" hit ----------------------
-    cue(25.0, "Riser begins (noise + Shepard tone + snare roll)")
-    nz, tone = riser(4.88, sr, rng)
-    mx.add(nz, 25.0, pan=0.0, gain=0.22, rev=0.2)
-    mx.add(widen(to_stereo(tone, 0.0)), 25.0, gain=0.1, rev=0.2)
-    rev_crash = crash(sr, rng, 2.0)[::-1]
-    mx.add(rev_crash, 29.88 - len(rev_crash) / sr, gain=0.35, rev=0.3)
-    tr = 26.0
-    while tr < 29.85:
-        u = (tr - 26.0) / 3.85
-        mx.add(SN[int(tr * 7) % 3], tr, pan=0.1, gain=0.12 + 0.45 * u ** 2, rev=0.2)
-        tr += 0.25 * (1.0 - u) + 0.05 * u
-    cue(29.88, "Pre-hit silence (120 ms suck)")
+    # ---- 17-23.5: reactor, power wave, lights on -----------------------------
+    cue(C["reactor"], "Reactor: riser from the cell insert into the power hit")
+    riser_into(C["power"] - 0.12, 1.45, gain=0.24)
+    suck(C["power"])
+    cue(C["power"] - 0.12, "Pre-hit silence (120 ms)")
+    cue(C["power"], "POWER HIT: the wave rolls out of the core (impact + L->R whoosh)")
+    impact(C["power"], 1.0, chord("D2", "A2", "D3", "A3", "D4"), boom=2.5, crash_g=0.4, whoosh_dur=1.6)
+    for j in range(int((C["lights"] - C["power"]) / 0.125)):  # energy pulse rushing through the station
+        tn = C["power"] + 0.25 + j * 0.125
+        f = hz(("D4", "A4", "D5", "F#5")[j % 4])
+        mx.add(pluck(f, 0.3, sr, 1.5), tn, pan=0.5 * math.sin(j), gain=0.04 + 0.04 * j / 16.0, rev=0.3, dly=0.2)
+    cue(C["lights"], "Lights come up on the crew: bright D major bloom + sparkle")
+    pad(C["lights_beat"], chord("D3", "A3", "D4", "F#4", "A4", "E5"), C["vault"] - C["lights_beat"] + 0.6,
+        lambda tt: 1200.0 + 2400.0 * np.clip((tt - 0.3) / 1.2, 0, 1), gain=0.5, attack=0.3, release=0.7, voices=7)
+    for i_, f in enumerate((1174.66, 1479.98, 1760.0, 2349.32)):
+        mx.add(chime(ga.timeline(1.5, sr), 0.0, f, 0.6, sr, index=0.8), C["lights"] + 0.09 * i_, pan=-0.4 + 0.27 * i_,
+               gain=0.06, rev=0.5, dly=0.3)
+    mx.add(K[1], C["lights"], gain=0.5)
+    mx.add(sub_boom(sr, 1.5, 40.0), C["lights"], gain=0.35)
 
-    # ---- 30 s: HIT -----------------------------------------------------------
-    cue(30.0, "HIT: power restored (impact + whoosh); 120 BPM grid starts, beat = 0.5 s")
-    mx.add(TAIKO, 30.0, gain=1.0, rev=0.35)
-    mx.add(K[0], 30.0, gain=0.9)
-    mx.add(sub_boom(sr, 2.5), 30.0, gain=0.8)
-    mx.add(CR, 30.0, pan=0.0, gain=0.4, rev=0.4)
-    mx.add(whoosh(1.4, sr, rng), 30.0, gain=0.28, rev=0.4)
-    mx.add(brass(chord("D2", "A2", "D3", "A3", "D4"), 2.2, sr, rng, peak=3200.0), 30.0, gain=0.55, rev=0.45)
-    hit_sfx = np.asarray(ga.power_up()[0])
-    tail = hit_sfx[int(1.8 * sr):]
-    mx.add(ga.unit_rms(tail) * 0.06, 30.0 - 0.05, gain=1.0, rev=0.3)  # the game's own lights-on thunk
+    # ---- 23.5-28: the vault --------------------------------------------------
+    cue(C["vault"], "Vault: mysterious low pad")
+    pad(C["vault"], chord("B1", "F#2", "B2", "D3"), 2.0, 600.0, gain=0.35, attack=0.4, release=0.5, sub=False)
+    cue(C["field"], "Vault field drops: crystalline Bm9 reveal")
+    rs = pad_chord(chord("B3", "D4", "F#4"), 0.8, sr, rng, fc=2500.0, attack=0.75, release=0.03, sub=False)
+    mx.add(rs * np.linspace(0, 1, rs.shape[1])[None, :] ** 2, C["field"] - 0.8, gain=0.25, rev=0.3)
+    for i_, f in enumerate(chord("B5", "D6", "F#6", "A6", "C#7")):
+        mx.add(bell(f, 3.0, sr, index=0.9, ratio=2.0), C["field"] + 0.05 * i_, pan=-0.5 + 0.25 * i_, gain=0.05,
+               rev=0.6, dly=0.3)
+    pad(C["field"], chord("B2", "F#3", "D4", "A4", "C#5"), C["lying"] - C["field"] - 0.1, 1400.0, gain=0.32,
+        attack=0.05, release=0.9)
+    mx.add(sub_boom(sr, 2.0, 38.0), C["field"], gain=0.4)
+    rs = pad_chord(CLUSTER, 1.0, sr, rng, fc=1500.0, attack=0.95, release=0.03, sub=False)
+    mx.add(rs * np.linspace(0, 1, rs.shape[1])[None, :] ** 2.5, C["lying"] - 1.1, gain=0.3, rev=0.2)
+    suck(C["lying"], 0.1)
 
-    # ---- 30-50 s: tension ------------------------------------------------------
+    # ---- 28-33.5: "one of you is lying" ---------------------------------------
+    cue(C["lying"], '"ONE OF YOU IS LYING": dissonant stab, then near-silence on the card')
+    stab(C["lying"], gain=0.5, swell=0.0)
+    mx.add(TAIKO, C["lying"], gain=0.6, rev=0.35)
+    mx.add(sub_boom(sr, 2.0, 33.0), C["lying"], gain=0.6)
+    snaps = C["snaps"]
+    cue(snaps[0], "Snap close-ups: a hit on every cut (%s)" % ", ".join("%.1f" % s for s in snaps))
+    dread = pad_chord(chord("D2", "A2", "D3", "Eb3"), C["gun_beat"] - snaps[0] + 0.3, sr, rng, fc=520.0,
+                      attack=0.3, release=0.3, spread=0.25, sub=False)
+    mx.add(widen(dread, 1.4), snaps[0], gain=0.3, rev=0.3)
+    for i_, s in enumerate(snaps):
+        last = i_ == len(snaps) - 1
+        mx.add(K[i_ % 3], s, gain=0.7 if not last else 0.9)
+        mx.add(TK[i_ % 2], s, pan=0.4 * (-1) ** i_, gain=0.25, rev=0.15)
+        mx.add(brass([hz("D2") * (2 ** (1 / 12) if i_ % 2 else 1.0)], 0.5, sr, rng, peak=1600.0, tau=0.15), s,
+               gain=0.35, rev=0.3)
+        if last:
+            cue(s, "Lands on purple: big stab")
+            stab(s, gain=0.45, swell=0.0, bell_f=hz("A5") * 2 ** (1 / 12))
+            mx.add(TAIKO, s, gain=0.7, rev=0.35)
+    t_ = snaps[0]
+    while t_ < C["gun_beat"] - 0.01:
+        bass_note(t_, hz("D2"), 0.35, peak=700.0, gain=0.22)
+        t_ += 0.35
+
+    # ---- 33.5-38.5: the gun -------------------------------------------------------
+    cue(C["gun_beat"], "The gun: clock pulse locked to the shot (every 0.5 s from 33.7)")
+    tick_t = [C["shot"] - 0.5 * k for k in range(8, 0, -1)]
+    for k, tk in enumerate(tick_t):
+        mx.add(TK[k % 2], tk, pan=0.3 * (-1) ** k, gain=0.15 + 0.03 * k, rev=0.15)
+        bass_note(tk, hz("G1"), 0.48, peak=500.0 + 80.0 * k, gain=0.25)
+    n = int((C["shot"] - C["gun_pickup"]) * sr)
+    sw = pad_chord(chord("G2", "D3", "Ab3", "D4"), n / sr, sr, rng,
+                   fc=lambda tt: 400.0 + 2600.0 * np.clip(tt / (n / sr), 0, 1) ** 2, attack=n / sr * 0.9,
+                   release=0.02, sub=False)
+    mx.add(widen(sw, 1.3), C["gun_pickup"], gain=0.4, rev=0.25)
+    nz, _tone = riser(0.9, sr, rng, 800.0, 9000.0, 2.0)
+    mx.add(nz, C["shot"] - 0.95, gain=0.16)
+    suck(C["shot"], 0.05)
+    cue(C["shot"], "GUNSHOT stab")
+    impact(C["shot"], 0.8, chord("G2", "D3", "Ab3", "D4"), boom=1.8, crash_g=0.25, peak=2200.0)
+
+    # ---- 38.5-48.5: betrayal and chase -------------------------------------------
+    cue(C["betrayal"], "Betrayal: tension pulse (120 BPM grid locked to the shove)")
     beat = 0.5
-    roots = [("D2", 30.0), ("Bb1", 34.0), ("G1", 38.0), ("A1", 42.0), ("D2", 46.0)]
-    dark_chords = [chord("D3", "A3", "D4", "F4"), chord("Bb2", "F3", "D4", "F4"), chord("G2", "D3", "Bb3", "D4"),
-                   chord("A2", "E3", "C#4", "E4"), chord("D3", "A3", "D4", "F4")]
-    for (root, t0), ch in zip(roots, dark_chords):
-        pc = pad_chord(ch, 4.4, sr, rng, fc=lambda tt, t0=t0: 500.0 + 30.0 * (t0 - 30.0) + 200.0 * np.clip(tt / 4, 0, 1),
-                       attack=0.6, release=0.5, spread=0.25, sub=False)
-        mx.add(widen(pc, 1.4), t0 + (0.3 if t0 == 30.0 else 0.0), gain=0.3, rev=0.3)
-        f0 = hz(root)
-        sixteenth = t0 >= 38.0
-        sub_step = beat / (4 if sixteenth else 2)
-        steps = int(round(4.0 / sub_step))
-        for j in range(steps):
-            tn = t0 + j * sub_step
-            if tn < 30.5:
-                continue
-            nn = int(sub_step * 0.95 * sr)
-            tt = np.arange(nn) / sr
-            fc = 180.0 + (900.0 + 25.0 * (tn - 30.0)) * np.exp(-tt / 0.05)
-            octave = 2.0 if (j % 4 == 3 and sixteenth) else 1.0
-            v = filtered_saw(f0 * octave, nn, sr, fc, rng, res=0.8, square=0.3) * env_ahr(nn, sr, 0.003, 0.02)
-            v += 0.5 * np.sin(TAU * f0 * tt) * env_ahr(nn, sr, 0.003, 0.02)
-            duck = 0.55 if (j * sub_step) % (2 * beat) < 1e-6 else 1.0
-            mx.add(v, tn, gain=0.3 * duck)
-    for j in range(int(20.0 / (beat / 2))):
-        tn = 30.0 + j * beat / 2
-        if tn < 30.5:
-            continue
-        mx.add(TK[j % 2], tn, pan=0.5 if j % 2 else -0.5, gain=0.12 + (0.06 if j % 2 == 0 else 0.0), rev=0.1)
-    for j in range(int(20.0 / beat)):
-        tb = 30.0 + j * beat
-        if tb >= 50.0:
-            break
-        bar_pos = j % 4
-        four = tb >= 46.0
-        if bar_pos in (0, 2) or four:
-            if tb > 30.01:
-                mx.add(K[j % 3], tb, gain=0.65 if not four else 0.75)
-        if tb >= 38.0 and bar_pos == 2:
-            mx.add(SN[j % 3], tb, pan=0.05, gain=0.42, rev=0.25)
-        if tb >= 42.0:
-            for s in range(2 if tb < 46.0 else 4):
-                mx.add(HC[(j + s) % 4], tb + s * beat / (2 if tb < 46.0 else 4), pan=0.3, gain=0.1)
-    stab_cluster = chord("D3", "Eb3", "A3", "D4", "Eb4")
-    for ts, label, g in ((33.0, '"One of you is lying" - dissonant stab', 0.45),
-                         (46.0, "Stab 4; drums go four-on-the-floor", 0.45)):
-        cue(ts, label)
-        rs = np.asarray(pad_chord(stab_cluster, 1.0, sr, rng, fc=1800.0, attack=0.9, release=0.05, sub=False))
-        mx.add(rs * np.linspace(0, 1, rs.shape[1])[None, :] ** 2, ts - 1.0, gain=0.35, rev=0.2)
-        mx.add(brass(stab_cluster, 1.6, sr, rng, peak=2600.0, res=0.9), ts, gain=g, rev=0.5)
-        mx.add(bell(hz("Eb5"), 2.5, sr, index=2.5, ratio=1.41), ts, pan=0.3, gain=0.12, rev=0.6, dly=0.3)
-        mx.add(TAIKO, ts, gain=0.5, rev=0.3)
-    cue(38.0, "The gun: gunshot hit")
-    gun = np.asarray(ga.gunshot()[0])
-    mx.add(gun / np.max(np.abs(gun)), 38.0, pan=-0.15, gain=0.55, rev=0.4)
-    mx.add(K[0], 38.0, gain=0.9)
-    mx.add(sub_boom(sr, 1.6, 36.0), 38.0, gain=0.5)
-    mx.add(brass(chord("G2", "D3", "Ab3", "D4"), 1.2, sr, rng, peak=2200.0, res=0.9), 38.0, gain=0.4, rev=0.4)
-    cue(42.0, "Betrayal: big descending stab")
+    t_ = C["shove"] - 4 * beat
+    while t_ < C["shove"] - 0.01:
+        bass_note(t_, hz("D2"), beat / 2, peak=800.0, gain=0.26)
+        bass_note(t_ + beat / 2, hz("D2"), beat / 2, peak=800.0, gain=0.26)
+        mx.add(HC[int(t_ * 4) % 4], t_ + beat / 2, pan=0.3, gain=0.08)
+        t_ += beat
+    pad(C["betrayal"], chord("D3", "F3", "A3"), C["shove"] - C["betrayal"], 500.0, gain=0.25, attack=0.4, release=0.1,
+        sub=False)
+    cue(C["shove"], "SHOVE: big descending 'betrayal' stab")
     n = int(2.6 * sr)
     tt = np.arange(n) / sr
     bend = 2.0 ** (-2.0 / 12.0 * smooth(ramp(tt, 0.3, 2.2)))
@@ -722,125 +799,175 @@ def trailer():
                 v += (1.0 / k) * lp_resp(k * ff * bend, fc, 0.7) * np.sin(k * ph)
             bet += to_stereo(v, p * (0.3 + 0.1 * i_))
     bet *= (ramp(tt, 0, 0.008) * (1.0 - smooth(ramp(tt, 1.8, 2.6))))[None, :] / math.sqrt(6)
-    mx.add(bet, 42.0, gain=0.6, rev=0.5)
-    mx.add(TAIKO, 42.0, gain=0.9, rev=0.35)
-    mx.add(sub_boom(sr, 2.0, 33.0), 42.0, gain=0.6)
-    mx.add(CR, 42.0, gain=0.25, rev=0.4)
-    cue(49.0, "Short riser into the climax")
-    nz, tone = riser(1.0, sr, rng, 600.0, 9000.0, 1.5)
-    mx.add(nz, 49.0, gain=0.25, rev=0.2)
-    for j in range(16):
-        mx.add(SN[j % 3], 49.0 + j / 16.0, gain=0.15 + 0.35 * (j / 15.0) ** 2, rev=0.2)
-
-    # ---- 50-65 s: climax --------------------------------------------------------
-    cue(50.0, "CLIMAX hit: driving drums, alarm motif, 16th bass")
-    mx.add(CR, 50.0, gain=0.45, rev=0.4)
-    mx.add(TAIKO, 50.0, gain=0.8, rev=0.3)
-    mx.add(sub_boom(sr, 1.5), 50.0, gain=0.5)
-    climax = [("D2", chord("D3", "A3", "D4", "F4")), ("Bb1", chord("Bb2", "F3", "D4", "F4")),
-              ("C2", chord("C3", "G3", "C4", "E4")), ("A1", chord("A2", "E3", "C#4", "E4"))]
-    for bar in range(8):
-        t0 = 50.0 + 2.0 * bar
-        if t0 >= 65.0:
-            break
-        root, ch = climax[bar % 4]
-        length = min(2.0, 65.0 - t0)
-        pc = pad_chord(ch, length + 0.1, sr, rng, fc=1500.0 + 150.0 * bar, attack=0.05, release=0.08, spread=0.3)
-        mx.add(widen(pc, 1.4), t0, gain=0.3, rev=0.25)
-        f0 = hz(root)
+    mx.add(bet, C["shove"], gain=0.6, rev=0.5)
+    impact(C["shove"], 0.9, None, boom=2.0, crash_g=0.25)
+    t_ = C["shove"] + beat
+    while t_ < C["chase"] - 0.01:
+        root = hz("D2") if t_ < C["core_grab"] else hz("Bb1")
+        for s in range(4):
+            bass_note(t_ + s * beat / 4, root * (2.0 if s == 2 else 1.0), beat / 4, peak=1000.0, gain=0.26)
+        mx.add(K[int(t_ * 2) % 3], t_, gain=0.6)
+        mx.add(HC[int(t_ * 4) % 4], t_ + beat / 2, pan=0.3, gain=0.1)
+        t_ += beat
+    cue(C["core_grab"], "Green grabs the core: rising stab")
+    mx.add(brass(chord("Bb2", "F3", "Bb3", "D4"), 1.0, sr, rng, peak=2400.0, tau=0.3), C["core_grab"], gain=0.35,
+           rev=0.4)
+    cue(C["chase"], "CHASE: full drums, 16th bass, Dm - Bb (bars of 2.0 s from 44.5)")
+    mx.add(CR, C["chase"], gain=0.4, rev=0.4)
+    mx.add(TAIKO, C["chase"], gain=0.7, rev=0.3)
+    for bar_i, (root, ch) in enumerate((("D2", chord("D3", "A3", "D4", "F4")), ("Bb1", chord("Bb2", "F3", "D4", "F4")))):
+        t0 = C["chase"] + 2.0 * bar_i
+        pad(t0, ch, 2.05, 1500.0, gain=0.3, attack=0.05, release=0.08, spread=0.3, w=1.4)
         for j in range(16):
-            tn = t0 + j * beat / 4
-            if tn >= 65.0:
-                break
-            nn = int(beat / 4 * 0.9 * sr)
-            tt = np.arange(nn) / sr
-            fc = 220.0 + 1500.0 * np.exp(-tt / 0.04)
             mult = (1.0, 1.0, 2.0, 1.0, 1.0, 2.0, 1.0, 1.5)[j % 8]
-            v = filtered_saw(f0 * mult, nn, sr, fc, rng, res=0.8, square=0.3) * env_ahr(nn, sr, 0.002, 0.015)
-            v += 0.5 * np.sin(TAU * f0 * tt) * env_ahr(nn, sr, 0.002, 0.015)
-            mx.add(v, tn, gain=0.3 * (0.6 if j % 4 == 0 else 1.0))
+            bass_note(t0 + j * beat / 4, hz(root) * mult, beat / 4, peak=1500.0, gain=0.3 * (0.6 if j % 4 == 0 else 1.0))
         for b in range(4):
             tb = t0 + b * beat
-            if tb >= 65.0:
+            if bar_i == 1 and b == 3:
                 break
             mx.add(K[b % 3], tb, gain=0.85)
             if b in (1, 3):
                 mx.add(SN[b % 3], tb, pan=0.05, gain=0.5, rev=0.22)
                 mx.add(CL, tb, pan=-0.1, gain=0.25, rev=0.3)
             for s in range(4):
-                th = tb + s * beat / 4
-                if th < 65.0:
-                    mx.add(HO if s == 2 and bar >= 4 else HC[s], th, pan=0.35, gain=0.13 if s % 2 else 0.08,
-                           rev=0.05)
-        # alarm motif: two-tone tritone call, like the pod klaxon
-        for half, note in ((0.0, "D5"), (1.0, "G#4")):
-            ts = t0 + half
-            if ts >= 65.0:
-                break
-            nn = int(min(0.95, 65.0 - ts) * sr)
-            tt = np.arange(nn) / sr
-            f = hz(note) * (1.0 - 0.03 * np.exp(-tt / 0.04)) * (1.0 + 0.004 * np.sin(TAU * 5.5 * tt))
+                mx.add(HO if s == 2 else HC[s], tb + s * beat / 4, pan=0.35, gain=0.13 if s % 2 else 0.08, rev=0.05)
+    for s, tm in enumerate((2, 2, 1, 1, 0, 0)):  # tom fill into the drag
+        mx.add(TOMS[tm], C["drag"] - 0.5 + s * beat / 6, pan=(-0.4, 0.0, 0.4)[tm], gain=0.45, rev=0.25)
+
+    # ---- 48.5-59: drag, airlock console, vent, spaced ---------------------------
+    cue(C["drag"], "Drag to the airlock: drums drop out; tritone drone + slow heartbeat")
+    n = int((C["vent"] - C["drag"]) * sr)
+    t = np.arange(n) / sr
+    dr = (np.sin(TAU * hz("D1") * t) + 0.5 * np.sin(TAU * hz("Ab1") * t) + 0.3 * np.sin(TAU * hz("D2") * 1.002 * t))
+    mx.add(dr * env_ahr(n, sr, 0.4, 0.05), C["drag"], gain=0.4, rev=0.2)
+    hb = C["drag"] + 0.2
+    while hb < C["console"]:
+        mx.add(HB, hb, gain=0.8, rev=0.15)
+        hb += 1.0
+    pad(C["drag"] + 2.0, chord("D2", "Ab2", "D3"), C["console"] - C["drag"] - 2.0, 700.0, gain=0.3, attack=1.6,
+        release=0.1, sub=False)
+    cue(C["console"], "Airlock console: warning pulses, accelerating")
+    pulses = [C["console"], C["console"] + 0.75, C["console"] + 1.4, C["console"] + 1.9, C["console"] + 2.3]
+    for k, tp in enumerate(pulses):
+        mx.add(brass(chord("D2", "Eb2", "A2"), 0.45, sr, rng, peak=1200.0 + 200.0 * k, tau=0.2, res=0.8), tp,
+               gain=0.4, rev=0.35)
+        mx.add(K[2], tp, gain=0.5)
+    riser_into(C["vent"] - 0.12, 1.5, gain=0.22)
+    suck(C["vent"])
+    cue(C["vent"], "VENT HIT: the door blows (impact + outward whoosh)")
+    impact(C["vent"], 1.0, chord("D2", "A2", "D3", "F3", "A3"), boom=2.5, crash_g=0.35, whoosh_dur=2.0)
+    cue(C["spaced"], "Spaced: vacuum hush, airy pad (fits ghost_drift), faint heartbeat")
+    n = int((C["countdown"] - C["spaced"]) * sr)
+    t = np.arange(n) / sr
+    airy = np.zeros((2, n))
+    for i_, f in enumerate(chord("A3", "E4", "B4", "C#5", "E5")):
+        airy += to_stereo(np.sin(TAU * f * t + rng.uniform(0, TAU)) * (0.6 + 0.4 * np.sin(TAU * 0.3 * (i_ + 1) * t)),
+                          -0.6 + 0.3 * i_)
+    breath = stft_filter(noise(n, rng), sr, lambda tt: np.full(len(tt), 2500.0), kind="bp", q=0.8)
+    airy += to_stereo(ga.unit_rms(breath) * 0.4, 0.0)
+    mx.add(airy * env_ahr(n, sr, 1.0, 0.6)[None, :], C["spaced"], gain=0.05, rev=0.6)
+    mx.add(HB, C["spaced"] + 1.5, gain=0.35, rev=0.3)
+    mx.add(HB, C["spaced"] + 2.7, gain=0.4, rev=0.3)
+    riser_into(C["countdown"], 1.0, gain=0.2, roll=False)
+
+    # ---- 59-66.4: cross-cut countdowns, accelerating ------------------------------
+    cuts = C["cuts"]
+    cue(C["countdown"], "COUNTDOWN cross-cut: a hit on every cut, tempo accelerating with the cutting")
+    cue(cuts[1], "Cuts at " + ", ".join("%.2f" % c for c in cuts[1:-1]) + " (pod = alarm call, shuttle = bright call)")
+    for i_ in range(len(cuts) - 1):
+        a, b = cuts[i_], cuts[i_ + 1]
+        pod = i_ % 2 == 0
+        span = b - a
+        beats = 4 if span >= 0.7 else 2
+        bt = span / beats
+        mx.add(TOMS[2 if pod else 1], a, pan=-0.3 if pod else 0.3, gain=0.45, rev=0.25)
+        mx.add(CR, a, gain=0.12 + 0.1 * i_ / 12.0, rev=0.3)
+        root = hz("D2") if pod else hz("A1")
+        for q in range(beats):
+            tb = a + q * bt
+            mx.add(K[q % 3], tb, gain=0.8)
+            if q % 2 == 1:
+                mx.add(SN[q % 3], tb, gain=0.45, rev=0.2)
+            for s in range(2):
+                bass_note(tb + s * bt / 2, root * (2.0 if s else 1.0), bt / 2, peak=1500.0, gain=0.28)
+                mx.add(HC[(q + s) % 4], tb + s * bt / 2, pan=0.35, gain=0.1)
+        nn = int(min(span, 0.9) * 0.9 * sr)
+        tt = np.arange(nn) / sr
+        if pod:   # the pod klaxon call (tritone)
+            notes = ((0.0, "D5"), (0.5, "G#4"))
+        else:     # the shuttle's bright rising fifth
+            notes = ((0.0, "A5"), (0.5, "E6"))
+        for frac, nm in notes:
+            ln = int(nn * 0.5)
+            ttt = tt[:ln]
+            f = hz(nm) * (1.0 - 0.03 * np.exp(-ttt / 0.03))
             ph = ga.phase_of(f, sr)
-            lead = sum((1.0 / k) * np.sin(k * ph) for k in (1, 3, 5, 7, 9)) + 0.4 * np.sin(2 * ph)
-            lead *= env_ahr(nn, sr, 0.02, 0.08) * (0.6 if bar < 2 else 1.0)
-            lead = ga.svf(lead, 2600.0, 1.0, "lp", sr)
-            mx.add(lead, ts, pan=0.0, gain=0.11, rev=0.3, dly=0.25)
-        if bar % 4 == 3:  # tom fill at the end of each 4-bar phrase
-            for s, tm in enumerate((2, 2, 1, 1, 0, 0)):
-                tf = t0 + 1.5 + s * beat / 6
-                if tf < 65.0:
-                    mx.add(TOMS[tm], tf, pan=(-0.4, 0.0, 0.4)[tm], gain=0.45, rev=0.25)
-    cue(58.0, "Climax phrase 2 (open hats)")
-    for k_, tc in enumerate((60.0, 61.0, 62.0, 63.0, 64.0)):
-        mx.add(bell(hz("A5") * 2.0 ** (k_ / 12.0), 0.6, sr, index=0.6, ratio=2.0), tc, pan=0.0, gain=0.16,
-               rev=0.2, dly=0.2)
-        mx.add(TK[0], tc, gain=0.3)
-    cue(60.0, "Countdown beeps 5-4-3-2-1 at 60 / 61 / 62 / 63 / 64 s")
-    nz, tone = riser(4.0, sr, rng, 400.0, 10000.0, 2.2)
-    mx.add(nz, 61.0, gain=0.25, rev=0.15)
-    mx.add(widen(to_stereo(tone, 0.0)), 61.0, gain=0.12, rev=0.15)
-    cue(65.0, "HARD STOP: digital silence until 71.5 s")
+            lead = sum((1.0 / k) * np.sin(k * ph) for k in ((1, 3, 5, 7) if pod else (1, 2, 3)))
+            lead = ga.svf(lead * env_ahr(ln, sr, 0.01, 0.04), 2600.0, 1.0, "lp", sr)
+            mx.add(lead, a + frac * min(span, 0.9) * 0.9, pan=-0.2 if pod else 0.2, gain=0.1, rev=0.3, dly=0.15)
+        pad(a, chord("D3", "F3", "A3", "D4") if pod else chord("A2", "E3", "A3", "C#4"), span + 0.05, 1800.0,
+            gain=0.22, attack=0.02, release=0.04, spread=0.3, w=1.4, sub=False)
+    nz, tone = riser(cuts[-1] - cuts[3], sr, rng, 400.0, 10000.0, 2.2)
+    mx.add(nz, cuts[3], gain=0.24, rev=0.15)
+    mx.add(widen(to_stereo(tone, 0.0)), cuts[3], gain=0.12, rev=0.15)
+    t_ = cuts[-2]
+    while t_ < cuts[-1] - 0.01:  # last-cut snare roll
+        mx.add(SN[int(t_ * 50) % 3], t_, gain=0.4, rev=0.15)
+        t_ += 0.04
+    reentry = 68.2
+    cue(cuts[-1], "HARD STOP on the last cut: score silent; launch SFX (66.5) and win sting (67.0) play alone")
+    gaps.append((cuts[-1], reentry))
 
-    # ---- 71.5-80 s: title swell and sub-boom ------------------------------------
-    cue(71.5, "Reverse swell into the title")
-    rs = crash(sr, rng, 1.5)[::-1]
-    mx.add(rs, 72.0 - len(rs) / sr, gain=0.25, rev=0.2)
-    cue(72.0, "TITLE: heroic swell Bb (72.0) -> C (74.0) -> D major (76.0)")
-    title = [(72.0, 2.15, chord("Bb2", "F3", "Bb3", "D4", "F4")), (74.0, 2.15, chord("C3", "G3", "C4", "E4", "G4")),
-             (76.0, 4.0, chord("D3", "A3", "D4", "F#4", "A4", "E5"))]
-    for k, (t0, dur, ch) in enumerate(title):
-        pc = pad_chord(ch, dur, sr, rng, fc=lambda tt, k=k: 900.0 + 900.0 * k + 1200.0 * np.clip(tt / 1.5, 0, 1),
-                       attack=1.6 if k == 0 else 0.3, release=1.2 if k == 2 else 0.2, spread=0.25, voices=7)
-        mx.add(widen(pc, 1.5), t0, gain=0.42 + 0.06 * k, rev=0.45)
-        mx.add(brass(ch[:4], dur, sr, rng, peak=1800.0 + 600.0 * k, att=0.4, tau=3.0, res=0.4), t0,
-               gain=0.25 + 0.08 * k, rev=0.5)
-    for j in range(40):  # timpani-ish roll crescendo into the boom
-        tr = 76.0 + j * 0.06
-        mx.add(TOMS[0], tr, pan=0.0, gain=0.05 + 0.25 * (j / 39.0) ** 2, rev=0.3)
-    cue(78.5, "Sub-boom (final hit); ring-out to 80.0")
-    mx.add(sub_boom(sr, 1.5, 30.0), 78.5, gain=1.0)
-    mx.add(TAIKO, 78.5, gain=0.8, rev=0.5)
-    mx.add(CR, 78.5, gain=0.3, rev=0.5)
-    cue(80.0, "End")
+    # ---- 68.2-72.5: the shuttle climbs; build to the end card ---------------------
+    cue(reentry, "Score re-enters under the climb: D major swell (sits under win_crew), then G -> A build")
+    pad(reentry, chord("D3", "A3", "D4", "F#4", "A4"), 70.4 - reentry + 0.3, lambda tt: 700.0 + 900.0 * np.clip(tt / 2, 0, 1),
+        gain=0.35, attack=1.5, release=0.3, voices=7)
+    pad(70.4, chord("B2", "D3", "G3", "B3", "D4"), 0.95, 1800.0, gain=0.4, attack=0.2, release=0.1, voices=7)
+    pad(71.3, chord("A2", "E3", "A3", "D4"), 0.5, 2200.0, gain=0.42, attack=0.05, release=0.05, voices=7, sub=False)
+    pad(71.75, chord("A2", "E3", "A3", "C#4", "E4"), C["end_card"] - 71.75, 2600.0, gain=0.45, attack=0.05,
+        release=0.02, voices=7)
+    for j in range(24):  # timpani-ish roll
+        mx.add(TOMS[0], 71.0 + j * (C["end_card"] - 0.15 - 71.0) / 24.0, gain=0.05 + 0.3 * (j / 23.0) ** 2, rev=0.3)
+    riser_into(C["end_card"] - 0.12, 1.6, gain=0.2, roll=False)
+    suck(C["end_card"])
 
-    # ---- buses, hard stop, master ------------------------------------------------
+    # ---- 72.5-80.5: end card -------------------------------------------------------
+    cue(C["end_card"], "END CARD hit: heroic D major title swell (G - A - D resolution lands here)")
+    impact(C["end_card"], 0.9, chord("D2", "A2", "D3", "F#3", "A3", "D4"), boom=2.2, crash_g=0.35, peak=2600.0)
+    dur = C["end"] - C["end_card"]
+    pad(C["end_card"], chord("D3", "A3", "D4", "F#4", "A4", "E5"), dur,
+        lambda tt: 1500.0 + 2500.0 * np.clip(tt / 3.0, 0, 1), gain=0.5, attack=0.15, release=1.0, voices=7, w=1.5)
+    mx.add(brass(chord("D3", "A3", "D4", "F#4"), dur - 0.5, sr, rng, peak=2200.0, att=0.6, tau=4.0, res=0.4),
+           C["end_card"], gain=0.3, rev=0.5)
+    for tc, f in ((C["tagline"], hz("F#5")), (C["platforms"], hz("A5"))):
+        mx.add(chime(ga.timeline(2.0, sr), 0.0, f, 0.7, sr, index=0.7), tc, pan=0.2, gain=0.08, rev=0.5, dly=0.3)
+    cue(C["tagline"], "Tagline chime")
+    cue(C["platforms"], "'2-8 FRIENDS - ANDROID' chime")
+    boom_t = 79.0
+    cue(boom_t, "SUB-BOOM (final hit); fades out with the picture 79.7 -> 80.5")
+    mx.add(sub_boom(sr, 1.5, 30.0), boom_t, gain=1.0)
+    mx.add(TAIKO, boom_t, gain=0.7, rev=0.5)
+    mx.add(CR, boom_t, gain=0.25, rev=0.5)
+    cue(C["end"], "End")
+
+    # ---- buses, gaps, arc, master -------------------------------------------------
     rev = freeverb(spectral_st(mx.rev, sr, ga.hp_mag(180.0, 2)), sr, room=0.86, damp=0.45, width=1.0)
     dly = pingpong(mx.dly, sr, 0.375, 0.38, 5, 3500.0)
     mixed = mx.dry + 0.9 * rev + 0.5 * dly
     tt = np.arange(mx.n) / sr
-    gate_curve = np.ones(mx.n)
-    gate_curve *= 1.0 - ramp(tt, 29.87, 29.875)          # pre-hit suck ...
-    gate_curve = np.maximum(gate_curve, ramp(tt, 29.995, 30.0))
-    stop = 1.0 - ramp(tt, 65.0, 65.004)
-    gate_curve = np.minimum(gate_curve, np.maximum(stop, ramp(tt, 71.45, 71.5)))
-    gate_curve *= 1.0 - smooth(ramp(tt, 79.2, 80.0)) * 0.97
-    gate_curve[-int(0.01 * sr):] *= np.linspace(1.0, 0.0, int(0.01 * sr))
-    # dynamic arc (dB): quiet cold open, gentle pad, rising riser, tension, loudest climax and title
-    arc_t = [0.0, 10.0, 24.5, 29.8, 30.0, 33.0, 46.0, 50.0, 65.0, 72.0, 80.0]
-    arc_db = [-10.0, -6.5, -6.5, -2.0, 0.0, -3.5, -2.0, 1.0, 1.0, 0.5, 0.5]
-    gate_curve *= 10.0 ** (np.interp(tt, arc_t, arc_db) / 20.0)
-    st = master(mixed, sr, -14.0, gate=lambda v: v * gate_curve[None, :])
+    g = np.ones(mx.n)
+    for a, b in gaps:
+        g = np.minimum(g, np.maximum(1.0 - ramp(tt, a, a + 0.004), ramp(tt, b - 0.004, b)))
+    g *= 1.0 - smooth(ramp(tt, C["black"], C["end"])) * 0.98
+    g[-int(0.01 * sr):] *= np.linspace(1.0, 0.0, int(0.01 * sr))
+    arc_t = [0.0, 4.5, 6.9, 7.0, 9.5, 17.0, 18.3, 18.5, 23.5, 28.0, 33.5, 38.5, 44.5, 48.5, 52.5, 55.0, 55.05, 55.6,
+             59.0, 66.4, 68.2, 72.4, 72.5, 80.5]
+    arc_db = [-11.0, -9.0, -6.0, -1.5, -6.0, -6.5, -2.5, 0.0, -4.5, -4.0, -3.0, -2.0, -1.0, -5.0, -3.5, -2.5, 0.0, -6.0,
+              -0.5, 1.0, -5.0, -1.0, 0.5, 0.5]
+    g *= 10.0 ** (np.interp(tt, arc_t, arc_db) / 20.0)
+    st = master(mixed, sr, -14.0, gate=lambda v: v * g[None, :])
     return st, sr, cues
+
 
 
 # --------------------------------------------------------------------------
@@ -1017,12 +1144,14 @@ def main(argv) -> int:
         st, sr, cues = trailer()
         write_stereo(OUT / "trailer_theme.wav", st, sr, loop=False)
         report("trailer_theme", st, sr, False)
-        for a, b, label in ((0, 10, "cold open"), (10, 25, "pad"), (25, 29.8, "riser"), (30, 33, "hit"),
-                            (33, 50, "tension"), (50, 65, "climax"), (72, 78.5, "title"), (78.5, 80, "boom")):
+        for a, b, label in ((0, 7, "cold open"), (7, 9.5, "title"), (9.5, 17, "assemble"), (18.5, 23.5, "power"),
+                            (23.5, 28, "vault"), (28, 38.5, "lying+gun"), (38.5, 48.5, "betrayal"),
+                            (48.5, 55, "airlock"), (55.05, 59, "vent+space"), (59, 66.4, "countdown"),
+                            (68.2, 72.5, "launch"), (72.5, 80.5, "end card")):
             print(f"    {label:<10} {a:5.1f}-{b:5.1f}s  {short_term(st, sr, a, b):6.1f} LUFS")
         lines = ["Drift Station - trailer_theme.wav cue sheet (generated by tools/generate_music.py)",
-                 "80.0 s, 44.1 kHz stereo, mastered ~-14 LUFS. Tempo: free until 30.0 s, then 120 BPM",
-                 "(beat every 0.5 s, bar every 2.0 s from 30.0 s to the hard stop at 65.0 s).", ""]
+                 "80.5 s, 44.1 kHz stereo, mastered ~-14 LUFS. Timed to keyart's cut (tools/trailer/cut.gd BEATS",
+                 "and cue()/crossed() times); the picture is the master. Hits land on these frames:", ""]
         lines += [f"{int(t // 60):02d}:{t % 60:05.2f}  ({t:5.2f} s)  {text}" for t, text in sorted(cues)]
         (OUT / "trailer_cues.txt").write_text("\n".join(lines) + "\n")
     if which in ("all", "loops"):

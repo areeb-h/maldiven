@@ -69,7 +69,7 @@ func _run() -> void:
 				"music %s length %.1f s outside 30-60 s" % [track, music.get_length()])
 	var trailer := load(TRAILER) as AudioStreamWAV
 	_check(trailer != null and trailer.stereo and trailer.mix_rate == 44100
-		and absf(trailer.get_length() - 80.0) < 0.1, "trailer_theme.wav must be 80 s, 44.1 kHz stereo")
+		and absf(trailer.get_length() - 80.5) < 0.1, "trailer_theme.wav must be 80.5 s (keyart's cut), 44.1 kHz stereo")
 	_check(FileAccess.file_exists(CUES) and FileAccess.get_file_as_string(CUES).contains("HARD STOP"),
 		"trailer_cues.txt missing or incomplete")
 
