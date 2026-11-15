@@ -22,6 +22,7 @@ var in_round := false
 var room_name := ""
 var dedicated := false  # PC dedicated server: peer 1 hosts but is not a player (scripts/server/)
 var max_players := MAX_PLAYERS  # seats; a dedicated server may lower it
+var server_dedicated := false  # client: the host is a PC server, not a player
 var world: Node = null  # current World node, registers itself
 var rooms := {}  # ip -> {name, players, state, seen}
 var _beacon: PacketPeerUDP
@@ -115,6 +116,9 @@ func join(address: String, player_name: String) -> Error:
 func leave() -> void:
 	_stop_beacon()
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
+		var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+		if enet != null and enet.host != null:
+			enet.host.flush()  # send pending reliable messages (a kick or refusal) before closing
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	roster = {}
@@ -122,6 +126,7 @@ func leave() -> void:
 	room_name = ""
 	dedicated = false
 	max_players = MAX_PLAYERS
+	server_dedicated = false
 
 
 func _clean_name(text: String) -> String:
@@ -215,6 +220,8 @@ func _register(player_name: String, protocol: int) -> void:
 		suffix += 1
 	roster[id] = {"name": unique, "color": color}
 	_welcome.rpc_id(id, room_name)
+	if dedicated:
+		_server_is_dedicated.rpc_id(id)
 	_send_to_roster("_roster", [roster])
 	roster_changed.emit()
 
@@ -222,7 +229,7 @@ func _register(player_name: String, protocol: int) -> void:
 func _refuse(id: int, message: String) -> void:
 	_refused.rpc_id(id, message)
 	get_tree().create_timer(0.5).timeout.connect(func():
-		if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+		if multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.get_peers().has(id):
 			(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(id))
 
 
@@ -230,6 +237,11 @@ func _refuse(id: int, message: String) -> void:
 func _refused(message: String) -> void:
 	leave()
 	session_ended.emit(message)
+
+
+@rpc("authority", "reliable")
+func _server_is_dedicated() -> void:
+	server_dedicated = true
 
 
 @rpc("authority", "reliable")

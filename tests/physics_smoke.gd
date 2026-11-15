@@ -124,6 +124,8 @@ func test_props_settle() -> void:
 		if not body.sleeping:
 			awake += 1
 		drift = maxf(drift, body.global_position.distance_to(body.home.origin))
+		var planned: Vector2 = PropLayout.PROPS[phys.props.find(body)][1]
+		check(Vector2(body.home.origin.x, body.home.origin.z).distance_to(planned) < 0.05, "%s placed where the layout says (no runtime nudge needed)" % body.name)
 		check(not phys._overlaps_world(body, body.global_transform), "%s rests clear of static geometry" % body.name)
 		var hit := PropLayout.intrusion(Vector2(body.global_position.x, body.global_position.z), body.bound_radius * 0.8)
 		check(hit.is_empty() or float(hit.depth) < 0.02, "%s starts clear of approach points, spawns and doorways (%s)" % [body.name, hit])
