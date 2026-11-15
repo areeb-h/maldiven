@@ -40,6 +40,10 @@ var _focus := Vector3.ZERO
 ## Headless layout check (showcase --check): run the shots, report camera
 ## problems, save nothing.
 var check_only := false
+## Depth-of-field controls for a whole cut (the trailer uses lighter blur and
+## keeps near blur for portrait beats only).
+var dof_scale := 1.0
+var allow_near_blur := true
 
 
 # --- world --------------------------------------------------------------------------
@@ -455,6 +459,8 @@ func frame(pos: Vector3, target: Vector3, fov: float, focus: Vector3, depth := 1
 	if roll_deg != 0.0:
 		camera.rotate_object_local(Vector3.FORWARD, deg_to_rad(roll_deg))
 	_focus = focus
+	blur *= dof_scale
+	near_blur = near_blur and allow_near_blur
 	var d := pos.distance_to(focus)
 	attrs.dof_blur_amount = blur
 	attrs.dof_blur_far_enabled = blur > 0.0

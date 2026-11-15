@@ -88,6 +88,11 @@ func _run() -> void:
 static func configure_quality(vp: Viewport, preview: bool, msaa := 4) -> void:
 	var full_msaa := Viewport.MSAA_2X if msaa == 2 else Viewport.MSAA_4X
 	vp.msaa_3d = Viewport.MSAA_DISABLED if preview else full_msaa
+	# Native-resolution 3D with no post AA: supersampling is done by rendering
+	# large and downscaling, never by FSR or FXAA.
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = 1.0
 	vp.mesh_lod_threshold = 1.0 if preview else 0.0
 	vp.positional_shadow_atlas_size = 2048 if preview else 8192
 	vp.use_debanding = true
