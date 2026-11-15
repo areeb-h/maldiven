@@ -11,7 +11,7 @@ signal rooms_changed
 
 const PORT := 24600
 const DISCOVERY_PORT := 24601
-const PROTOCOL := 4
+const PROTOCOL := 5
 const MAX_PLAYERS := 8
 const GAME_ID := "drift-station"
 const PALETTE := [Color("ff5a5a"), Color("4da3ff"), Color("ffd23f"), Color("53d769"),
@@ -268,19 +268,20 @@ func _event(event: Dictionary) -> void:
 		world.client_event(event)
 
 
-## Client -> host: own pose, ~20 Hz.
-func send_pose(pos: Vector3, yaw: float, moving: float) -> void:
+## Client -> host: own pose and velocity, ~20 Hz. The velocity lets the host
+## lead this player's physics proxy (see scripts/physics/player_proxy.gd).
+func send_pose(pos: Vector3, yaw: float, vel: Vector3) -> void:
 	if is_host():
 		if world != null:
-			world.host_pose(1, pos, yaw, moving)
+			world.host_pose(1, pos, yaw, vel)
 	else:
-		_pose.rpc_id(1, pos, yaw, moving)
+		_pose.rpc_id(1, pos, yaw, vel)
 
 
 @rpc("any_peer", "unreliable_ordered")
-func _pose(pos: Vector3, yaw: float, moving: float) -> void:
+func _pose(pos: Vector3, yaw: float, vel: Vector3) -> void:
 	if multiplayer.is_server() and world != null:
-		world.host_pose(multiplayer.get_remote_sender_id(), pos, yaw, moving)
+		world.host_pose(multiplayer.get_remote_sender_id(), pos, yaw, vel.limit_length(30.0))
 
 
 ## Host -> everyone: all poses in one packet.
@@ -292,6 +293,57 @@ func broadcast_poses(poses: Dictionary) -> void:
 func _poses(poses: Dictionary) -> void:
 	if world != null:
 		world.client_poses(poses)
+
+
+## Host -> clients: loose item and prop states (scripts/physics/net_codec.gd).
+## The stream is unreliable_ordered on its own channel (so it never drops or
+## delays poses); keyframes (everything changed since the last one, or the full
+## state for a client that just loaded) are reliable. to_peer 0 = every client.
+func send_physics(data: PackedByteArray, reliable: bool, to_peer: int) -> void:
+	if not is_host():
+		return
+	if to_peer != 0:
+		if to_peer != 1 and roster.has(to_peer):
+			_physics_keyframe.rpc_id(to_peer, data)
+	elif reliable:
+		_send_to_roster("_physics_keyframe", [data])
+	else:
+		_send_to_roster("_physics", [data])
+
+
+@rpc("authority", "unreliable_ordered", "call_remote", 1)
+func _physics(data: PackedByteArray) -> void:
+	if world != null:
+		world.client_physics(data, false)
+
+
+@rpc("authority", "reliable")
+func _physics_keyframe(data: PackedByteArray) -> void:
+	if world != null:
+		world.client_physics(data, true)
+
+
+## Client -> host: my world is ready, send me every body's state.
+func request_physics_sync() -> void:
+	if is_online() and not is_host():
+		_physics_sync.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _physics_sync() -> void:
+	if multiplayer.is_server() and world != null:
+		world.host_physics_sync(multiplayer.get_remote_sender_id())
+
+
+## Host: smoothed round-trip time to a client, in seconds (0 if unknown).
+func peer_rtt(id: int) -> float:
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet == null or id == 1 or not is_online():
+		return 0.0
+	var packet_peer := enet.get_peer(id)
+	if packet_peer == null:
+		return 0.0
+	return packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME) / 1000.0
 
 
 ## Client -> host: "interact", "shove", "shoot" or "sabotage". The sender's

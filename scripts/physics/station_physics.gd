@@ -204,7 +204,7 @@ func _physics_process(delta: float) -> void:
 ## nudged to the nearest clear spot, or left out. Deterministic on every peer.
 func _validate_props() -> void:
 	for body in props:
-		var spot := _clear_spot(body, body.home)
+		var spot: Variant = _clear_spot(body, body.home)
 		if spot == null:
 			push_warning("StationPhysics: no clear spot for %s, leaving it out" % body.name)
 			body.process_mode = Node.PROCESS_MODE_DISABLED

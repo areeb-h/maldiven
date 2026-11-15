@@ -83,7 +83,7 @@ const STENCILS := {
 	"docking": ["FUEL LINE", "PAD CLEAR", "NO SMOKING"],
 	"commons": ["MESS", "RECREATION", "WASH HANDS"],
 	"observation": ["VIEWING DECK", "MIND THE STEP"],
-	"airlock": ["VACUUM HAZARD", "CYCLE 3.5 S"],
+	"airlock": ["VACUUM DANGER", "CYCLE 3.5 S"],
 }
 
 
@@ -2184,7 +2184,7 @@ static func _dress_medical(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	kit.box("metal", iv + Vector3(0, 1.88, 0), Vector3(0.4, 0.03, 0.03), GUNMETAL)
 	_cyl_collider(body, iv + Vector3(0, 0.95, 0), 0.25, 1.9)
 	_reg("iv_stand", iv + Vector3(0, 0.95, 0), Vector3(0.5, 1.9, 0.5))
-	_crate(kit, body, Vector3(-1.0, 0, 25.3), Vector3(1.0, 0.9, 0.8), Color(0.82, 0.84, 0.86), 0.0, "+")
+	_crate(kit, body, Vector3(-1.0, 0, 25.3), Vector3(1.0, 0.9, 0.8), Color(0.82, 0.84, 0.86), 0.0, "MED")
 	_potted_plant(kit, body, Vector3(-6.4, 0, 25.4), 13)
 
 
@@ -2268,7 +2268,7 @@ static func _dress_airlock(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	kit.box("metal", c + Vector3(0, 0.006, 0), Vector3(1.6, 0.012, 1.6), Color(0.18, 0.19, 0.2))
 	for i in range(7):
 		kit.box("painted", c + Vector3(-0.6 + float(i) * 0.2, 0.013, 0), Vector3(0.06, 0.004, 1.4), Color(0.04, 0.04, 0.05))
-	_text(kit, "painted", "VACUUM HAZARD", c + Vector3(0.95, 0.012, 0), Vector3(1, 0, 0), 0.22, Color(0.95, 0.4, 0.15), true)
+	_text(kit, "painted", "VACUUM DANGER", c + Vector3(0.95, 0.012, 0), Vector3(1, 0, 0), 0.22, Color(0.95, 0.4, 0.15), true)
 	# Suit lockers on the north and south walls (a helmet behind each window).
 	for sz in [-1.0, 1.0]:
 		for i in range(2):

@@ -257,8 +257,14 @@ static func text_font() -> Font:
 ## centred on `t.origin` in the local XY plane and facing local +Z, so `t` reads
 ## like a Label3D transform. `height` is the em size in metres; text wider than
 ## `max_width` (when > 0) is scaled down to fit. Returns the final width.
+##
+## Glyph caveat (Godot 4.7.2 TextMesh with Rajdhani 700): "+" hangs the
+## triangulator and "Z" fails to triangulate, so both are refused here.
 func text(key: String, s: String, t: Transform3D, color: Color, height: float, max_width := 0.0) -> float:
 	if s.strip_edges().is_empty():
+		return 0.0
+	if s.contains("+") or s.contains("Z"):
+		push_warning("ArtMeshKit.text: '+' and 'Z' break TextMesh triangulation, skipped: " + s)
 		return 0.0
 	var tm: TextMesh = _text_cache.get(s)
 	if tm == null:

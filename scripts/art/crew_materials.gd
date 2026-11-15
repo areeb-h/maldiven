@@ -8,11 +8,11 @@ extends RefCounted
 
 enum { PRIMARY, SECONDARY, FABRIC, METAL, ACCENT, RUBBER, STATUS, LAMP, TRIM, DECAL, BLINK, VENT, GAUGE, SOLE }
 
-const BONE_COUNT := 23
+const BONE_COUNT := 19
 const EXPRESSIONS: Array[String] = ["neutral", "happy", "shocked", "angry", "suspicious", "hurt", "downed", "ghost"]
 
 const _SKIN := """
-uniform mat4 bones[23];
+uniform mat4 bones[19];
 varying flat float v_id;
 varying flat float v_bone;
 varying float v_model_y;

@@ -7,21 +7,18 @@ extends RefCounted
 ## and ankles, bearing balls in the shoulders, and plates that step into each other.
 
 enum { HIPS, SPINE, CHEST, NECK, HEAD, L_ARM, L_FORE, L_HAND, R_ARM, R_FORE, R_HAND, L_LEG, L_SHIN, L_FOOT, R_LEG, R_SHIN, R_FOOT,
-	L_FINGERS, L_THUMB, R_FINGERS, R_THUMB, ANTENNA, PACK }
+	ANTENNA, PACK }
 
 const BONE_NAMES: Array[String] = ["Hips", "Spine", "Chest", "Neck", "Head",
 	"LeftArm", "LeftForearm", "LeftHand", "RightArm", "RightForearm", "RightHand",
-	"LeftLeg", "LeftShin", "LeftFoot", "RightLeg", "RightShin", "RightFoot",
-	"LeftFingers", "LeftThumb", "RightFingers", "RightThumb", "Antenna", "Backpack"]
-const PARENTS: Array[int] = [-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15, 7, 7, 10, 10, 4, 2]
+	"LeftLeg", "LeftShin", "LeftFoot", "RightLeg", "RightShin", "RightFoot", "Antenna", "Backpack"]
+const PARENTS: Array[int] = [-1, 0, 1, 2, 3, 2, 5, 6, 2, 8, 9, 0, 11, 12, 0, 14, 15, 4, 2]
 const JOINTS: Array[Vector3] = [
 	Vector3(0, 0.97, 0), Vector3(0, 1.07, 0), Vector3(0, 1.21, -0.01), Vector3(0, 1.47, -0.012), Vector3(0, 1.555, -0.005),
 	Vector3(0.235, 1.425, -0.015), Vector3(0.235, 1.13, -0.015), Vector3(0.235, 0.86, -0.015),
 	Vector3(-0.235, 1.425, -0.015), Vector3(-0.235, 1.13, -0.015), Vector3(-0.235, 0.86, -0.015),
 	Vector3(0.1, 0.93, 0), Vector3(0.1, 0.505, 0), Vector3(0.1, 0.09, 0),
 	Vector3(-0.1, 0.93, 0), Vector3(-0.1, 0.505, 0), Vector3(-0.1, 0.09, 0),
-	Vector3(0.229, 0.776, -0.006), Vector3(0.22, 0.832, 0.035),
-	Vector3(-0.229, 0.776, -0.006), Vector3(-0.22, 0.832, 0.035),
 	Vector3(0, 1.648, -0.006), Vector3(0, 1.25, -0.13),
 ]
 
@@ -699,9 +696,6 @@ static func _visor(k: CrewMeshKit) -> void:
 static func _arm(k: CrewMeshKit, s: float) -> void:
 	var up := L_ARM if s > 0.0 else R_ARM
 	var fore := L_FORE if s > 0.0 else R_FORE
-	var hand := L_HAND if s > 0.0 else R_HAND
-	var fingers := L_FINGERS if s > 0.0 else R_FINGERS
-	var thumb := L_THUMB if s > 0.0 else R_THUMB
 	var x := JOINTS[up].x
 	var z0 := JOINTS[up].z
 	var out := Vector3(s, 0, 0)
@@ -755,29 +749,9 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	_shell(k, fore, T, 1.0, Vector3(x, 0.898, z0 + 0.003), Vector3(x, 0.926, z0 + 0.003), 0.0435, 0.045, s * 0.85, 4.9, 0.016, 0.006, 10, 1)
 	k.set_part(fore, A)
 	k.rounded_box(Vector3(x + s * 0.077, 0.995, z0 + 0.003), Vector3(0.003, 0.055, 0.026), 0.0, Basis.IDENTITY, 1)
-	# Wrist: crisp flex ribs under a flared glove cuff with a small light.
+	# Wrist: crisp flex ribs; the CrewHand glove (separate mesh on the hand bone)
+	# starts just below them.
 	_ribs(k, fore, Vector3(x, 0.876, z0 + 0.004), 1, 0.02, 0.047, 12)
-	k.set_part(hand, P, 0.85)
-	k.lathe(PackedVector2Array([Vector2(0.044, 0.83), Vector2(0.054, 0.836), Vector2(0.058, 0.858), Vector2(0.052, 0.866), Vector2(0.046, 0.864)]),
-		Transform3D(Basis.IDENTITY, Vector3(x, 0, z0 + 0.006)), 12, Vector2(0.92, 1.1), 0.0, TAU, PackedFloat32Array([0, 1, 0, 1, 0]))
-	k.set_part(hand, ST)
-	k.rounded_box(Vector3(x + s * 0.0545, 0.849, z0 + 0.006), Vector3(0.004, 0.012, 0.018), 0.0, Basis.IDENTITY, 1)
-	# Chunky glove: palm block, knuckle plate, three fingers and a thumb that curl.
-	k.set_part(hand, S, 1.05)
-	k.rounded_box(Vector3(x - s * 0.004, 0.808, z0 + 0.009), Vector3(0.056, 0.07, 0.098), 0.022, Basis.IDENTITY, 1)
-	k.set_part(hand, P, 0.9)
-	k.rounded_box(Vector3(x + s * 0.023, 0.792, z0 + 0.009), Vector3(0.014, 0.03, 0.094), 0.006, Basis(Vector3.BACK, s * 0.15), 1)
-	for i in 3:
-		var zf := z0 + 0.009 + (float(i) - 1.0) * 0.031
-		k.set_part(hand, R, 1.0)
-		k.set_blend(fingers, Vector3(x, 0.772, zf), Vector3.DOWN, 0.014)
-		k.capsule(Vector3(x - s * 0.006, 0.786, zf), Vector3(x - s * 0.01, 0.722, zf + 0.003), 0.0165, 0.0155, 6, 2, 2)
-	k.set_part(hand, R, 1.0)
-	var tb := Vector3(x - s * 0.014, 0.835, z0 + 0.05)
-	var tt := Vector3(x - s * 0.03, 0.79, z0 + 0.078)
-	k.set_blend(thumb, tb + (tt - tb) * 0.3, (tt - tb).normalized(), 0.012)
-	k.capsule(tb, tt, 0.016, 0.015, 6, 2, 1)
-	k.clear_blend()
 
 
 static func _leg(k: CrewMeshKit, s: float) -> void:

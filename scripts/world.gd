@@ -35,6 +35,9 @@ var _highlighted: Node3D
 var _flying := {}
 var _alarm_beat := 0
 var _alarm_on := false
+var physics: StationPhysics
+var _physics_synced := false
+var _impact_sound_ms := 0
 
 
 func _init(round_seed := -1) -> void:
@@ -67,9 +70,17 @@ func _ready() -> void:
 		node.name = "Item_" + item_id
 		add_child(node)
 		item_nodes[item_id] = node
+	# The physical layer: loose items, props, proxies, decompression, replication.
+	physics = StationPhysics.new()
+	physics.setup(self, rules, Net.is_host(), item_nodes)
+	physics.emit_event = host_emit
+	physics.peer_rtt = Net.peer_rtt
+	physics.send_stream = Net.send_physics
+	add_child(physics)
+	for item_id in item_nodes:
 		var kind: String = StationLayout.ITEMS[item_id].kind
 		if kind in ["cell", "core"]:
-			_fx("attach_item_fx", [node, kind])
+			_fx("attach_item_fx", [item_nodes[item_id], kind])
 	var ids := Net.roster.keys()
 	ids.sort()
 	for index in range(ids.size()):
@@ -94,10 +105,12 @@ func _ready() -> void:
 	hud.crew = local
 	hud.is_host = Net.is_host()
 	layer.add_child(hud)
+	hud.camera = local.camera if local != null else null
 	hud.action_pressed.connect(_on_action)
 	hud.leave_pressed.connect(func(): leave_requested.emit())
 	hud.lobby_pressed.connect(func(): Net.back_to_lobby())
 	if Net.is_host():
+		rules.physics_driven = true
 		var rng := RandomNumberGenerator.new()
 		if _seed >= 0:
 			rng.seed = _seed
@@ -166,9 +179,10 @@ func _line_of_sight(from: Vector3, to: Vector3) -> bool:
 
 # --- Host side ---------------------------------------------------------------
 
-func host_pose(id: int, pos: Vector3, yaw: float, moving: float) -> void:
+func host_pose(id: int, pos: Vector3, yaw: float, vel: Vector3) -> void:
 	rules.set_pose(id, pos, yaw)
-	_moving[id] = moving
+	_moving[id] = Vector2(vel.x, vel.z).length()
+	physics.on_pose(id, pos, vel)
 
 
 func host_request(id: int, action: String, pos: Vector3, yaw: float) -> void:
@@ -196,10 +210,39 @@ func host_player_left(id: int) -> void:
 func _flush_events() -> void:
 	for event in rules.drain_events():
 		_dirty = true
-		if event.type == "result":
+		physics.on_event(event)
+		if event.type == "result" or event.type == "swing":
 			continue
 		Net.broadcast_event(event)
 		client_event(event)
+
+
+## Host: a physics-made event (a prop slamming into someone) for every peer.
+func host_emit(event: Dictionary) -> void:
+	Net.broadcast_event(event)
+	client_event(event)
+
+
+## Host: a client's world is up; give it every body's current state.
+func host_physics_sync(peer_id: int) -> void:
+	physics.send_full_state(peer_id)
+
+
+## Client: physics stream / keyframe from the host.
+func client_physics(data: PackedByteArray, reliable: bool) -> void:
+	physics.receive(data, reliable)
+
+
+## Any peer: a loose item or prop hit something hard enough to hear.
+func physics_impact(at: Vector3, strength: float, is_prop: bool, kind: String) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _impact_sound_ms < 40:
+		return
+	_impact_sound_ms = now
+	var heavy := kind in ["barrel", "crate", "cart", "core"]
+	sfx.play("drop", at, lerpf(-16.0, -3.0, strength) + (2.0 if heavy else 0.0))
+	if strength > 0.45:
+		_fx("burst", ["footstep_dust", at, Vector3.UP])
 
 
 func _broadcast_snapshot() -> void:
@@ -220,6 +263,9 @@ func client_role(next_role: String) -> void:
 func client_snapshot(snapshot: Dictionary) -> void:
 	rules.apply_snapshot(snapshot, my_id, role)
 	_has_snapshot = true
+	if not _physics_synced:
+		_physics_synced = true
+		Net.request_physics_sync()
 	for id in avatars.keys():
 		if not rules.players.has(id):
 			_remove_avatar(id)
@@ -249,6 +295,8 @@ func client_event(event: Dictionary) -> void:
 						sfx.play("insert_cell")
 		"shoved":
 			var target := int(event.target)
+			var by_item: bool = event.get("item", false)
+			var strength := 0.55 if by_item else 1.0
 			if avatars.has(target):
 				var at: Vector3 = avatars[target].global_position + Vector3(0, 1.1, 0)
 				sfx.play("shove", at)
@@ -256,11 +304,24 @@ func client_event(event: Dictionary) -> void:
 				if avatars[target].visual.has_method("play_hit"):
 					avatars[target].visual.play_hit()
 				avatars[target].express("hurt")
-			if avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("play_shove"):
+				if avatars[target].reactions != null:
+					avatars[target].reactions.stagger(event.dir, strength)
+			if not by_item and avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("play_shove"):
 				avatars[int(event.by)].visual.play_shove()
 			if target == my_id and local != null:
-				local.knockback(event.dir)
-				local.camera_kick(0.5)
+				local.knockback(event.dir, 0.6 if by_item else 1.0)
+				local.camera_kick(0.4 if by_item else 0.5)
+		"bumped":
+			var target := int(event.target)
+			var strength := float(event.get("strength", 0.5))
+			if avatars.has(target):
+				sfx.play("shove", avatars[target].global_position + Vector3(0, 1.0, 0), -6.0)
+				if avatars[target].reactions != null:
+					avatars[target].reactions.stagger(event.dir, strength * 0.8)
+				avatars[target].express("shocked", 0.6)
+			if target == my_id and local != null:
+				local.knockback(event.dir, strength)
+				local.camera_kick(0.35 * strength + 0.1)
 		"shot":
 			var from: Vector3 = event.from
 			var to: Vector3 = event.to
@@ -274,6 +335,13 @@ func client_event(event: Dictionary) -> void:
 		"downed":
 			sfx.play("downed", event.at)
 			_fx("burst", ["downed", event.at])
+			var target := int(event.target)
+			if avatars.has(target):
+				var avatar: CrewMember = avatars[target]
+				var yaw := float(event.get("yaw", avatar.facing_yaw()))
+				if avatar.reactions != null:
+					avatar.reactions.collapse(event.get("dir", Vector3.ZERO), event.at, yaw)
+				avatar.snap_facing(yaw)
 		"revived":
 			if int(event.target) == my_id and local != null:
 				local.position = event.at
@@ -282,9 +350,15 @@ func client_event(event: Dictionary) -> void:
 			sfx.play("revive", event.at)
 			_fx("burst", ["revive", event.at])
 		"spaced":
-			_fx("burst", ["spaced", event.at])
+			var eject := (StationPhysics.airlock_door() - Vector3(event.at)).normalized()
+			_fx("burst", ["spaced", event.at, eject * 4.0])
+			var target := int(event.target)
+			if avatars.has(target) and avatars[target].reactions != null:
+				avatars[target].reactions.space_out(eject)
 		"thrown":
 			sfx.play("throw", rules.item_position(event.item))
+			if avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("play_shove"):
+				avatars[int(event.by)].visual.play_shove()
 			if item_nodes.has(event.item):
 				var trail_color := Color(0.28, 0.92, 1.0) if rules.items[event.item].kind == "core" else Color(1.0, 0.6, 0.14)
 				_fx("attach_trail", [item_nodes[event.item], trail_color])
@@ -304,6 +378,12 @@ func client_event(event: Dictionary) -> void:
 					_fx("burst", ["airlock_vent", StationLayout.to_world(room.center, 1.0), Vector3.LEFT])
 					if local != null and StationLayout.room_at(local.position) in ["airlock", "commons"]:
 						local.camera_kick(0.8)
+					# The gust as the outer door blows: anyone near the inner door
+					# (but not in the chamber, already lost) is yanked towards it.
+					if local != null and rules.state_of(my_id) == StationRules.OK:
+						var gust := StationPhysics.airlock_falloff(local.position)
+						if gust > 0.0 and gust < 1.0:
+							local.knockback(StationPhysics.airlock_dir(local.position), 0.25 + 0.4 * gust)
 
 
 func _remove_avatar(id: int) -> void:
@@ -335,6 +415,8 @@ func _process(delta: float) -> void:
 			rules.shuttle_left = maxf(0.0, rules.shuttle_left - delta)
 		if rules.pod_left >= 0.0:
 			rules.pod_left = maxf(0.0, rules.pod_left - delta)
+		if rules.airlock_state != "idle":
+			rules.airlock_left = maxf(0.0, rules.airlock_left - delta)
 	_update_player_states()
 	if local != null:
 		local.speed_factor = rules.speed_factor(my_id)
@@ -343,12 +425,13 @@ func _process(delta: float) -> void:
 		local.aiming = rules.holds_gun(my_id)
 		var downed: bool = me.get("state", StationRules.OK) == StationRules.DOWNED
 		local.forced_position = me.pos if downed else null  # the host places downed bodies
+		local.external_push = physics.airlock_push(local.global_position) if not downed else Vector3.ZERO
 		if not downed and not host:
 			rules.set_pose(my_id, local.position, local.facing_yaw())
 		_pose_timer -= delta
 		if _pose_timer <= 0.0:
 			_pose_timer = POSE_INTERVAL
-			Net.send_pose(local.position, local.facing_yaw(), local.moving_amount())
+			Net.send_pose(local.position, local.facing_yaw(), local.velocity)
 			if host:
 				var poses := {}
 				for id in rules.players:
@@ -363,6 +446,7 @@ func _process(delta: float) -> void:
 	var action := rules.available_action(my_id)
 	_update_highlight(action)
 	hud.update_state(rules, action, my_id)
+	hud.set_world_markers(StationHud.markers_for(rules, my_id))
 
 
 ## Outline whatever the Interact button would act on.
@@ -449,10 +533,13 @@ func _update_player_states() -> void:
 			if id == my_id:
 				sfx.set_ghost_mode(state == StationRules.DEAD)
 		# Ghosts are only visible to other ghosts.
-		avatar.visible = state != StationRules.DEAD or i_am_dead
+		avatar.visible = (state != StationRules.DEAD or i_am_dead) \
+			and not (avatar.reactions != null and avatar.reactions.body_hidden())
 		var body: int = rules.players[id].body if rules.players.has(id) else 0
 		avatar.carrying_body = body != 0
-		avatar.set_carried(rules.players.has(id) and int(rules.players[id].carried_by) != 0)
+		var carried_by := int(rules.players[id].carried_by) if rules.players.has(id) else 0
+		avatar.carrier = avatars.get(carried_by) if carried_by != 0 else null
+		avatar.set_carried(carried_by != 0)
 	hud.set_life_state(rules.state_of(my_id), float(rules.players.get(my_id, {}).get("down_until", 0.0)) - rules.elapsed)
 
 
@@ -466,11 +553,8 @@ func _update_items() -> void:
 		if item.flight.is_empty() and _flying.has(item_id):
 			_flying.erase(item_id)
 			_fx("detach_trail", [node])
-		if not item.flight.is_empty():
-			if node.get_parent() != self:
-				node.reparent(self, false)
-			node.transform = Transform3D(Basis(Vector3.UP, rules.elapsed * 9.0), rules.item_position(item_id))
-		elif holder != 0 and avatars.has(holder):
+		var body := physics.item_body(item_id) if holder == 0 and item.socket == "" else null
+		if holder != 0 and avatars.has(holder):
 			var point: Node3D = avatars[holder].hand_point if item.kind == "gun" else avatars[holder].carry_point
 			if node.get_parent() != point:
 				node.reparent(point, false)
@@ -480,10 +564,15 @@ func _update_items() -> void:
 			if node.get_parent() != socket:
 				node.reparent(socket, false)
 			node.transform = socket.get_seat_transform()
+		elif body != null:
+			# Loose: the visual rides its physics body (host) or replica (client).
+			if node.get_parent() != body:
+				node.reparent(body, false)
+			node.transform = Transform3D.IDENTITY
 		else:
 			if node.get_parent() != self:
 				node.reparent(self, false)
-			node.transform = Transform3D(Basis.IDENTITY, item.pos)
+			node.transform = Transform3D(Basis(item.get("rot", Quaternion.IDENTITY)), item.pos)
 		if item.kind == "gun" and node.has_method("set_ammo"):
 			node.set_ammo(int(item.ammo))
 

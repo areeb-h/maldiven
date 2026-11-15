@@ -385,7 +385,7 @@ func _apply_steps(delta: float, w: float) -> void:
 		var target_model: Vector3 = root.affine_inverse() * pos
 		var local_target := hips.affine_inverse() * target_model
 		var pole := hips.basis.inverse() * Vector3(s * 0.12, 0.0, 1.0)
-		var ik: Array = CrewModel._two_bone(bones[thigh].position, local_target, pole, 0.425, 0.415, 1.0)
+		var ik: Array = _two_bone(bones[thigh].position, local_target, pole, 0.425, 0.415, 1.0)
 		bones[thigh].basis = Basis(bones[thigh].basis.get_rotation_quaternion().slerp((ik[0] as Basis).get_rotation_quaternion(), w))
 		bones[shin].basis = Basis(bones[shin].basis.get_rotation_quaternion().slerp((ik[1] as Basis).get_rotation_quaternion(), w))
 		var shin_basis: Basis = hips.basis * bones[thigh].basis * bones[shin].basis
@@ -517,3 +517,24 @@ static func _arc(from: Vector3, to: Vector3) -> Basis:
 	if axis.length_squared() < 1e-10:
 		return Basis.IDENTITY if d > 0.0 else Basis(Vector3.UP if absf(a.y) < 0.9 else Vector3.RIGHT, PI)
 	return Basis(axis.normalized(), acos(d))
+
+
+## Analytic two-bone IK in the parent's space (same convention as the rig:
+## bones point down -Y at rest, the lower bone hinges on its local X;
+## bend_sign +1 for knees). Kept here so this layer never depends on the
+## model script's internals.
+static func _two_bone(root: Vector3, target: Vector3, pole: Vector3, l1: float, l2: float, bend_sign: float) -> Array:
+	var to := target - root
+	var dist := clampf(to.length(), absf(l1 - l2) + 0.01, (l1 + l2) * 0.9995)
+	var dir := to.normalized() if to.length_squared() > 1e-8 else Vector3.DOWN
+	var pp := pole - dir * pole.dot(dir)
+	if pp.length_squared() < 1e-8:
+		pp = Vector3.FORWARD.cross(dir)
+	pp = pp.normalized()
+	var alpha := acos(clampf((l1 * l1 + dist * dist - l2 * l2) / (2.0 * l1 * dist), -1.0, 1.0))
+	var gamma := acos(clampf((l1 * l1 + l2 * l2 - dist * dist) / (2.0 * l1 * l2), -1.0, 1.0))
+	var u := dir * cos(alpha) + pp * sin(alpha)
+	var k := pp.cross(dir).normalized() * bend_sign
+	var y := -u
+	var z := k.cross(y).normalized()
+	return [Basis(k, y, z).orthonormalized(), Basis(Vector3.RIGHT, bend_sign * (PI - gamma))]
