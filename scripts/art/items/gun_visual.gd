@@ -6,14 +6,15 @@ extends Node3D
 ## readout the shooter sees over the shoulder (0-3 lit; the last one throbs), a
 ## vented shroud, a brushed muzzle crown with a cyan glow ring and an under-barrel
 ## capacitor pod. One draw call.
-## Origin at the grip (where the hand anchor closes), barrel along +Z, top +Y;
-## the pommel sits just below the origin so a dropped gun stands on its grip.
+## Origin at the middle of the grip (where the hand closes), barrel along +Z, top +Y.
+## The grip (3.3 x 4.8 x 10 cm) fits the crew glove; the pommel reaches ~5 cm below
+## the origin, so a gun lying loose sits slightly sunk on its pommel.
 
 const SHELL := Color(0.92, 0.92, 0.9)
 const ACCENT := Color(1.0, 0.42, 0.12)
 const CHARGE := Color(0.32, 1.0, 0.78)
 const GRIP_TILT := 0.24
-const GRIP_C := Vector3(0.0, 0.016, -0.012)
+const GRIP_C := Vector3(0.0, 0.002, -0.012)
 
 static var _mesh: ArrayMesh
 
@@ -46,22 +47,23 @@ static func mesh() -> ArrayMesh:
 	var k := ItemKit.new()
 	var tilt := Basis(Vector3.RIGHT, GRIP_TILT)
 	var up := tilt * Vector3.UP
-	# Grip: graphite core, rubber side panels, orange pommel cap.
+	# Grip sized for the crew glove: 3.3 cm wide (core + rubber panels), 4.8 cm
+	# front-to-back, 10 cm from the frame to the pommel, centred on the origin.
 	k.part(ItemKit.GRAPHITE, 0.9)
-	k.rounded_box(GRIP_C, Vector3(0.032, 0.078, 0.044), 0.012, tilt)
+	k.rounded_box(GRIP_C, Vector3(0.026, 0.092, 0.048), 0.011, tilt)
 	k.part(ItemKit.RUBBER)
 	for s in [-1.0, 1.0]:
-		k.rounded_box(GRIP_C + tilt * Vector3(s * 0.0165, -0.002, 0.002), Vector3(0.006, 0.062, 0.036), 0.0028, tilt)
+		k.rounded_box(GRIP_C + tilt * Vector3(s * 0.0143, -0.004, 0.001), Vector3(0.0044, 0.07, 0.04), 0.002, tilt)
 	k.part(ItemKit.SHELL_B)
-	k.rounded_box(GRIP_C - up * 0.039 + tilt * Vector3(0, 0, -0.002), Vector3(0.038, 0.014, 0.052), 0.0065, tilt)
-	# Frame (lower receiver) in graphite, trigger guard and trigger.
+	k.rounded_box(GRIP_C - up * 0.045 + tilt * Vector3(0, 0, -0.001), Vector3(0.032, 0.012, 0.052), 0.0055, tilt)
+	# Frame (lower receiver) in graphite; a one-finger trigger guard and trigger.
 	k.part(ItemKit.GRAPHITE)
 	k.rounded_box(Vector3(0.0, 0.066, 0.045), Vector3(0.046, 0.036, 0.23), 0.012)
 	k.part(ItemKit.GRAPHITE, 1.1)
-	k.tube(PackedVector3Array([Vector3(0, 0.05, 0.026), Vector3(0, 0.012, 0.032), Vector3(0, -0.002, 0.06),
-		Vector3(0, 0.006, 0.094), Vector3(0, 0.05, 0.108)]), 0.0055, 6, 10)
+	k.tube(PackedVector3Array([Vector3(0, 0.05, 0.022), Vector3(0, 0.012, 0.025), Vector3(0, -0.003, 0.046),
+		Vector3(0, 0.006, 0.07), Vector3(0, 0.05, 0.076)]), 0.005, 6, 10)
 	k.part(ItemKit.SHELL_B)
-	k.rounded_box(Vector3(0, 0.03, 0.052), Vector3(0.009, 0.034, 0.012), 0.0036, Basis(Vector3.RIGHT, 0.32))
+	k.rounded_box(Vector3(0, 0.03, 0.04), Vector3(0.009, 0.03, 0.011), 0.0036, Basis(Vector3.RIGHT, 0.3))
 	# Upper shell: glossy white with panel lines, orange spine.
 	k.part(ItemKit.SHELL_A)
 	k.rounded_box(Vector3(0.0, 0.113, 0.052), Vector3(0.062, 0.058, 0.264), 0.018)

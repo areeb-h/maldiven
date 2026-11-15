@@ -13,6 +13,12 @@ const MAX_WIDTH := 560.0
 const PRIORITY := {"pod": 5, "spaced": 4, "abort": 4, "power": 3, "shuttle": 3, "blackout": 2,
 	"down": 2, "airlock": 2, "gun": 1, "info": 0}
 
+## Lowered to 1 while a centre countdown owns the upper third.
+var max_visible := MAX_VISIBLE:
+	set(value):
+		max_visible = value
+		_trim()
+
 var _items: Array = []  # {node, stripe, text, kind, life, y, leaving}
 
 
@@ -28,15 +34,21 @@ func push(text: String, kind: String) -> void:
 			return
 	var item := _build(text, kind)
 	_items.push_front(item)
+	_trim()
+	_layout(true)
+
+
+## Over the limit: the least important, oldest banner leaves early.
+func _trim() -> void:
 	var visible_items := _items.filter(func(entry): return not entry.leaving)
-	if visible_items.size() > MAX_VISIBLE:
-		# Drop the least important, oldest banner.
+	while visible_items.size() > max_visible and visible_items.size() > 1:
 		var victim: Dictionary = {}
 		for entry in visible_items.slice(1):
 			if victim.is_empty() or PRIORITY.get(entry.kind, 0) <= PRIORITY.get(victim.kind, 0):
 				victim = entry
 		_leave(victim, UiMotion.EXIT)
-	_layout(true)
+		visible_items.erase(victim)
+	_layout(false)
 
 
 func clear() -> void:

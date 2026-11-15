@@ -53,15 +53,7 @@ static func _base_mats() -> Dictionary:
 ## "cell", "core" or "gun". Origin at the item's bottom centre. The gun's
 ## barrel points along -Z and its root has set_ammo(n) for 0-3 charge cells.
 static func make_item(kind: String) -> Node3D:
-	if kind == "gun":
-		return _build_gun()
-	var root := Node3D.new()
-	root.name = "Core" if kind == "core" else "Cell"
-	if kind == "core":
-		_build_core(root)
-	else:
-		_build_cell(root)
-	return root
+	return ItemFactory.make(kind)  # scripts/art/items/ (gun: grip at origin, barrel +Z)
 
 
 static func _build_gun() -> Node3D:
