@@ -67,7 +67,7 @@ func shot_trio(out: String) -> Error:
 	var c := stage(1.7)
 	stage_item("cell", Transform3D(Basis(Vector3.UP, deg_to_rad(30.0)), c + Vector3(-0.75, 0, -0.1)))
 	stage_item("core", Transform3D(Basis.IDENTITY, c + Vector3(0.05, 0, -0.35)))
-	stage_item("gun", Transform3D(Basis.from_euler(Vector3(0.0, deg_to_rad(-60.0), deg_to_rad(90.0))), c + Vector3(0.75, 0.05, 0.15)))
+	stage_item("gun", Transform3D(Basis.from_euler(Vector3(0.0, deg_to_rad(150.0), deg_to_rad(90.0))), c + Vector3(0.45, 0.05, 0.55)))
 	product_lights(c + Vector3(0, 0.3, 0), Color(1.0, 0.5, 0.15), CYAN, 1.0)
 	frame(c + Vector3(0.0, 0.6, 2.1), c + Vector3(0, 0.28, -0.1), 30.0, c + Vector3(0, 0.3, 0), 1.2, 0.08)
 	return await capture(out, "04_items_trio.png", 6)

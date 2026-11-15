@@ -73,7 +73,7 @@ func shot_roster(out: String) -> Error:
 	spot(c + Vector3(5.5, 2.5, 5.0), c + Vector3(0, 1.0, 0), COOL, 2.0, 40.0, 16.0, false, 0.2)
 	spot(c + Vector3(-5.5, 2.8, -3.5), c + Vector3(-1.5, 1.2, 0), Color(0.6, 0.4, 1.0), 12.0, 40.0, 12.0)
 	spot(c + Vector3(5.5, 2.8, -3.5), c + Vector3(1.5, 1.2, 0), CYAN, 12.0, 40.0, 12.0)
-	frame(cam, c + Vector3(0, 1.2, 0), 28.0, c + Vector3(0, 1.3, 0), 3.0, 0.05)
+	frame(cam, c + Vector3(0, 1.15, 0), 34.0, c + Vector3(0, 1.3, 0), 3.0, 0.05)
 	return await capture(out, "02_roster_all_colours.png")
 
 
@@ -222,7 +222,7 @@ func shot_turntable(out: String) -> Error:
 	spot(base + Vector3(-3.0, 3.2, 4.0), base + Vector3(0, 1.0, 0), Color(1.0, 0.96, 0.92), 5.0, 45.0, 12.0, true, 0.3)
 	spot(base + Vector3(3.5, 2.0, 3.5), base + Vector3(0, 1.0, 0), COOL, 1.6, 45.0, 12.0, false, 0.2)
 	spot(base + Vector3(0, 3.0, -1.5), base + Vector3(0, 1.4, 0.2), Color(0.6, 0.8, 1.0), 5.0, 60.0, 6.0)
-	frame(cam, base + Vector3(0, 0.98, 0), 17.0, base + Vector3(0, 1.0, 0), 2.0, 0.04, false)
+	frame(cam, base + Vector3(0, 0.98, 0), 19.0, base + Vector3(0, 1.0, 0), 2.0, 0.04, false)
 	return await capture(out, "07_turntable_trio.png")
 
 

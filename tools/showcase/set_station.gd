@@ -55,7 +55,7 @@ func shot_overhead(out: String) -> Error:
 			pose_stride(m, s[3], 0.3, s[0] == "green")
 		else:
 			pose(m, 1.2)
-	frame(Vector3(6.0, 27.0, 25.0), Vector3(16.0, 0.0, -3.0), 38.0, Vector3(12.0, 3.4, 0.5), 6.0, 0.16)
+	frame(Vector3(6.0, 27.0, 25.0), Vector3(16.0, 0.0, -3.0), 38.0, Vector3(15.0, 3.4, 2.5), 6.0, 0.16)
 	return await capture(out, "02_overhead_tilt_shift.png")
 
 
@@ -63,7 +63,7 @@ func shot_overhead(out: String) -> Error:
 ## planet over the north wall, two crew chatting by the tables.
 func shot_commons(out: String) -> Error:
 	begin_shot("restored", 2103)
-	extras([["yellow", Vector3(1.6, 0, 1.4), -120.0, "happy"], ["blue", Vector3(0.5, 0, 0.6), 60.0, "happy"]])
+	extras([["yellow", Vector3(1.6, 0, 1.4), -120.0, "happy"], ["blue", Vector3(-0.4, 0, 1.7), 95.0, "happy"]])
 	frame(Vector3(6.0, 2.3, 6.4), Vector3(-1.0, 1.2, -2.5), 62.0, Vector3(1.0, 1.4, 1.0), 6.0, 0.03)
 	return await capture(out, "03_commons.png")
 
