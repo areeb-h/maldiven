@@ -64,7 +64,9 @@ def main():
     parser.add_argument('--label', required=True, help='Short slug, e.g. art-pass-1')
     parser.add_argument('--note', default='', help='One or two lines about what changed')
     parser.add_argument('--godot')
-    parser.add_argument('--renderer', default='gl_compatibility')
+    parser.add_argument('--renderer', default='mobile')
+    parser.add_argument('--from-dir', type=Path, help='Archive existing PNG renders (sorted) instead of capturing')
+    parser.add_argument('--max', type=int, default=20)
     args = parser.parse_args()
     date = datetime.date.today().isoformat()
     slug = f'{date}-{args.label}'
@@ -75,6 +77,11 @@ def main():
     commit = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--short', 'HEAD'],
                             capture_output=True, text=True).stdout.strip()
     frames = {}
+    if args.from_dir:
+        kept = []
+        for index, png in enumerate(sorted(args.from_dir.glob('*.png'))[:args.max]):
+            kept.append(convert(png, folder / f'{index:02d}_{png.stem.split("_", 1)[-1]}'))
+        return _write_entry(args, date, slug, commit, kept, 'studio/station renders')
     with tempfile.TemporaryDirectory(prefix='looks-') as temp:
         for run in ('crew', 'infiltrator'):
             out = Path(temp) / run
@@ -86,10 +93,15 @@ def main():
         for index, key in enumerate(k for k in CURATED if k in frames):
             target = convert(frames[key], folder / f'{index:02d}_{key[0]}_{key[1]}')
             kept.append(target)
+    return _write_entry(args, date, slug, commit, kept, None)
+
+
+def _write_entry(args, date, slug, commit, kept, source):
+    folder = LOOKS / slug
     if not kept:
         print('No frames captured; nothing recorded.')
         return 1
-    renderer = 'GL Compatibility (software, cloud capture)' if args.renderer == 'gl_compatibility' else args.renderer
+    renderer = source or ('GL Compatibility (software, cloud capture)' if args.renderer == 'gl_compatibility' else f'{args.renderer} renderer (software Vulkan in the cloud)')
     lines = [f'## {date} · {args.label}', '',
              f'Commit `{commit}` · {renderer} · {len(kept)} frames · [folder]({slug}/)', '']
     if args.note:
@@ -104,10 +116,9 @@ def main():
         lines.append(f'| {cell(left)} | {cell(right)} |')
     lines.append('')
     readme = LOOKS / 'README.md'
-    header = ('# Looks log\n\nHow Drift Station looks over time, newest first. Recorded with '
-              '`python tools/record_looks.py --label <slug> --note "..."`, which plays real bot '
-              'rounds on a rendered client. Cloud captures use the GL Compatibility renderer; '
-              'phones use the Mobile renderer, so lighting differs slightly.\n\n')
+    header = ('# Looks log\n\nHow Drift Station looks over time, newest first. Gameplay entries come from '
+              '`python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a '
+              'rendered client with the Mobile renderer; `--from-dir` archives studio renders.\n\n')
     previous = readme.read_text().split('\n', 1)[1] if readme.exists() else ''
     body = previous[previous.find('## '):] if '## ' in previous else ''
     readme.write_text(header + '\n'.join(lines) + '\n' + body)
