@@ -241,9 +241,10 @@ func _update_safe_area() -> void:
 
 func _build_vignette() -> void:
 	var gradient := Gradient.new()
-	gradient.set_color(0, Color(0, 0, 0, 0))
-	gradient.set_color(1, Color(0, 0, 0, 0.55))
-	gradient.add_point(0.62, Color(0, 0, 0, 0.0))
+	# White ramp: the colour comes from modulate (black calm, red alarm, blue-black blackout).
+	gradient.set_color(0, Color(1, 1, 1, 0))
+	gradient.set_color(1, Color(1, 1, 1, 0.55))
+	gradient.add_point(0.62, Color(1, 1, 1, 0.0))
 	var texture := GradientTexture2D.new()
 	texture.gradient = gradient
 	texture.fill = GradientTexture2D.FILL_RADIAL
@@ -255,6 +256,7 @@ func _build_vignette() -> void:
 	_vignette.texture = texture
 	_vignette.stretch_mode = TextureRect.STRETCH_SCALE
 	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vignette.modulate = Color(0, 0, 0, 0.85)
 	add_child(_vignette)
 	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
@@ -823,8 +825,9 @@ func _process(delta: float) -> void:
 		_markers.origin = crew.global_position
 	# Vignette: red pulse for alarms (~1.6 Hz), cold tint in a blackout.
 	var red := _danger * (0.55 + 0.45 * sin(_pulse * 10.0))
-	var cold := _cold * 0.5
-	var target := Color(1.0 - cold * 0.6, 1.0 - red * 0.85 - cold * 0.4, 1.0 - red * 0.85, 0.85 + red * 0.15 + cold * 0.15)
+	var target := Color(0, 0, 0, 0.85)
+	target = target.lerp(Color(0.01, 0.03, 0.09, 1.0), _cold)
+	target = target.lerp(Color(0.75, 0.02, 0.06, 1.0), red * 0.85)
 	_vignette.modulate = _vignette.modulate.lerp(target, 1.0 - exp(-delta * 8.0))
 	_update_timer_look(delta)
 	if _role_word.modulate.a > 0.0:
@@ -1236,8 +1239,11 @@ func _draw_button(c: CanvasItem, id: String) -> void:
 		_draw_content(c, pos, radius, look.icon, look.text, UiStyle.with_alpha(UiStyle.TEXT, content_alpha * 0.95), UiStyle.with_alpha(color, content_alpha))
 	if id == "shoot":
 		for pip in range(StationRules.GUN_AMMO):
-			var at := pos + Vector2((pip - (StationRules.GUN_AMMO - 1) / 2.0) * 16.0, radius + 14.0)
-			UiIcons.draw(c, "ammo", at, 16.0, UiStyle.with_alpha(color, alpha) if pip < _ammo else Color(1, 1, 1, 0.2 * alpha))
+			# One round = one bullet pip (rounded tip on a short body).
+			var at := pos + Vector2((pip - (StationRules.GUN_AMMO - 1) / 2.0) * 13.0, radius + 15.0)
+			var tint := UiStyle.with_alpha(color, alpha) if pip < _ammo else Color(1, 1, 1, 0.22 * alpha)
+			c.draw_rect(Rect2(at + Vector2(-3.5, -3.0), Vector2(7.0, 9.0)), tint)
+			c.draw_circle(at + Vector2(0, -3.0), 3.5, tint)
 
 
 ## Icon above a short label, fitted inside the circle (two lines when needed).

@@ -19,7 +19,7 @@ const STATES := {
 		"ambient": 0.7, "ambient_color": Color(0.62, 0.66, 0.76), "sun": 1.3, "fill": 0.25,
 		"light": 1.4, "light_mix": 1.0, "pulse": 0.0,
 		"trim": 1.6, "door": 1.9, "emergency": 0.0, "ceiling": 1.4, "guide": 0.8, "screen": 1.4,
-		"beacon": 0.0, "reactor": 1.35, "label": 1.3, "nav": 1.5,
+		"beacon": 0.0, "reactor": 1.2, "label": 1.3, "nav": 1.5,
 		"sign": 1.25, "blink": 1.8, "breathe": 1.5, "flicker": 1.6, "glow": 1.2, "exposure": 1.0,
 		"fog_color": Color(0.08, 0.1, 0.14), "fog_density": 0.005,
 	},

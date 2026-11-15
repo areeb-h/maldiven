@@ -162,8 +162,10 @@ func space_out(dir: Vector3) -> void:
 	var d := dir.normalized() if dir.length() > 0.01 else Vector3.LEFT
 	for bone in rd.parts:
 		(rd.parts[bone] as RigidBody3D).linear_velocity = d * 10.5 + Vector3.UP * 0.6
-	rd.spin(Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized() * randf_range(3.0, 5.0))
-	rd.impulse(B.HEAD, d * 3.0)
+	rd.spin(Vector3(randf_range(-1, 1), randf_range(-0.4, 0.4), randf_range(-1, 1)).normalized() * randf_range(4.5, 7.0))
+	# Limbs flung every which way by the blast.
+	for bone in [B.L_FORE, B.R_FORE, B.L_SHIN, B.R_SHIN, B.HEAD]:
+		rd.impulse(bone, Vector3(randf_range(-1, 1), randf_range(-0.5, 1), randf_range(-1, 1)) * 6.0 + d * 2.0)
 	hide_body_until = Time.get_ticks_msec() + 1500
 	var fade := corpse.create_tween()
 	fade.tween_interval(1.25)

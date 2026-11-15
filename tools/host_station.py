@@ -110,7 +110,7 @@ _GLYPHS = {
     '4': ['█ █', '█ █', '███', '  █', '  █'], '5': ['███', '█  ', '███', '  █', '███'],
     '6': ['███', '█  ', '███', '█ █', '███'], '7': ['███', '  █', '  █', '  █', '  █'],
     '8': ['███', '█ █', '███', '█ █', '███'], '9': ['███', '█ █', '███', '  █', '███'],
-    '.': ['   ', '   ', '   ', '   ', ' █ '], ':': ['   ', ' █ ', '   ', ' █ ', '   '],
+    '.': [' ', ' ', ' ', ' ', '█'], ':': [' ', '█', ' ', '█', ' '],
 }
 
 
@@ -285,6 +285,17 @@ def prepare_project(engine, project, console):
     stamp.write_text(json.dumps({'newest': newest, 'at': time.time()}))
 
 
+def _kill_tree(process, force):
+    """Windows: the console exe starts the real engine as its child, so end the whole tree."""
+    if os.name == 'nt':
+        subprocess.run(['taskkill', '/T', '/PID', str(process.pid)] + (['/F'] if force else []),
+                       capture_output=True, timeout=10, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    elif force:
+        process.kill()
+    else:
+        process.terminate()
+
+
 def _child_flags():
     """Keep Ctrl+C away from Godot: the launcher shuts it down cleanly instead."""
     if os.name == 'nt':
@@ -408,18 +419,18 @@ class Station:
         try:
             process.wait(timeout=timeout if reply.get('ok') else 1.0)
         except subprocess.TimeoutExpired:
-            process.terminate()
+            _kill_tree(process, force=False)
             try:
                 process.wait(timeout=3.0)
             except subprocess.TimeoutExpired:
-                process.kill()
+                _kill_tree(process, force=True)
                 process.wait(timeout=3.0)
 
     def kill(self):
         with self.lock:
             if self.process is not None and self.process.poll() is None:
                 self._stop_requested = True
-                self.process.kill()
+                _kill_tree(self.process, force=True)
 
     def restart(self):
         self.stop()
@@ -469,7 +480,7 @@ class Station:
             except OSError:
                 if time.time() > deadline:
                     self.error = 'The server never opened its control port.'
-                    process.kill()
+                    _kill_tree(process, force=True)
                     return
                 time.sleep(0.25)
                 continue

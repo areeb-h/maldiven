@@ -1015,7 +1015,13 @@ static func _build_platforms(kit: ArtMeshKit, body: StaticBody3D, room_id: Strin
 		var r: Rect2 = spec.rect
 		var h: float = spec.height
 		var c := Vector3(r.get_center().x, 0.0, r.get_center().y)
-		kit.box("floor", c + Vector3(0, h - 0.03, 0), Vector3(r.size.x, 0.06, r.size.y), Color(0.9, 0.92, 0.96))
+		# Deck top: a soft lounge/dock mat in a dark room tint, so the raised
+		# level reads at a glance from the high gameplay camera.
+		kit.box("soft", c + Vector3(0, h - 0.03, 0), Vector3(r.size.x, 0.06, r.size.y), color.darkened(0.72).lerp(GRAPHITE, 0.35))
+		var stripe := 0.0
+		while stripe < r.size.x - 0.6:
+			kit.box("painted", Vector3(r.position.x + 0.6 + stripe, h + 0.001, c.z), Vector3(0.05, 0.004, r.size.y - 0.4), color.darkened(0.55))
+			stripe += 1.2
 		kit.box("painted", c + Vector3(0, (h - 0.06) * 0.5, 0), Vector3(r.size.x - 0.02, h - 0.06, r.size.y - 0.02), GRAPHITE)
 		_collider(body, c + Vector3(0, h * 0.5, 0), Vector3(r.size.x, h, r.size.y))
 		# Which edges are exposed (not against a wall), and the ramp spans on them.
@@ -2041,7 +2047,9 @@ static func _dress_engineering(kit: ArtMeshKit, body: StaticBody3D, color: Color
 
 static func _dress_reactor(kit: ArtMeshKit, body: StaticBody3D, color: Color) -> void:
 	var c := Vector3(62, 0, 19.3)
-	var core_col := color.lerp(Color(0.85, 0.75, 1.0), 0.45)
+	# Saturated violet so the core keeps its colour (and shape) under glow
+	# instead of blooming to a white cylinder.
+	var core_col := color.lerp(Color(0.75, 0.6, 1.0), 0.2)
 	# Bulbous toy reactor: rounded plinth, glowing capsule core in a glass
 	# capsule, chunky graphite rings, a domed cap and a thick friendly railing.
 	kit.cylinder("painted", c, c + Vector3(0, 0.3, 0), 1.6, GRAPHITE, 32, 1.5)

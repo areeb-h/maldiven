@@ -219,14 +219,13 @@ func shot_vent() -> void:
 	StationBuilder.set_airlock_state(station, "warning")
 	rules.airlock_state = "warning"
 	rules.airlock_left = StationRules.AIRLOCK_WARNING
-	for f in range(int(StationRules.AIRLOCK_WARNING * 60.0)):
-		rules.airlock_left -= 1.0 / 60.0
+	var f := 0
+	while rules.airlock_state == "warning":
 		await _steps(1)
+		f += 1
 		if f in [60, 150, 205]:
 			await _snap("vent_warning_%03d" % f)
-	rules.airlock_state = "cooldown"
 	StationBuilder.set_airlock_state(station, "venting")
-	phys.on_event({"type": "airlock", "state": "venting"})
 	victim.reactions.space_out((StationPhysics.airlock_door() - victim.global_position).normalized())
 	victim.visible = false
 	for f in range(150):
