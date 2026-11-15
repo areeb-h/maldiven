@@ -368,7 +368,7 @@
       const winner = result.winner;
       ui.verdict.className = "verdict" + (winner === "infiltrator" ? " verdict--infiltrator" : winner === "crew" ? "" : " verdict--none");
       ui.verdictIcon.setAttribute("href", winner === "infiltrator" ? "#i-mask" : winner === "crew" ? "#i-shield" : "#i-info");
-      ui.verdictTitle.textContent = winner === "infiltrator" ? "Infiltrator wins" : winner === "crew" ? "Crew win" : "No winner";
+      ui.verdictTitle.textContent = winner === "infiltrator" ? "Infiltrator wins" : winner === "crew" ? "Crew wins" : "No winner";
       ui.verdictReason.textContent = result.reason || "";
       ui.reveal.replaceChildren();
       if (result.infiltrator && result.infiltrator !== "nobody") {
@@ -437,7 +437,7 @@
         node = memberNode(p);
         members.set(p.id, node);
       }
-      updateMember(node, p, server.state);
+      updateMember(node, p, server.state, server.round?.result?.infiltrator);
       const target = ui.crew.children[index];
       if (target !== node) ui.crew.insertBefore(node, target || null);
     });
@@ -480,7 +480,7 @@
     return li;
   }
 
-  function updateMember(li, p, phase) {
+  function updateMember(li, p, phase, revealed) {
     const parts = li._parts;
     li.style.setProperty("--c", p.color);
     li.dataset.name = p.name;
@@ -499,6 +499,7 @@
       case "dead": wanted.push({ key: "state", cls: "tag--ghost", icon: "i-ghost", text: "Spaced" }); break;
       case "waiting": wanted.push({ key: "state", cls: "tag--quiet", icon: "i-info", text: "Next round" }); break;
     }
+    if (phase === "result" && revealed && revealed === p.name) wanted.push({ key: "role", cls: "tag--danger", icon: "i-mask", text: "Infiltrator" });
     if (p.holding && HOLDING[p.holding]) wanted.push({ key: "hold", cls: "tag--quiet", icon: HOLDING[p.holding][0], text: HOLDING[p.holding][1] });
     if (p.carrying_body) wanted.push({ key: "body", cls: "tag--quiet", icon: "i-carry", text: "Carrying" });
     syncTags(parts.chips, wanted);
@@ -525,7 +526,7 @@
       feedSeen.add(entry.id);
       const li = el("li", "k-" + (entry.kind || "info"));
       const when = new Date(entry.t * 1000);
-      const time = el("time", "", when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      const time = el("time", "", when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }));
       time.dateTime = when.toISOString();
       li.append(time, el("span", "dot"), el("span", "", entry.text));
       if (firstRender) li.style.animation = "none";

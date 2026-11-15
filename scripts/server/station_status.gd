@@ -127,7 +127,7 @@ func _result_line(snap: Dictionary) -> String:
 	var why := str(snap.get("reason", "")).trim_suffix(".")
 	match str(snap.get("winner", "")):
 		StationRules.CREW:
-			return "Crew win: %s" % why
+			return "Crew wins: %s" % why
 		StationRules.INFILTRATOR:
 			return "Infiltrator wins: %s" % why
 	return "Round over: %s" % why

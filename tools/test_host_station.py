@@ -171,7 +171,8 @@ def run(engine, project):
         check(panel.request('GET', '/api/status', host='evil.example:80')[0] == 403, 'foreign Host header not refused')
         check(panel.request('POST', '/api/command', {'cmd': 'stop'}, headers={'X-Drift-Panel': '0'})[0] == 403,
               'command without the panel header not refused')
-        check(panel.command('nonsense').get('ok') is False, 'unknown command accepted')
+        code, _, data = panel.request('POST', '/api/command', {'cmd': 'nonsense', 'args': {}})
+        check(code == 400 and json.loads(data)['ok'] is False, 'unknown command accepted')
 
         status = panel.status()
         check(status.get('app') == 'drift-station', 'status has no app id')
@@ -219,7 +220,7 @@ def run(engine, project):
         check(len(result['timeline']) > 2, 'no timeline after the round')
         feed = ' | '.join(line['text'] for line in server['feed'])
         for expected in ('Round started with 3 crew aboard', 'Power cell 3/3 online', 'Shuttle launch sequence started',
-                         'Crew win', f'The infiltrator was {infiltrator[0]}'):
+                         'Crew wins', f'The infiltrator was {infiltrator[0]}'):
             check(expected in feed, f'feed lacks "{expected}": {feed}')
         for b in bots:
             b.wait_for('BOT_RESULT winner=crew', 30)

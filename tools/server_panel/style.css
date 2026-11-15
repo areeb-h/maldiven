@@ -511,7 +511,7 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
   animation: feed-in 0.5s var(--ease) both;
 }
 .feed li + li { border-top: 1px solid rgba(140, 204, 255, 0.06); }
-.feed time { color: var(--faint); font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.feed time { white-space: nowrap; color: var(--faint); font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
 .feed .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent); align-self: center; }
 .feed li.k-join { --c: var(--good); }
 .feed li.k-leave { --c: var(--faint); }
