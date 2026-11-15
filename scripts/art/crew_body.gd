@@ -125,7 +125,7 @@ static func helmet_profile() -> PackedVector2Array:
 # --- reusable joint pieces -----------------------------------------------------------
 
 ## Accordion rubber sleeve centred on a joint, skinned from `bone` to `other` across it.
-static func _bellows(k: CrewMeshKit, center: Vector3, down: Vector3, length: float, radius: float, ripples: int, segments: int, bone: int, other: int, scale_xz := Vector2.ONE) -> void:
+static func _bellows(k: CrewMeshKit, center: Vector3, down: Vector3, length: float, radius: float, ripples: int, segments: int, bone: int, other: int, scale_xz := Vector2.ONE, skin := true) -> void:
 	var prof := PackedVector2Array()
 	var rows := ripples * 2
 	for i in rows + 1:
@@ -133,7 +133,8 @@ static func _bellows(k: CrewMeshKit, center: Vector3, down: Vector3, length: flo
 		var rr := radius * (1.0 + 0.09 * cos(float(i) * PI))
 		prof.append(Vector2(rr, length * (t - 0.5)))
 	k.set_part(bone, F, 0.72)
-	k.set_blend(other, center, down, length * 0.42)
+	if skin:
+		k.set_blend(other, center, down, length * 0.42)
 	var up := -down.normalized()
 	var ref := Vector3.BACK if absf(up.dot(Vector3.BACK)) < 0.9 else Vector3.RIGHT
 	var x := up.cross(ref).normalized()
@@ -159,6 +160,22 @@ static func _limb(k: CrewMeshKit, a: Vector3, b: Vector3, radii: Array[float], s
 	k.lathe(prof, Transform3D(Basis(x, y, x.cross(y)), a), segments, scale_xz)
 
 
+## Ridged rubber hinge barrel on the hinge (X) axis of a knee or elbow, rigid on the
+## lower bone: a cylinder about its own rotation axis covers the joint at any bend.
+static func _barrel(k: CrewMeshKit, bone: int, center: Vector3, half_len: float, radius: float, ripples: int, segments: int) -> void:
+	var prof := PackedVector2Array()
+	prof.append(Vector2(0.0, -half_len - radius * 0.32))
+	prof.append(Vector2(radius * 0.7, -half_len - radius * 0.2))
+	var rows := ripples * 2
+	for i in rows + 1:
+		var t := float(i) / float(rows)
+		prof.append(Vector2(radius * (1.0 - 0.07 * cos(float(i) * PI)), lerpf(-half_len, half_len, t)))
+	prof.append(Vector2(radius * 0.7, half_len + radius * 0.2))
+	prof.append(Vector2(0.0, half_len + radius * 0.32))
+	k.set_part(bone, F, 0.72)
+	k.lathe(prof, Transform3D(Basis(Vector3.DOWN, Vector3.RIGHT, Vector3.BACK), center), segments)
+
+
 ## Hinge cap with a metal bolt on the outer side of an elbow / knee / ankle.
 static func _hinge(k: CrewMeshKit, bone: int, at: Vector3, out: Vector3, radius: float) -> void:
 	k.set_part(bone, S, 1.2)
@@ -168,13 +185,13 @@ static func _hinge(k: CrewMeshKit, bone: int, at: Vector3, out: Vector3, radius:
 
 
 ## Flat decal patch (UV 0..1) facing `normal`, `right` = +U direction.
-static func _decal(k: CrewMeshKit, bone: int, center: Vector3, right: Vector3, up: Vector3, size: Vector2, style: float, cols := 1, surface := Callable()) -> void:
+static func _decal(k: CrewMeshKit, bone: int, center: Vector3, right: Vector3, up: Vector3, size: Vector2, style: float, cols := 1, surface := Callable(), rows := 1) -> void:
 	k.set_part(bone, DC)
 	var normal := right.cross(up).normalized()
 	k.patch(func(u: float, v: float) -> Vector3:
 			var p := center + right * (u - 0.5) * size.x + up * (v - 0.5) * size.y
 			return surface.call(p) if surface.is_valid() else p,
-		cols, 1, center - normal * 0.2, Vector2.ONE, Callable(), Vector2(style, size.x / size.y))
+		cols, rows, center - normal * 0.2, Vector2.ONE, Callable(), Vector2(style, size.x / size.y))
 
 
 # --- body parts ---------------------------------------------------------------------
@@ -319,13 +336,13 @@ static func _backpack(k: CrewMeshKit, variant: int) -> void:
 
 static func _back_decals(k: CrewMeshKit, number_at: Vector3, number_size: Vector2, gauge_at: Vector3, gauge_w: float, hazard_at: Vector3, hazard_w: float, surface := Callable()) -> void:
 	# Seen from behind, +U must run toward the viewer's right, which is world -X.
-	_decal(k, PACK, number_at, Vector3.LEFT, Vector3.UP, number_size, DECAL_GLOW, 2, surface)
+	_decal(k, PACK, number_at, Vector3.LEFT, Vector3.UP, number_size, DECAL_GLOW, 5 if surface.is_valid() else 2, surface, 3 if surface.is_valid() else 1)
 	k.set_part(PACK, G)
 	k.patch(func(u: float, v: float) -> Vector3:
 			var p := gauge_at + Vector3(-(u - 0.5) * gauge_w, (v - 0.5) * 0.013, 0.0)
 			return surface.call(p) if surface.is_valid() else p,
-		3, 1, gauge_at + Vector3(0, 0, 0.2), Vector2.ONE, func(u: float, v: float) -> Vector2: return Vector2(u, v))
-	_decal(k, PACK, hazard_at, Vector3.LEFT, Vector3.UP, Vector2(hazard_w, 0.022), DECAL_HAZARD, 2, surface)
+		5 if surface.is_valid() else 3, 1, gauge_at + Vector3(0, 0, 0.2), Vector2.ONE, func(u: float, v: float) -> Vector2: return Vector2(u, v))
+	_decal(k, PACK, hazard_at, Vector3.LEFT, Vector3.UP, Vector2(hazard_w, 0.022), DECAL_HAZARD, 5 if surface.is_valid() else 2, surface)
 
 
 ## Boxy life-support unit with a slatted, glowing vent.
@@ -382,7 +399,7 @@ static func _pack_dome(k: CrewMeshKit) -> void:
 	k.set_part(PACK, S, 1.0)
 	k.rounded_box(Vector3(0, 1.28, -0.175), Vector3(0.28, 0.36, 0.08), 0.035, Basis.IDENTITY, 1)
 	k.set_part(PACK, P, 1.0)
-	k.ellipsoid(Vector3(0, 1.28, -0.2), Vector3(0.155, 0.2, 0.085), Basis(Vector3.RIGHT, PI * 0.5), 20, 9)
+	k.ellipsoid(Vector3(0, 1.28, -0.2), Vector3(0.155, 0.2, 0.085), Basis.IDENTITY, 20, 9)
 	k.set_part(PACK, S, 1.25)
 	k.cylinder(Vector3(0, 1.255, -0.268), Vector3(0, 1.255, -0.29), 0.072, 18, 0.008)
 	k.set_part(PACK, M)
@@ -400,7 +417,7 @@ static func _pack_dome(k: CrewMeshKit) -> void:
 		_nozzle(k, Vector3(s * 0.07, 1.06, -0.2))
 	var dome := func(p: Vector3) -> Vector3:
 		var e := 1.0 - pow(p.x / 0.155, 2.0) - pow((p.y - 1.28) / 0.2, 2.0)
-		return Vector3(p.x, p.y, -0.2 - 0.085 * sqrt(maxf(e, 0.0)) - 0.0015)
+		return Vector3(p.x, p.y, -0.2 - 0.085 * sqrt(maxf(e, 0.0)) - 0.003)
 	_back_decals(k, Vector3(0, 1.405, 0), Vector2(0.1, 0.08), Vector3(0, 1.165, 0), 0.1, Vector3(0, 1.128, 0), 0.11, dome)
 
 
@@ -606,8 +623,8 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 			return pad_c + pad_dir * yy + out_h * cos(al) * rr + side * sin(al) * rr * 1.08,
 		4, 2, pad_c, Vector2.ONE, Callable(), Vector2(DECAL_PAINT, 1.6))
 	# Elbow: bellows sleeve across the joint, hinge cap with bolt, graphite cop.
-	_bellows(k, Vector3(x, 1.135, z0), Vector3.DOWN, 0.085, 0.052, 3, 10, up, fore)
-	_hinge(k, fore, Vector3(x + s * 0.054, 1.13, z0), out, 0.03)
+	_barrel(k, fore, Vector3(x, 1.13, z0), 0.046, 0.06, 2, 10)
+	_hinge(k, fore, Vector3(x + s * 0.062, 1.13, z0), out, 0.03)
 	k.set_part(fore, S, 1.2)
 	_plate(k, Vector3(x, 1.14, z0), 0.052, PI, Vector3(0.08, 0.075, 0.024), 0.011, 0.06)
 	# Forearm and flared gauntlet.
@@ -622,7 +639,7 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	k.set_part(fore, A)
 	k.rounded_box(Vector3(x + s * 0.0635, 0.995, z0 + 0.003), Vector3(0.004, 0.075, 0.04), 0.0, Basis.IDENTITY, 1)
 	# Wrist: bellows under a flared glove cuff.
-	_bellows(k, Vector3(x, 0.872, z0 + 0.004), Vector3.DOWN, 0.04, 0.043, 2, 10, fore, hand)
+	_bellows(k, Vector3(x, 0.872, z0 + 0.004), Vector3.DOWN, 0.045, 0.047, 2, 10, fore, hand, Vector2.ONE, false)
 	k.set_part(hand, P, 0.85)
 	k.lathe(PackedVector2Array([Vector2(0.044, 0.83), Vector2(0.054, 0.836), Vector2(0.058, 0.858), Vector2(0.052, 0.866), Vector2(0.046, 0.864)]),
 		Transform3D(Basis.IDENTITY, Vector3(x, 0, z0 + 0.006)), 12, Vector2(0.92, 1.1), 0.0, TAU, PackedFloat32Array([0, 1, 0, 1, 0]))
@@ -670,18 +687,18 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	k.set_part(thigh, A)
 	_plate(k, Vector3(x, 0.82, -0.005), 0.13, s * PI * 0.5, Vector3(0.05, 0.006, 0.004), 0.0)
 	# Knee: bellows sleeve, hinge caps with bolts, domed knee guard on the shin.
-	_bellows(k, Vector3(x, 0.507, -0.004), Vector3.DOWN, 0.09, 0.07, 3, 10, thigh, shin)
-	_hinge(k, shin, Vector3(x + s * 0.07, 0.505, -0.005), out, 0.034)
-	_hinge(k, shin, Vector3(x - s * 0.07, 0.505, -0.005), -out, 0.03)
+	_barrel(k, shin, Vector3(x, 0.505, -0.004), 0.058, 0.077, 2, 12)
+	_hinge(k, shin, Vector3(x + s * 0.079, 0.505, -0.004), out, 0.036)
+	_hinge(k, shin, Vector3(x - s * 0.079, 0.505, -0.004), -out, 0.032)
 	k.set_part(shin, P, 0.82)
-	_plate(k, Vector3(x, 0.512, -0.005), 0.072, 0.0, Vector3(0.118, 0.125, 0.032), 0.015, 0.08)
+	_plate(k, Vector3(x, 0.512, -0.005), 0.082, 0.0, Vector3(0.118, 0.125, 0.032), 0.015, 0.09)
 	# Shin with a calf bulge, shin guard and accent.
 	k.set_part(shin, F, 0.85)
-	_limb(k, Vector3(x, 0.15, -0.01), Vector3(x, 0.49, -0.005), [0.056, 0.062, 0.072, 0.074, 0.066] as Array[float], 10, Vector2(1.0, 1.08))
+	_limb(k, Vector3(x, 0.15, -0.01), Vector3(x, 0.49, -0.005), [0.062, 0.066, 0.072, 0.074, 0.068] as Array[float], 10, Vector2(1.0, 1.08))
 	k.set_part(shin, P, 1.0)
-	_plate(k, Vector3(x, 0.345, -0.005), 0.068, 0.0, Vector3(0.12, 0.24, 0.028), 0.012, 0.9, 0.78, Vector3i(1, 2, 1))
+	_plate(k, Vector3(x, 0.335, -0.005), 0.074, 0.0, Vector3(0.12, 0.22, 0.028), 0.012, 0.0, 0.82, Vector3i(1, 2, 1))
 	k.set_part(shin, A)
-	_plate(k, Vector3(x, 0.345, -0.005), 0.096, 0.0, Vector3(0.006, 0.16, 0.004), 0.0, 0.9)
+	_plate(k, Vector3(x, 0.335, -0.005), 0.102, 0.0, Vector3(0.006, 0.15, 0.004), 0.0)
 	# Chunky boot cuff.
 	k.set_part(shin, S, 1.0)
 	k.lathe(PackedVector2Array([Vector2(0.062, 0.12), Vector2(0.071, 0.13), Vector2(0.074, 0.2), Vector2(0.076, 0.228), Vector2(0.066, 0.238)]),
@@ -690,7 +707,7 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	k.lathe(PackedVector2Array([Vector2(0.074, 0.226), Vector2(0.08, 0.23), Vector2(0.08, 0.242), Vector2(0.072, 0.246)]),
 		Transform3D(Basis.IDENTITY, Vector3(x, 0, -0.008)), 14, Vector2(1.0, 1.15))
 	# Ankle: bellows into the boot, hinge bracket with bolt.
-	_bellows(k, Vector3(x, 0.11, -0.008), Vector3.DOWN, 0.045, 0.06, 2, 12, shin, foot, Vector2(1.0, 1.12))
+	_bellows(k, Vector3(x, 0.115, -0.008), Vector3.DOWN, 0.05, 0.066, 2, 12, shin, foot, Vector2(1.0, 1.12), false)
 	k.set_part(foot, S, 1.2)
 	k.rounded_box(Vector3(x + s * 0.064, 0.09, -0.012), Vector3(0.018, 0.07, 0.064), 0.008, Basis.IDENTITY, 1)
 	k.set_part(foot, M)

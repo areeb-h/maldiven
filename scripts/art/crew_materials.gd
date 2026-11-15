@@ -155,7 +155,7 @@ void fragment() {
 		vec2 w = UV * 520.0;
 		float wf = 1.0 - smoothstep(0.6, 2.0, length(fwidth(w)));
 		float fold = cos(UV.y * 115.0 + sin(UV.x * 24.0) * 1.6);
-		tilt = vec2(0.22 * wf * cos(w.x) * sin(w.y * 0.5), 0.22 * wf * sin(w.x * 0.5) * cos(w.y));
+		tilt = vec2(0.1 * wf * cos(w.x) * sin(w.y * 0.5), 0.1 * wf * sin(w.x * 0.5) * cos(w.y));
 		tilt.y += crease * 0.55 * sin(UV.y * 115.0 + sin(UV.x * 24.0) * 1.6);
 		alb = fabric * shade * (0.92 + 0.16 * nlo) * (1.0 - crease * 0.22 * (0.5 + 0.5 * fold));
 		rough = 0.66;

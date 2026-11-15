@@ -2,6 +2,25 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · character-v2
+
+Commit `2a9dc8c` · studio/station renders · 20 frames · [folder](2026-11-15-character-v2/)
+
+Character polish pass on top of the approved v1: LED visor faces (neutral, happy, shocked, angry, suspicious, hurt, downed, ghost), bolted hinge joints and rubber bellows at every joint, 3-finger hands, glowing player numbers, 4 helmet/backpack variants, spring antenna and pack. About 15k triangles and 2 draw calls per character. Before/after joint renders are in the session scratchpad.
+
+| | |
+| --- | --- |
+| ![run strip](2026-11-15-character-v2/00_run_strip.jpg)<br>run strip | ![faces a](2026-11-15-character-v2/01_faces_a.jpg)<br>faces a |
+| ![faces b](2026-11-15-character-v2/02_faces_b.jpg)<br>faces b | ![turntable](2026-11-15-character-v2/03_turntable.jpg)<br>turntable |
+| ![front](2026-11-15-character-v2/04_front.jpg)<br>front | ![helmet](2026-11-15-character-v2/05_helmet.jpg)<br>helmet |
+| ![joints arms](2026-11-15-character-v2/06_joints_arms.jpg)<br>joints arms | ![joints legs](2026-11-15-character-v2/07_joints_legs.jpg)<br>joints legs |
+| ![joints shove](2026-11-15-character-v2/08_joints_shove.jpg)<br>joints shove | ![macro elbow](2026-11-15-character-v2/09_macro_elbow.jpg)<br>macro elbow |
+| ![macro knee](2026-11-15-character-v2/10_macro_knee.jpg)<br>macro knee | ![macro shoulder hip](2026-11-15-character-v2/11_macro_shoulder_hip.jpg)<br>macro shoulder hip |
+| ![states](2026-11-15-character-v2/12_states.jpg)<br>states | ![aim](2026-11-15-character-v2/13_aim.jpg)<br>aim |
+| ![carry](2026-11-15-character-v2/14_carry.jpg)<br>carry | ![action](2026-11-15-character-v2/15_action.jpg)<br>action |
+| ![backs lowlight](2026-11-15-character-v2/16_backs_lowlight.jpg)<br>backs lowlight | ![variants back](2026-11-15-character-v2/17_variants_back.jpg)<br>variants back |
+| ![fidget](2026-11-15-character-v2/18_fidget.jpg)<br>fidget | ![distance](2026-11-15-character-v2/19_distance.jpg)<br>distance |
+
 ## 2026-11-15 · station-v1
 
 Commit `bfa58fd` · studio/station renders · 24 frames · [folder](2026-11-15-station-v1/)

@@ -666,7 +666,7 @@ func _pose(g: Vector3) -> void:
 			fk_up = Basis(fk_up.get_rotation_quaternion().slerp(drift.get_rotation_quaternion(), _ghost_w))
 		# IK targets in root space.
 		var carry_t := carry_anchor.position + Vector3(s * 0.15, 0.06, -0.1)
-		var aim_t := Vector3(-0.1, 1.33, 0.45) if side == 1 else Vector3(-0.035, 1.29, 0.4)
+		var aim_t := Vector3(-0.07, 1.42, 0.5) if side == 1 else Vector3(-0.025, 1.38, 0.44)
 		var shove_t := Vector3(s * 0.14, 1.25, 0.08).lerp(Vector3(s * 0.15, 1.28, 0.56), clampf(thrust, 0.0, 1.2))
 		var fid_t := Vector3.ZERO
 		var fw := 0.0
@@ -688,7 +688,7 @@ func _pose(g: Vector3) -> void:
 		if ik_w > 0.001 and total > 0.0:
 			var target2 := (carry_t * cw + aim_t * aw + shove_t * sw + fid_t * fw) / total
 			var lt := chest_xf.affine_inverse() * target2
-			var pole2 := chest_xf.basis.inverse() * Vector3(s * 0.8, -0.6, -0.5)
+			var pole2 := chest_xf.basis.inverse() * Vector3(s * 0.8, -0.6, -0.5).lerp(Vector3(s * 0.35, -1.0, 0.0), aw / maxf(total, 0.001))
 			var ik2 := _two_bone(B[up].position, lt, pole2, 0.295, 0.27, -1.0)
 			up_b = Basis(fk_up.get_rotation_quaternion().slerp(ik2[0].get_rotation_quaternion(), ik_w))
 			fore_b = Basis(fk_fore.get_rotation_quaternion().slerp(ik2[1].get_rotation_quaternion(), ik_w))
@@ -699,6 +699,14 @@ func _pose(g: Vector3) -> void:
 			hand_b = Basis(hand_b.get_rotation_quaternion().slerp(wrist.get_rotation_quaternion(), ik_w))
 		B[up].basis = up_b
 		B[fore].basis = fore_b
+		if side == 1 and _aim_w > 0.001:
+			# Level the gun: barrel along the chest's horizontal forward, top up.
+			var fwd_h := Vector3(chest_xf.basis.z.x, 0.0, chest_xf.basis.z.z).normalized()
+			var yb := -fwd_h
+			var level := Basis(yb.cross(Vector3.UP), yb, Vector3.UP)
+			var fore_root := chest_xf.basis * up_b * fore_b
+			var want_hand := (fore_root.inverse() * level).orthonormalized()
+			hand_b = Basis(hand_b.get_rotation_quaternion().slerp(want_hand.get_rotation_quaternion(), _aim_w * ik_w))
 		B[hand].basis = hand_b
 		B[up].position.y += 0.004 * breath * (1.0 - mw)
 		# Fingers: relaxed curl, wrap round carried items and the grip, flat for a shove.

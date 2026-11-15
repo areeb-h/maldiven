@@ -20,6 +20,9 @@ var stunned := false
 var aiming := false
 var carrying_body := false
 var life_state := "ok"
+var number := 0  # 1..8, shown on the suit
+var variant := 0  # cosmetic helmet/backpack style
+var carried := false
 
 var move_input := Vector2.ZERO
 var yaw := 0.0
@@ -119,7 +122,7 @@ func _ready() -> void:
 func _build_visual() -> void:
 	if ResourceLoader.exists(CREW_MODEL_PATH):
 		var script: Script = load(CREW_MODEL_PATH)
-		var built: Variant = script.call("build", color) if script != null else null
+		var built: Variant = script.call("build", color, variant, number) if script != null else null
 		if built is Node3D:
 			visual = built
 			_model_api = visual.has_method("set_motion")
@@ -179,6 +182,18 @@ func camera_kick(strength: float) -> void:
 	_fov_kick = maxf(_fov_kick, 7.0 * strength)
 	if is_local and OS.has_feature("mobile"):
 		Input.vibrate_handheld(int(40 + 80 * strength))
+
+
+func express(face: String, hold := 0.8) -> void:
+	if visual.has_method("set_expression"):
+		visual.set_expression(face, hold)
+
+
+func set_carried(on: bool) -> void:
+	if on != carried:
+		carried = on
+		if visual.has_method("set_carried"):
+			visual.set_carried(on)
 
 
 ## "ok", "downed" or "dead" (ghost).

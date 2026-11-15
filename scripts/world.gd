@@ -77,6 +77,8 @@ func _ready() -> void:
 		var entry: Dictionary = Net.roster[id]
 		var avatar := CrewMember.new()
 		avatar.setup(id, id == my_id, entry.name, entry.color, StationLayout.spawn_point(index, ids.size()))
+		avatar.number = index + 1
+		avatar.variant = index % 4
 		add_child(avatar)
 		avatars[id] = avatar
 		avatar.footstep.connect(func(at: Vector3):
@@ -241,6 +243,7 @@ func client_event(event: Dictionary) -> void:
 				_fx("burst", ["shove_impact", at, Vector3(event.dir)])
 				if avatars[target].visual.has_method("play_hit"):
 					avatars[target].visual.play_hit()
+				avatars[target].express("hurt")
 			if avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("play_shove"):
 				avatars[int(event.by)].visual.play_shove()
 			if target == my_id and local != null:
@@ -252,6 +255,8 @@ func client_event(event: Dictionary) -> void:
 			sfx.play("gunshot", from)
 			_fx("burst", ["muzzle_flash", from, (to - from).normalized()])
 			_fx("tracer", [from, to])
+			if avatars.has(int(event.target)):
+				avatars[int(event.target)].express("shocked", 1.0)
 			if int(event.target) == my_id and local != null:
 				local.camera_kick(1.0)
 		"downed":
@@ -425,6 +430,7 @@ func _update_player_states() -> void:
 		avatar.visible = state != StationRules.DEAD or i_am_dead
 		var body: int = rules.players[id].body if rules.players.has(id) else 0
 		avatar.carrying_body = body != 0
+		avatar.set_carried(rules.players.has(id) and int(rules.players[id].carried_by) != 0)
 	hud.set_life_state(rules.state_of(my_id), float(rules.players.get(my_id, {}).get("down_until", 0.0)) - rules.elapsed)
 
 
