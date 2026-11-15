@@ -222,6 +222,10 @@ func _start_blend(seconds: float) -> void:
 func _in_range() -> bool:
 	if not avatar.is_inside_tree() or not avatar.is_visible_in_tree():
 		return false
+	if Engine.has_singleton("Net") or avatar.get_tree().root.has_node("Net"):
+		var net := avatar.get_tree().root.get_node_or_null("Net")
+		if net != null and bool(net.get("dedicated")):
+			return false  # a dedicated server shows nothing: skip cosmetic ragdolls
 	var camera := avatar.get_viewport().get_camera_3d()
 	return camera == null or camera.global_position.distance_to(avatar.global_position) <= RAGDOLL_RANGE
 

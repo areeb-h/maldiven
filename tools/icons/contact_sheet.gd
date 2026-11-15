@@ -57,7 +57,7 @@ func _run() -> void:
 	var pages := int(ceil(_names.size() / float(PAGE_ROWS)))
 	for page in range(pages):
 		var rows := _names.slice(page * PAGE_ROWS, mini(_names.size(), (page + 1) * PAGE_ROWS))
-		var img := await _render(Vector2i(1500, 56 + rows.size() * ROW_H), _draw_rows.bind(rows, page, pages))
+		var img := await _render(Vector2i(1500, 66 + rows.size() * ROW_H), _draw_rows.bind(rows, page, pages))
 		_save(img, "%s_rows_%d" % [_prefix, page + 1], true)
 	var overview := await _render(Vector2i(1500, _overview_height()), _draw_overview)
 	_save(overview, "%s_overview" % _prefix, true)
@@ -164,11 +164,11 @@ func _draw_rows(canvas: CanvasItem, rows: PackedStringArray, page: int, pages: i
 	var heads := [[LABEL_W, "WHITE 18 24 32 48 96"], [LABEL_W + 330, "CYAN / AMBER / RED"],
 		[LABEL_W + 668, "FULL COLOUR 24 48 96"], [LABEL_W + 930, "BRIGHT SCENE"]]
 	for h in heads:
-		_text(canvas, Vector2(h[0] + 300 if h[0] == LABEL_W else h[0], 30), h[1], 15, UiStyle.MUTED)
+		_text(canvas, Vector2(h[0], 50), h[1], 13, UiStyle.MUTED)
 	var bright_x := LABEL_W + 924.0
 	for i in range(rows.size()):
 		var name := rows[i]
-		var top := 48.0 + i * ROW_H
+		var top := 58.0 + i * ROW_H
 		var mid := top + ROW_H * 0.5
 		var glass := Rect2(Vector2(LABEL_W - 8, top + 4), Vector2(bright_x - LABEL_W + 2, ROW_H - 8))
 		canvas.draw_rect(glass, GLASS)

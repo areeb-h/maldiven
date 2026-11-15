@@ -185,9 +185,9 @@ const GLYPHS := {
 	"shove": ("<g transform='translate(19 24) scale(.8) rotate(90) translate(-24 -24)'>%s</g>" % GLOVE
 		+ "<path d='M39.8 14.5L44 10.8M41.2 24H46M39.8 33.5L44 37.2' {P amber w3.6}/>"),
 	## Throw: a power cell flying along a dotted arc.
-	"throw": ("<circle cx='6' cy='43' r='1.8' {s cyan d}/><circle cx='8.6' cy='36.4' r='2.2' {s cyan d}/><circle cx='12.6' cy='30.4' r='2.6' {p cyan d}/>"
-		+ "<circle cx='7.5' cy='40.5' r='2.8' {s cyan m}/><circle cx='13' cy='31.5' r='3.2' {p cyan m}/>"
-		+ "<g transform='translate(30.5 18) rotate(32) scale(1.12)'><rect x='-7' y='-9' width='14' height='20' rx='3.5' {k w5}/><rect x='-4' y='-13' width='8' height='4.4' rx='1.5' {k w5}/>"
+	"throw": ("<circle cx='4.8' cy='43.6' r='1.7' {s cyan d}/><circle cx='7' cy='38' r='2.1' {s cyan d}/><circle cx='10.2' cy='32.6' r='2.5' {p cyan d}/>"
+		+ "<circle cx='6' cy='42' r='2.6' {s cyan m}/><circle cx='10' cy='34.4' r='3' {p cyan m}/>"
+		+ "<g transform='translate(29.5 19) rotate(32) scale(1.25)'><rect x='-7' y='-9' width='14' height='20' rx='3.5' {k w5}/><rect x='-4' y='-13' width='8' height='4.4' rx='1.5' {k w5}/>"
 		+ "<rect x='-4' y='-13' width='8' height='4.4' rx='1.5' {p orange}/><rect x='-7' y='-9' width='14' height='20' rx='3.5' {p shell}/>"
 		+ "<rect x='-3' y='-4.5' width='6' height='11.5' rx='2' {k}/><rect x='-3' y='-4.5' width='6' height='11.5' rx='2' {s graphite}/><rect x='-1.8' y='0.5' width='3.6' height='5' rx='1' {p amber d}/></g>"),
 	## Shoot: a chunky reticle with a lens.

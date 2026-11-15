@@ -52,17 +52,17 @@ func _run() -> void:
 	stub.add_child(cam)
 	cam.current = true
 	await _steps(30)
-	if only == "" or only == "ragdoll":
+	if only == "" or "ragdoll" in only.split(","):
 		await shot_ragdoll()
-	if only == "" or only == "carry":
+	if only == "" or "carry" in only.split(","):
 		await shot_carry()
-	if only == "" or only == "stagger":
+	if only == "" or "stagger" in only.split(","):
 		await shot_stagger()
-	if only == "" or only == "items":
+	if only == "" or "items" in only.split(","):
 		await shot_items()
-	if only == "" or only == "props":
+	if only == "" or "props" in only.split(","):
 		await shot_props()
-	if only == "" or only == "vent":
+	if only == "" or "vent" in only.split(","):
 		await shot_vent()
 	quit()
 
@@ -99,7 +99,7 @@ func _crew(id: int, color: Color, at: Vector3, yaw: float, variant := 0) -> Crew
 
 func shot_ragdoll() -> void:
 	var a := _crew(11, Color("ff5a5a"), Vector3(2.0, 0, 2.5), PI * 0.15)
-	_look(Vector3(5.6, 1.7, 5.4), Vector3(1.6, 0.5, 1.6))
+	_look(Vector3(4.6, 1.35, 1.2), Vector3(1.6, 0.55, 1.9))
 	await _steps(40)
 	await _snap("ragdoll_0_standing")
 	var dir := Vector3(-0.4, 0, -1).normalized()
@@ -170,40 +170,42 @@ func shot_stagger() -> void:
 
 
 func shot_items() -> void:
-	var m := StationLayout.ROOMS.medical.center
-	_look(Vector3(m.x - 5.5, 2.4, m.y + 4.5), Vector3(m.x + 1.0, 0.4, m.y - 1.0))
-	rules._make_loose("cell_2", Vector3(m.x - 3.0, 1.0, m.y + 2.0), Quaternion.IDENTITY, Vector3(6.5, 3.4, -3.2))
+	# Docking floor: a cell and the core thrown across, bouncing and tumbling.
+	_look(Vector3(21.2, 1.25, 4.4), Vector3(18.4, 0.45, 1.6))
+	rules._make_loose("cell_2", Vector3(15.6, 1.1, 1.4), Quaternion.IDENTITY, Vector3(6.2, 3.0, 0.4))
+	rules._make_loose("core", Vector3(15.4, 1.0, 2.6), Quaternion.IDENTITY, Vector3(5.4, 2.6, -0.3))
 	await _steps(1)
 	rules.items.cell_2.flight = {}
-	for f in range(80):
+	rules.items.core.flight = {}
+	for f in range(110):
 		await _steps(1)
-		if f in [12, 24, 36, 52, 79]:
-			await _snap("items_%02d" % f)
-	await _steps(60)
+		if f in [14, 26, 34, 44, 60, 109]:
+			await _snap("items_%03d" % f)
+	rules.respawn_item("core")
+	rules.respawn_item("cell_2")
+	await _steps(30)
 
 
 func shot_props() -> void:
-	# Commons: shove into the barrel and crate, throw the core at the cart.
-	_look(Vector3(-1.5, 2.6, 2.0), Vector3(-3.2, 0.4, 5.6))
-	var cart_at := Vector3(-4.6, 0, 5.9)
-	phys.on_event({"type": "swing", "at": cart_at + Vector3(1.4, 0, -0.6), "dir": Vector3(-1, 0, 0.35).normalized()})
-	rules._make_loose("cell_1", cart_at + Vector3(2.5, 1.2, -2.2), Quaternion.IDENTITY, Vector3(-5.5, 2.0, 4.6))
-	for f in range(100):
-		await _steps(1)
-		if f in [6, 14, 30, 99]:
-			await _snap("props_%02d" % f)
-	# A barrel and a crate toppled by a shove.
+	# Docking: a shove topples the barrel into the crate, a thrown cell knocks the chair.
 	var b: NetBody = null
+	var ch: NetBody = null
 	for body in phys.props:
-		if body.kind == "barrel" and StationLayout.room_at(body.global_position) == "docking":
-			b = body
-	if b != null:
-		_look(b.global_position + Vector3(-2.6, 1.6, -2.6), b.global_position + Vector3(0.8, 0.3, 0.6))
-		phys.on_event({"type": "swing", "at": b.global_position + Vector3(-1.2, 0, -0.4), "dir": Vector3(1, 0, 0.3).normalized()})
-		for f in range(90):
-			await _steps(1)
-			if f in [10, 22, 89]:
-				await _snap("props_barrel_%02d" % f)
+		if StationLayout.room_at(body.global_position) == "docking":
+			if body.kind == "barrel":
+				b = body
+			elif body.kind == "chair":
+				ch = body
+	_look(Vector3(19.6, 1.9, 0.8), Vector3(18.4, 0.4, 4.6))
+	await _snap("props_before")
+	phys.on_event({"type": "swing", "at": b.global_position + Vector3(-1.1, 0, -0.9), "dir": Vector3(0.75, 0, 0.6).normalized()})
+	rules._make_loose("cell_1", Vector3(20.5, 1.2, 0.5), Quaternion.IDENTITY, Vector3(5.2, 2.2, 3.4))
+	for f in range(120):
+		await _steps(1)
+		if f in [8, 18, 30, 50, 119]:
+			await _snap("props_%03d" % f)
+	rules.respawn_item("cell_1")
+	await _steps(10)
 
 
 func shot_vent() -> void:
@@ -213,15 +215,15 @@ func shot_vent() -> void:
 	rules._make_loose("gun", Vector3(c.x + 1.2, 0.2, c.y + 0.7), Quaternion.IDENTITY, Vector3.ZERO)
 	var victim := _crew(16, Color("ff9f40"), Vector3(c.x + 0.6, 0, c.y + 0.2), PI / 2.0, 1)
 	await _steps(30)
-	_look(Vector3(-6.0, 1.9, 1.6), Vector3(-13.5, 1.0, -0.2))
+	_look(Vector3(-9.3, 1.9, 1.3), Vector3(-14.4, 0.7, -0.4))
 	StationBuilder.set_airlock_state(station, "warning")
 	rules.airlock_state = "warning"
 	rules.airlock_left = StationRules.AIRLOCK_WARNING
 	for f in range(int(StationRules.AIRLOCK_WARNING * 60.0)):
 		rules.airlock_left -= 1.0 / 60.0
 		await _steps(1)
-		if f == 170:
-			await _snap("vent_0_warning")
+		if f in [60, 150, 205]:
+			await _snap("vent_warning_%03d" % f)
 	rules.airlock_state = "cooldown"
 	StationBuilder.set_airlock_state(station, "venting")
 	phys.on_event({"type": "airlock", "state": "venting"})
@@ -229,5 +231,5 @@ func shot_vent() -> void:
 	victim.visible = false
 	for f in range(150):
 		await _steps(1)
-		if f in [6, 14, 26, 50, 90]:
+		if f in [3, 8, 14, 22, 34, 60]:
 			await _snap("vent_%02d" % f)

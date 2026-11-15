@@ -956,6 +956,9 @@ def extraction_drive():
         t0 = b * bar
         root, arp = prog[b % 4]
         f0 = hz(root)
+        pc = pad_chord([hz(nm) * 0.5 for nm in arp[:3]], bar + 0.1, sr, rng, fc=1400.0 + 100.0 * (b % 4),
+                       attack=0.08, release=0.1, spread=0.3, sub=False)
+        mx.add(widen(pc, 1.6), t0, gain=0.07, rev=0.2)  # wide bed for stereo width
         for j in range(16):
             tn = t0 + j * beat / 4
             nn = int(beat / 4 * 0.9 * sr)
