@@ -308,7 +308,7 @@ func run() -> void:
 		var box := _aabb(item)
 		var longest := maxf(box.size.y, maxf(box.size.x, box.size.z))
 		# Gun: grip centred on the origin (hand spec), barrel towards +Z.
-		var gun_ok := kind == "gun" and box.position.y > -0.08 and box.position.y < -0.02 and box.end.z > 0.25 and box.position.z > -0.12
+		var gun_ok: bool = kind == "gun" and box.position.y > -0.08 and box.position.y < -0.02 and box.end.z > 0.25 and box.position.z > -0.12
 		if not gun_ok and (absf(box.position.y) > 0.03 or longest < 0.35 or longest > 0.85):
 			fail("item %s bounds %s: origin must be bottom centre (gun: grip centre, barrel +Z), ~0.5-0.6 m" % [kind, box])
 		if kind == "gun":

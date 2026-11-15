@@ -38,6 +38,7 @@ var _alarm_on := false
 var physics: StationPhysics
 var _physics_synced := false
 var _impact_sound_ms := 0
+var _music_state := ""
 
 
 func _init(round_seed := -1) -> void:
@@ -99,16 +100,17 @@ func _ready() -> void:
 			_fx("burst", ["footstep_dust", at]))
 		if id == my_id:
 			local = avatar
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	hud = StationHud.new()
-	hud.crew = local
-	hud.is_host = Net.is_host()
-	layer.add_child(hud)
-	hud.camera = local.camera if local != null else null
-	hud.action_pressed.connect(_on_action)
-	hud.leave_pressed.connect(func(): leave_requested.emit())
-	hud.lobby_pressed.connect(func(): Net.back_to_lobby())
+	if not Net.dedicated:  # a dedicated server has no local player, camera or HUD
+		var layer := CanvasLayer.new()
+		add_child(layer)
+		hud = StationHud.new()
+		hud.crew = local
+		hud.is_host = Net.is_host()
+		layer.add_child(hud)
+		hud.camera = local.camera if local != null else null
+		hud.action_pressed.connect(_on_action)
+		hud.leave_pressed.connect(func(): leave_requested.emit())
+		hud.lobby_pressed.connect(func(): Net.back_to_lobby())
 	if Net.is_host():
 		rules.physics_driven = true
 		var rng := RandomNumberGenerator.new()
@@ -139,7 +141,8 @@ func _exit_tree() -> void:
 
 func _on_action(action: String) -> void:
 	if action == "shove" and not Net.is_host():
-		hud.mark_shove_used(rules, my_id)  # optimistic; the next snapshot corrects it
+		if hud != null:
+			hud.mark_shove_used(rules, my_id)  # optimistic; the next snapshot corrects it
 	Net.request(action, local.position, local.facing_yaw())
 
 
@@ -257,7 +260,8 @@ func client_role(next_role: String) -> void:
 	role = next_role
 	if rules.players.has(my_id):
 		rules.players[my_id].role = role
-	hud.set_role(role)
+	if hud != null:
+		hud.set_role(role)
 
 
 func client_snapshot(snapshot: Dictionary) -> void:
@@ -284,7 +288,8 @@ func client_poses(poses: Dictionary) -> void:
 func client_event(event: Dictionary) -> void:
 	match event.type:
 		"alert":
-			hud.flash_alert(event.text, event.kind)
+			if hud != null:
+				hud.flash_alert(event.text, event.kind)
 			match event.kind:
 				"abort":
 					sfx.play("abort")
@@ -326,6 +331,8 @@ func client_event(event: Dictionary) -> void:
 			var from: Vector3 = event.from
 			var to: Vector3 = event.to
 			sfx.play("gunshot", from)
+			if avatars.has(int(event.by)) and avatars[int(event.by)].visual.has_method("on_shot"):
+				avatars[int(event.by)].visual.on_shot()
 			_fx("burst", ["muzzle_flash", from, (to - from).normalized()])
 			_fx("tracer", [from, to])
 			if avatars.has(int(event.target)):
@@ -428,25 +435,27 @@ func _process(delta: float) -> void:
 		local.external_push = physics.airlock_push(local.global_position) if not downed else Vector3.ZERO
 		if not downed and not host:
 			rules.set_pose(my_id, local.position, local.facing_yaw())
-		_pose_timer -= delta
-		if _pose_timer <= 0.0:
-			_pose_timer = POSE_INTERVAL
+	_pose_timer -= delta
+	if _pose_timer <= 0.0:
+		_pose_timer = POSE_INTERVAL
+		if local != null:
 			Net.send_pose(local.position, local.facing_yaw(), local.velocity)
-			if host:
-				var poses := {}
-				for id in rules.players:
-					var p: Dictionary = rules.players[id]
-					poses[id] = [p.pos, p.yaw, _moving.get(id, 0.0)]
-				Net.broadcast_poses(poses)
-				client_poses(poses)
+		if host:
+			var poses := {}
+			for id in rules.players:
+				var p: Dictionary = rules.players[id]
+				poses[id] = [p.pos, p.yaw, _moving.get(id, 0.0)]
+			Net.broadcast_poses(poses)
+			client_poses(poses)
 	_update_items()
 	_update_sockets()
 	_apply_power_state()
 	_update_audio()
 	var action := rules.available_action(my_id)
 	_update_highlight(action)
-	hud.update_state(rules, action, my_id)
-	hud.set_world_markers(StationHud.markers_for(rules, my_id))
+	if hud != null:
+		hud.update_state(rules, action, my_id)
+		hud.set_world_markers(StationHud.markers_for(rules, my_id))
 
 
 ## Outline whatever the Interact button would act on.
@@ -473,7 +482,19 @@ func _update_highlight(action: Dictionary) -> void:
 		_fx("set_interact_highlight", [target, true])
 
 
+func _update_music() -> void:
+	var state := "tension"
+	if rules.phase == StationRules.Phase.EXTRACTION:
+		state = "extraction"
+	elif rules.phase == StationRules.Phase.RESULT:
+		state = "off"
+	if state != _music_state:
+		_music_state = state
+		Sfx.set_music(state)
+
+
 func _update_audio() -> void:
+	_update_music()
 	for item_id in rules.items:
 		var holder: int = rules.items[item_id].holder
 		var before: int = _holders.get(item_id, 0)
@@ -537,10 +558,13 @@ func _update_player_states() -> void:
 			and not (avatar.reactions != null and avatar.reactions.body_hidden())
 		var body: int = rules.players[id].body if rules.players.has(id) else 0
 		avatar.carrying_body = body != 0
+		var holding: String = rules.players[id].holding if rules.players.has(id) else ""
+		avatar.set_held_kind(rules.items[holding].kind if holding != "" and rules.items.has(holding) else "")
 		var carried_by := int(rules.players[id].carried_by) if rules.players.has(id) else 0
 		avatar.carrier = avatars.get(carried_by) if carried_by != 0 else null
 		avatar.set_carried(carried_by != 0)
-	hud.set_life_state(rules.state_of(my_id), float(rules.players.get(my_id, {}).get("down_until", 0.0)) - rules.elapsed)
+	if hud != null:
+		hud.set_life_state(rules.state_of(my_id), float(rules.players.get(my_id, {}).get("down_until", 0.0)) - rules.elapsed)
 
 
 func _update_items() -> void:

@@ -14,6 +14,16 @@ from bootstrap_godot import ROOT, ensure_engine, validate_engine
 ERROR_MARKERS = ('SCRIPT ERROR', 'Parse Error', 'Compile Error')
 
 
+def run_host_station_test(engine):
+    print('dedicated server + control panel (tools/test_host_station.py)...', flush=True)
+    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'test_host_station.py'), '--godot', str(engine)],
+                            capture_output=True, text=True, timeout=420)
+    if result.returncode != 0:
+        print((result.stdout + result.stderr)[-4000:])
+        raise SystemExit('FAILED: dedicated server + control panel')
+    print('  ' + (result.stdout.strip().splitlines() or ['ok'])[-1])
+
+
 def run(engine, label, args, marker, timeout=180):
     print(f'{label}...', flush=True)
     result = subprocess.run([str(engine), '--headless', '--path', str(ROOT)] + args,
@@ -107,6 +117,8 @@ def main():
         net_round(engine, 'crew')
         net_round(engine, 'infiltrator')
         net_round(engine, 'eject', host_infiltrator=True)
+        if (ROOT / 'tools' / 'test_host_station.py').exists():
+            run_host_station_test(engine)
     print('ALL STATION CHECKS PASSED')
 
 

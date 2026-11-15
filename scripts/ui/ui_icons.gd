@@ -50,7 +50,7 @@ const SECONDARY_SMALL := 0.55
 const GLINT := 0.92
 const SMALL_PX := 36  # at or below this many screen pixels, use the small variant
 const EXACT_MAX := 160  # draw(): rasterise at exact pixel size up to this
-const HALO_ALPHA := 0.4
+const HALO_ALPHA := 0.62
 const CACHE_LIMIT := 768
 const STYLES := ["duo", "color"]
 const SHAPES := ["hex", "square"]
@@ -637,8 +637,8 @@ static func _image(svg_text: String, shadow: String, px: int, spread_px: float) 
 
 
 static func _spread(px: int) -> float:
-	# Halo spread in grid units: ~1.6 units at 128 px, at least ~1 px when small.
-	return maxf(1.6, 1.0 * GRID / float(px))
+	# Halo spread in grid units: 2.2 units at 128 px, at least ~1.3 px when small.
+	return maxf(2.2, 1.3 * GRID / float(px))
 
 
 static func _texture(glyph: String, style: String, px: int, small: bool, halo: bool, mips: bool) -> Texture2D:

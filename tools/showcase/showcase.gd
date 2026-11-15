@@ -4,7 +4,10 @@ extends SceneTree
 ##
 ## xvfb-run -a -s "-screen 0 1920x1080x24" <godot> --path . --rendering-method mobile \
 ##     --resolution 1920x1080 --fixed-fps 30 --script res://tools/showcase/showcase.gd \
-##     -- --out <dir> [--set characters,items] [--only key[,key...]] [--preview]
+##     -- --out <dir> [--set characters,items] [--only key[,key...]] [--preview] [--check]
+##
+## --check runs every shot headless (add --headless, no xvfb) and only reports
+## cameras inside geometry or blocked views; it saves nothing.
 ##
 ## See tools/showcase/README.md for the shot list and how to add a shot.
 
@@ -26,6 +29,7 @@ func _run() -> void:
 	var only := PackedStringArray()
 	var sets := PackedStringArray()
 	var preview := false
+	var check := false
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		if args[i] == "--out" and i + 1 < args.size():
@@ -36,6 +40,8 @@ func _run() -> void:
 			sets = args[i + 1].split(",", false)
 		elif args[i] == "--preview":
 			preview = true
+		elif args[i] == "--check":
+			check = true
 	if out.is_empty():
 		push_error("showcase: pass --out <dir>")
 		quit(2)
@@ -57,11 +63,13 @@ func _run() -> void:
 		if node != world:
 			root.add_child(node)
 			node.share_world(world)
+		node.check_only = check
 		var dir := out.path_join(folder)
 		for entry: Dictionary in node.SHOTS:
 			if not only.is_empty() and not entry.key in only:
 				continue
-			DirAccess.make_dir_recursive_absolute(dir)
+			if not check:
+				DirAccess.make_dir_recursive_absolute(dir)
 			var err: Error = await node.call(entry.method, dir)
 			if err != OK:
 				push_error("showcase: shot %s failed (%s)" % [entry.key, error_string(err)])

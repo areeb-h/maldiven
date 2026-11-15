@@ -160,11 +160,11 @@ func _bright_rect(canvas: CanvasItem, rect: Rect2) -> void:
 func _draw_rows(canvas: CanvasItem, rows: PackedStringArray, page: int, pages: int) -> void:
 	var w := (canvas as Control).size.x
 	canvas.draw_rect(Rect2(Vector2.ZERO, (canvas as Control).size), DARK_BG)
-	_text(canvas, Vector2(16, 34), "DRIFT STATION ICONS  %d/%d" % [page + 1, pages], 22, UiStyle.TEXT)
+	_text(canvas, Vector2(16, 30), "DRIFT STATION ICONS  %d/%d" % [page + 1, pages], 22, UiStyle.TEXT)
 	var heads := [[LABEL_W, "WHITE 18 24 32 48 96"], [LABEL_W + 330, "CYAN / AMBER / RED"],
 		[LABEL_W + 668, "FULL COLOUR 24 48 96"], [LABEL_W + 930, "BRIGHT SCENE"]]
 	for h in heads:
-		_text(canvas, Vector2(h[0], 34), h[1], 15, UiStyle.MUTED)
+		_text(canvas, Vector2(h[0] + 300 if h[0] == LABEL_W else h[0], 30), h[1], 15, UiStyle.MUTED)
 	var bright_x := LABEL_W + 924.0
 	for i in range(rows.size()):
 		var name := rows[i]

@@ -42,6 +42,7 @@ var _push_load := 0.0  # 0..1: how much the prop being pushed slows us
 var _knock_time := 0.0  # s of reduced control after a knock
 var _step_offset := 0.0  # visual height lag after a step-up (eases to 0)
 var _carry_blend := 0.0
+var _held_kind := ""
 var _carry_from := Transform3D.IDENTITY
 # Render-rate smoothing: physics runs at a fixed 60 Hz, screens may run at
 # 90/120 Hz. The visual and camera are drawn between the last two physics
@@ -224,6 +225,15 @@ func knockback(direction: Vector3, strength := 1.0) -> void:
 		return
 	velocity = flat.normalized() * KNOCKBACK_SPEED * strength + Vector3(0, KNOCKBACK_LIFT * minf(strength, 1.0), 0)
 	_knock_time = 0.25 + 0.2 * strength
+
+
+## What this crew member holds ("cell", "core", "gun" or ""): the gloves grip it.
+func set_held_kind(kind: String) -> void:
+	if kind == _held_kind:
+		return
+	_held_kind = kind
+	if visual.has_method("set_held_item"):
+		visual.set_held_item(kind)
 
 
 ## Turn the body to a yaw at once (downed bodies lie along the fall).

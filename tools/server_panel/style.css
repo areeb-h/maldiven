@@ -333,6 +333,8 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 }
 .hint:hover { background: rgba(255, 225, 77, 0.13); }
 .hint .icon { color: var(--amber); }
+.hint span { flex: 1; min-width: 0; }
+.hint u { flex: none; }
 .hint u { text-underline-offset: 3px; color: var(--amber); font-weight: 700; }
 .btn.has-alert::after { content: ""; position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
@@ -486,6 +488,7 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 }
 .member--empty .member__face { background: transparent; box-shadow: none; border: 1.5px dashed rgba(140, 204, 255, 0.22); color: var(--faint); }
 .member--empty .member__face .icon { width: 20px; height: 20px; }
+.member--empty .member__name--all { display: none; }
 .member--empty .member__name { font-size: 16px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .ping { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ping i { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; }
@@ -625,13 +628,15 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 }
 @media (max-width: 760px) {
   body { font-size: 16.5px; }
-  .topbar { grid-template-columns: minmax(0, 1fr) auto; padding: 18px 16px 14px; gap: 14px 12px; }
+  .topbar { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 14px; gap: 14px; }
   .brand { gap: 12px; }
   .brand__mark { width: 38px; height: 38px; }
-  .station-name__input, .station-name__field::after { font-size: 22px; }
-  .topbar__meta { justify-self: end; }
-  .topbar__meta .chip { display: none; }
+  .station-name__input, .station-name__field::after { font-size: 23px; }
+  .topbar__meta { justify-content: space-between; }
   .topbar__actions { grid-column: 1 / -1; }
+  .member--empty ~ .member--empty { display: none; }
+  .member--empty .member__name--one { display: none; }
+  .member--empty .member__name--all { display: block; }
   .topbar__actions .btn { flex: 1; }
   .layout { padding: 0 16px 16px; gap: 16px; }
   .card { padding: 20px 18px 22px; }

@@ -466,8 +466,9 @@ def master(st, sr, target, loop=False, voice_dip=False, comp=True, gate=None):
     st = mono_bass(st, sr)
     if gate is not None:
         st = gate(st)
-    if comp:
-        st = steady(lambda v: glue(v, sr), st, loop)
+    if comp:  # normalise first so the compressor always sees the same level
+        st = st * undb(target - lufs(st, sr))
+        st = steady(lambda v: glue(v, sr, thresh_db=target - 4.0, ratio=2.0), st, loop)
     for _ in range(5):
         st = st * undb(target - lufs(st, sr))
         st = steady(lambda v: limit_st(v, sr, -1.0), st, loop)
@@ -834,6 +835,10 @@ def trailer():
     gate_curve = np.minimum(gate_curve, np.maximum(stop, ramp(tt, 71.45, 71.5)))
     gate_curve *= 1.0 - smooth(ramp(tt, 79.2, 80.0)) * 0.97
     gate_curve[-int(0.01 * sr):] *= np.linspace(1.0, 0.0, int(0.01 * sr))
+    # dynamic arc (dB): quiet cold open, gentle pad, rising riser, tension, loudest climax and title
+    arc_t = [0.0, 10.0, 24.5, 29.8, 30.0, 33.0, 46.0, 50.0, 65.0, 72.0, 80.0]
+    arc_db = [-10.0, -6.5, -6.5, -2.0, 0.0, -3.5, -2.0, 1.0, 1.0, 0.5, 0.5]
+    gate_curve *= 10.0 ** (np.interp(tt, arc_t, arc_db) / 20.0)
     st = master(mixed, sr, -14.0, gate=lambda v: v * gate_curve[None, :])
     return st, sr, cues
 

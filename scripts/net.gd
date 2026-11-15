@@ -20,6 +20,8 @@ const PALETTE := [Color("ff5a5a"), Color("4da3ff"), Color("ffd23f"), Color("53d7
 var roster := {}  # peer id -> {name, color}
 var in_round := false
 var room_name := ""
+var dedicated := false  # PC dedicated server: peer 1 hosts but is not a player (scripts/server/)
+var max_players := MAX_PLAYERS  # seats; a dedicated server may lower it
 var world: Node = null  # current World node, registers itself
 var rooms := {}  # ip -> {name, players, state, seen}
 var _beacon: PacketPeerUDP
@@ -67,6 +69,36 @@ func host(player_name: String) -> Error:
 	return OK
 
 
+## Dedicated server (scripts/server/dedicated_server.gd): host with an empty
+## roster; peer 1 runs the round but has no avatar, role, camera or HUD.
+func host_dedicated(name_of_room: String, seats := MAX_PLAYERS) -> Error:
+	var error := host("Server")
+	if error != OK:
+		return error
+	dedicated = true
+	max_players = clampi(seats, 2, MAX_PLAYERS)
+	room_name = name_of_room
+	roster = {}
+	roster_changed.emit()
+	return OK
+
+
+## Host: remove a client; they see the message on their home screen.
+func kick(id: int, message: String) -> void:
+	if is_host() and id != 1:
+		_refuse(id, message)
+
+
+## Host: rename the room (beacon + every admitted client's lobby title).
+func rename_room(next: String) -> void:
+	if not is_host():
+		return
+	room_name = next
+	_send_to_roster("_welcome", [room_name])
+	_send_to_roster("_roster", [roster])  # clients refresh the lobby title
+	roster_changed.emit()
+
+
 func join(address: String, player_name: String) -> Error:
 	leave()
 	var peer := ENetMultiplayerPeer.new()
@@ -88,6 +120,8 @@ func leave() -> void:
 	roster = {}
 	in_round = false
 	room_name = ""
+	dedicated = false
+	max_players = MAX_PLAYERS
 
 
 func _clean_name(text: String) -> String:
@@ -159,7 +193,7 @@ func _register(player_name: String, protocol: int) -> void:
 	if in_round and not round_over:
 		_refuse(id, "A round is in progress. Try again when it ends.")
 		return
-	if roster.size() >= MAX_PLAYERS:
+	if roster.size() >= max_players:
 		_refuse(id, "The station is full.")
 		return
 	var used := []

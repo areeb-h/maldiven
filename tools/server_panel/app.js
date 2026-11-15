@@ -449,9 +449,10 @@
       const seat = el("li", "member member--empty");
       const face = el("span", "member__face");
       face.appendChild(icon("i-user"));
-      seat.append(face, el("span", "member__name", "Open seat"));
+      seat.append(face, el("span", "member__name member__name--one", "Open seat"), el("span", "member__name member__name--all"));
       empties.push(seat);
     }
+    if (empties.length) empties[0].lastChild.textContent = plural(empties.length, "open seat", "open seats");
     empties.forEach((seat) => ui.crew.appendChild(seat));
   }
 
@@ -559,7 +560,7 @@
       hint = el("button", "hint");
       hint.id = "firewall-hint";
       hint.type = "button";
-      hint.append(icon("i-shield"), el("span", "", "Windows Firewall may block the phones. "), el("u", "", "How to fix"));
+      hint.append(icon("i-shield"), el("span", "", "Windows Firewall may block the phones."), el("u", "", "How to fix"));
       hint.addEventListener("click", openHelp);
       document.querySelector(".card--join").appendChild(hint);
     } else if (!warn && hint) {

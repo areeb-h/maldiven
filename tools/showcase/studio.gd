@@ -36,6 +36,10 @@ var cast_root: CharacterBody3D
 var _models: Array[CrewModel] = []
 var _extras: Array[Node] = []  # shot nodes parented outside set_root (e.g. into sockets)
 var _env_defaults: Dictionary = {}
+var _focus := Vector3.ZERO
+## Headless layout check (showcase --check): run the shots, report camera
+## problems, save nothing.
+var check_only := false
 
 
 # --- world --------------------------------------------------------------------------
@@ -357,8 +361,8 @@ func stage(radius := 1.4, offset := Vector3.ZERO, rim := CYAN) -> Vector3:
 	disc.mesh = mesh
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.05, 0.055, 0.065)
-	mat.metallic = 0.7
-	mat.roughness = 0.18
+	mat.metallic = 0.6
+	mat.roughness = 0.38
 	disc.material_override = mat
 	disc.position = top - Vector3(0, 0.08, 0)
 	set_root.add_child(disc)
@@ -450,6 +454,7 @@ func frame(pos: Vector3, target: Vector3, fov: float, focus: Vector3, depth := 1
 	camera.look_at_from_position(pos, target, Vector3.UP)
 	if roll_deg != 0.0:
 		camera.rotate_object_local(Vector3.FORWARD, deg_to_rad(roll_deg))
+	_focus = focus
 	var d := pos.distance_to(focus)
 	attrs.dof_blur_amount = blur
 	attrs.dof_blur_far_enabled = blur > 0.0
@@ -467,6 +472,30 @@ func wait(frames: int) -> void:
 		await get_tree().process_frame
 
 
+## Composition guard: warns when the camera sits inside station geometry or a
+## collider blocks the line to the focus point (station props move between
+## builds, so a framing that was clear can become blocked).
+func check_view(label: String) -> void:
+	var space := get_world_3d().direct_space_state
+	var probe := PhysicsShapeQueryParameters3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = 0.2
+	probe.shape = sphere
+	probe.transform = Transform3D(Basis.IDENTITY, camera.global_position)
+	probe.collision_mask = 1 | 16
+	for hit in space.intersect_shape(probe, 4):
+		push_warning("showcase: %s: camera inside %s" % [label, _collider_name(hit.collider)])
+	var ray := PhysicsRayQueryParameters3D.create(camera.global_position, _focus, 1 | 16)
+	var hit := space.intersect_ray(ray)
+	if not hit.is_empty() and hit.position.distance_to(_focus) > 0.6:
+		push_warning("showcase: %s: view to focus blocked by %s at %s" % [label, _collider_name(hit.collider), hit.position])
+
+
+static func _collider_name(node: Object) -> String:
+	var n := node as Node
+	return "%s/%s" % [n.get_parent().name, n.name] if n != null and n.get_parent() != null else str(node)
+
+
 ## Renders the current frame and saves it as a PNG at `path`.
 func snap(path: String) -> Error:
 	await RenderingServer.frame_post_draw
@@ -478,7 +507,11 @@ func snap(path: String) -> Error:
 ## and saves `<out>/<file>`. Prints the saved path so callers can collect it.
 func capture(out: String, file: String, warm := 4) -> Error:
 	freeze_crew()
-	await wait(warm)
+	await wait(1 if check_only else warm)
+	check_view(file)
+	if check_only:
+		print("showcase: checked ", file)
+		return OK
 	var path := out.path_join(file)
 	var err := await snap(path)
 	if err == OK:
