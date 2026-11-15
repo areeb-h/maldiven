@@ -65,7 +65,7 @@ func _draw() -> void:
 		return
 	var appear := 1.0 - pow(1.0 - _shown, 3.0)
 	var color := _color()
-	var urgent := ceil(left) <= 5.0
+	var urgent := ceilf(left) <= 5.0
 	var center := Vector2(size.x * 0.5, RADIUS + 18.0)
 	# Pulse: 1.18 -> 1.0 with a back ease over 260 ms on each whole second.
 	var beat := clampf(_beat / 0.26, 0.0, 1.0)
@@ -118,7 +118,7 @@ func _draw() -> void:
 	box.border_color = UiStyle.with_alpha(color, 0.8 * alpha)
 	box.set_border_width_all(1)
 	draw_style_box(box, pill)
-	var icon_name := {"shuttle": "shuttle", "pod": "warning", "airlock": "airlock"}.get(_shown_kind, "clock")
+	var icon_name: String = {"shuttle": "shuttle", "pod": "warning", "airlock": "airlock"}.get(_shown_kind, "clock")
 	UiIcons.draw(self, icon_name, Vector2(pill.position.x + 16.0 + 14.0, pill.get_center().y), 24.0, UiStyle.with_alpha(color, alpha))
 	draw_string(head_font, Vector2(pill.position.x + 16.0 + 28.0 + 12.0, pill.get_center().y + text_size * 0.36),
 		text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, UiStyle.with_alpha(UiStyle.TEXT, alpha))

@@ -11,7 +11,7 @@ extends Node3D
 ## the origin, so a gun lying loose sits slightly sunk on its pommel.
 
 const SHELL := Color(0.92, 0.92, 0.9)
-const ACCENT := Color(1.0, 0.42, 0.12)
+const ACCENT := Color(0.95, 0.33, 0.06)
 const CHARGE := Color(0.32, 1.0, 0.78)
 const GRIP_TILT := 0.24
 const GRIP_C := Vector3(0.0, 0.002, -0.012)
@@ -63,7 +63,7 @@ static func mesh() -> ArrayMesh:
 	k.tube(PackedVector3Array([Vector3(0, 0.05, 0.022), Vector3(0, 0.012, 0.025), Vector3(0, -0.003, 0.046),
 		Vector3(0, 0.006, 0.07), Vector3(0, 0.05, 0.076)]), 0.005, 6, 10)
 	k.part(ItemKit.SHELL_B)
-	k.rounded_box(Vector3(0, 0.03, 0.04), Vector3(0.009, 0.03, 0.011), 0.0036, Basis(Vector3.RIGHT, 0.3))
+	k.rounded_box(Vector3(0, 0.03, 0.04), Vector3(0.009, 0.03, 0.011), 0.003, Basis(Vector3.RIGHT, 0.3))
 	# Upper shell: glossy white with panel lines, orange spine.
 	k.part(ItemKit.SHELL_A)
 	k.rounded_box(Vector3(0.0, 0.113, 0.052), Vector3(0.062, 0.058, 0.264), 0.018)
@@ -76,17 +76,17 @@ static func mesh() -> ArrayMesh:
 		for i in 3:
 			var z := 0.012 + float(i) * 0.036
 			k.part(ItemKit.AMMO, 1.0, i + 1)
-			k.capsule(Vector3(s * 0.0335, 0.098, z), Vector3(s * 0.0335, 0.128, z), 0.0092, 0.0092, 8, 2, 1)
+			k.capsule(Vector3(s * 0.0335, 0.098, z), Vector3(s * 0.0335, 0.128, z), 0.0092, 0.0092, 7, 2, 1)
 	# Rear readout: graphite plate with three charge bars facing the shooter.
 	k.part(ItemKit.GRAPHITE, 0.85)
 	k.rounded_box(Vector3(0.0, 0.112, -0.083), Vector3(0.05, 0.044, 0.01), 0.0034)
 	for i in 3:
 		k.part(ItemKit.AMMO, 1.0, i + 1)
-		k.rounded_box(Vector3(-0.014 + float(i) * 0.014, 0.112, -0.0885), Vector3(0.009, 0.026, 0.004), 0.0)
+		k.rounded_box(Vector3(0.014 - float(i) * 0.014, 0.112, -0.0885), Vector3(0.009, 0.026, 0.004), 0.0)
 	# Rear sight with a status LED, front sight fin.
 	k.part(ItemKit.GRAPHITE)
 	for s in [-1.0, 1.0]:
-		k.rounded_box(Vector3(s * 0.011, 0.149, -0.06), Vector3(0.009, 0.016, 0.02), 0.0036)
+		k.rounded_box(Vector3(s * 0.011, 0.149, -0.06), Vector3(0.009, 0.016, 0.02), 0.003)
 	k.part(ItemKit.LED)
 	k.rounded_box(Vector3(0.0, 0.1445, -0.07), Vector3(0.008, 0.006, 0.006), 0.0)
 	k.part(ItemKit.SHELL_B)
@@ -94,18 +94,19 @@ static func mesh() -> ArrayMesh:
 	# Vented barrel shroud, barrel, brushed muzzle crown and cyan glow ring.
 	var bz := Vector3(0, 0, 1)
 	k.part(ItemKit.GRAPHITE, 0.95)
-	k.cylinder(Vector3(0, 0.112, 0.178), Vector3(0, 0.112, 0.27), 0.026, 14, 0.006)
+	k.cylinder(Vector3(0, 0.112, 0.178), Vector3(0, 0.112, 0.27), 0.026, 12, 0.006)
 	k.part(ItemKit.METAL)
 	for z in [0.204, 0.226, 0.248]:
-		k.collar(Vector3(0, 0.112, z), 0.024, 0.0285, 0.007, 14, ItemKit.basis_y(bz))
-	k.cylinder(Vector3(0, 0.112, 0.268), Vector3(0, 0.112, 0.298), 0.017, 12, 0.003)
-	k.collar(Vector3(0, 0.112, 0.302), 0.013, 0.027, 0.016, 16, ItemKit.basis_y(bz))
+		k.lathe(PackedVector2Array([Vector2(0.025, -0.0045), Vector2(0.0288, -0.002), Vector2(0.0288, 0.002), Vector2(0.025, 0.0045)]),
+			Transform3D(ItemKit.basis_y(bz), Vector3(0, 0.112, z)), 14, Vector2.ONE, 0.0, TAU, PackedFloat32Array([0.4, 1, 1, 0.4]))
+	k.cylinder(Vector3(0, 0.112, 0.268), Vector3(0, 0.112, 0.298), 0.017, 10, 0.003)
+	k.collar(Vector3(0, 0.112, 0.302), 0.013, 0.027, 0.016, 14, ItemKit.basis_y(bz))
 	k.part(ItemKit.GLOW_B)
-	k.ring(Vector3(0, 0.112, 0.311), 0.02, 0.0042, ItemKit.basis_y(bz), 18, 4)
+	k.ring(Vector3(0, 0.112, 0.311), 0.02, 0.0042, ItemKit.basis_y(bz), 16, 4)
 	k.disc(Vector3(0, 0.112, 0.306), bz, 0.0125, 12, -0.004)
 	# Under-barrel capacitor pod on a bracket: graphite body, orange nose, lit bands.
 	k.part(ItemKit.GRAPHITE, 0.85)
-	k.rounded_box(Vector3(0, 0.05, 0.15), Vector3(0.018, 0.014, 0.05), 0.005)
+	k.rounded_box(Vector3(0, 0.05, 0.15), Vector3(0.018, 0.014, 0.05), 0.003)
 	k.part(ItemKit.GRAPHITE, 1.05)
 	k.capsule(Vector3(0, 0.036, 0.118), Vector3(0, 0.036, 0.232), 0.0155, 0.0155, 10, 2, 1, Vector2.ONE, 0.0)
 	k.part(ItemKit.GLOW_A)

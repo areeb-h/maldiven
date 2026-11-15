@@ -36,6 +36,7 @@ func _run() -> void:
 	if not is_equal_approx(root.get_process_delta_time(), 1.0 / 30.0):
 		push_warning("showcase: run with --fixed-fps 30 so bursts and poses land on the planned frame")
 	var failed := 0
+	var shots := 0
 	for entry: Dictionary in studio.SHOTS:
 		if not only.is_empty() and not entry.key in only:
 			continue
@@ -43,6 +44,10 @@ func _run() -> void:
 		if err != OK:
 			push_error("showcase: shot %s failed (%s)" % [entry.key, error_string(err)])
 			failed += 1
+		shots += 1
+	# Under software Vulkan (lavapipe) the engine can stall during shutdown after a
+	# 3D frame has been drawn; everything is saved by now, so this line marks the end.
+	print("showcase: done, %d shot(s), %d failed" % [shots, failed])
 	quit(1 if failed > 0 else 0)
 
 

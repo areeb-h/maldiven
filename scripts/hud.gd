@@ -466,7 +466,7 @@ func _build_menu() -> void:
 func _play_intro() -> void:
 	# Top panels slide down 16 px, buttons rise 24 px, staggered 0/60/120 ms.
 	var delay := 0.0
-	for control in [_top_panel, _timer_pill, _menu_button]:
+	for control: Control in [_top_panel, _timer_pill, _menu_button]:
 		var target: float = control.offset_top
 		control.offset_top = target - 16.0
 		control.offset_bottom -= 16.0

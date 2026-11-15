@@ -340,7 +340,7 @@ func frame(pos: Vector3, target: Vector3, fov: float, focus: Vector3, depth := 1
 	attrs.dof_blur_far_transition = maxf(d * 0.9, 1.0)
 	attrs.dof_blur_near_enabled = near_blur and blur > 0.0 and d > depth
 	attrs.dof_blur_near_distance = maxf(d - depth * 0.5, 0.1)
-	attrs.dof_blur_near_transition = maxf((d - depth * 0.5) * 0.6, 0.05)
+	attrs.dof_blur_near_transition = maxf((d - depth * 0.5) * 0.4, 0.05)
 
 
 # --- timing and capture -------------------------------------------------------------

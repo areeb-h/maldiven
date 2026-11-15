@@ -348,3 +348,20 @@ static func chip(text: String, color: Color, icon_name := "", filled := true) ->
 	word.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(word)
 	return panel
+
+
+## Safe-area margins in logical px for a control's viewport: max(inset, 24)
+## at the sides, max(inset, 16) top, max(inset, 20) bottom. Rect2(left, top,
+## right, bottom). Insets are only read on phones (desktop windows have none).
+static func safe_margins(control: Control) -> Rect2:
+	var inset := Rect2()
+	if OS.has_feature("mobile") and control.is_inside_tree():
+		var window := Vector2(DisplayServer.window_get_size())
+		var logical := control.get_viewport_rect().size
+		if window.x > 0.0 and logical.x > 0.0:
+			var k := window / logical
+			var safe := Rect2(DisplayServer.get_display_safe_area())
+			var screen := Vector2(DisplayServer.screen_get_size())
+			inset = Rect2(safe.position / k, (screen - safe.end) / k)
+	return Rect2(maxf(inset.position.x, 24.0), maxf(inset.position.y, 16.0),
+		maxf(inset.size.x, 24.0), maxf(inset.size.y, 20.0))

@@ -162,7 +162,7 @@ void fragment() {
 		met = mix(0.03, 0.6, wear * 0.5);
 		rough = 0.2 + 0.06 * nlo + scr * 0.14 + cav * 0.3;
 		cc = 0.9 * (1.0 - wear);
-		nd = 0.04;
+		nd = 0.012;
 		gloss_rim = 0.2;
 	} else if (id < 2.5) {
 		// Satin graphite composite.
@@ -185,13 +185,13 @@ void fragment() {
 		rough = 0.22 + 0.14 * streak;
 		nd = 0.06;
 	} else if (id < 4.5) {
-		// Rubber with chunky lug grooves.
-		vec2 lug = abs(fract(UV * vec2(36.0, 36.0)) - 0.5);
-		float groove = (1.0 - smoothstep(0.3, 0.42, max(lug.x, lug.y))) * fade;
-		alb = vec3(0.035, 0.035, 0.038) * shade * (1.0 - groove * 0.45);
-		rough = 0.85;
-		nd = 0.5;
-		tilt = (lug - 0.25) * groove * 0.3;
+		// Rubber with crisp grip ridges.
+		float rr = fract(UV.y * 110.0) - 0.5;
+		float groove = (1.0 - smoothstep(0.18, 0.32, abs(rr))) * fade;
+		alb = vec3(0.04, 0.04, 0.044) * shade * (1.0 - groove * 0.5);
+		rough = 0.8 - groove * 0.1;
+		nd = 0.3;
+		tilt = vec2(0.0, sign(rr) * groove * 0.35);
 	} else if (id < 6.5) {
 		vec3 c = id < 5.5 ? glow_a : glow_b;
 		alb = c * 0.4;
@@ -222,7 +222,7 @@ void fragment() {
 		float sweep = exp(-pow((h - sweep_p) * 6.0, 2.0));
 		float breathe = 0.86 + 0.14 * sin(t * 5.03);
 		vec3 hot = vec3(1.0, 0.9, 0.55);
-		vec3 col = mix(glow_a * vec3(1.0, 0.75, 0.6), hot, clamp(h * 0.35 + sweep * 0.5 + bub * 0.35, 0.0, 1.0));
+		vec3 col = mix(glow_a * vec3(1.0, 0.68, 0.45), hot, clamp(h * 0.18 + sweep * 0.45 + bub * 0.3, 0.0, 1.0));
 		float lit = fill * gap;
 		alb = mix(vec3(0.02, 0.015, 0.01), col * 0.25, lit);
 		emi = col * glow_energy * lit * breathe * (0.72 + 0.28 * bub + 0.35 * sweep);
@@ -247,15 +247,15 @@ void fragment() {
 		fil += pow(1.0 - abs(sin((q.x * 0.7 + q.z * 0.7 + n2 * 1.2) * 6.0 - t * 0.9)), 9.0) * 0.6;
 		float limb = pow(1.0 - ndv, 2.2);
 		float hot = pow(ndv, 3.5);
-		vec3 deep = glow_b * vec3(0.25, 0.55, 0.85);
-		vec3 col = mix(deep, glow_b, 0.45 + 0.55 * n1);
-		col = mix(col, vec3(0.88, 1.0, 1.0), clamp(hot * 0.55 + fil * 0.45, 0.0, 1.0));
+		vec3 deep = glow_b * vec3(0.12, 0.42, 0.8);
+		vec3 col = mix(deep, glow_b, smoothstep(0.25, 0.75, n1));
+		col = mix(col, vec3(0.8, 1.0, 1.0), clamp(hot * 0.3 + fil * 0.5, 0.0, 1.0));
 		float pulse = 0.88 + 0.12 * sin(t * 5.03);
-		alb = glow_b * 0.25;
-		emi = col * glow_energy * (0.55 + 0.45 * n2 + 0.7 * fil + 0.65 * limb) * pulse;
-		emi += fake_env(rworld) * pow(1.0 - ndv, 4.0) * 0.6;
+		alb = glow_b * 0.04;
+		emi = col * glow_energy * (0.3 + 0.45 * n2 + 0.9 * fil + 0.6 * limb) * pulse;
+		emi += fake_env(rworld) * pow(1.0 - ndv, 4.0) * 0.4;
 		rough = 0.04;
-		cc = 1.0;
+		cc = 0.4;
 		nd = 0.0;
 	} else if (id < 10.5) {
 		// Gun charge cell: lit while group <= ammo; the last cell throbs.
@@ -265,7 +265,7 @@ void fragment() {
 		float core_line = 0.75 + 0.25 * smoothstep(0.2, 1.0, ndv);
 		alb = mix(vec3(0.03, 0.03, 0.035), glow_b * 0.3, on);
 		emi = glow_b * glow_energy * on * throb * core_line * (0.94 + 0.06 * sin(t * 3.0 + v_group * 2.0));
-		emi += (1.0 - on) * vec3(0.55, 0.07, 0.03) * 0.12;
+		emi += (1.0 - on) * vec3(0.6, 0.06, 0.03) * 0.05 * (0.6 + 0.4 * sin(t * 2.0));
 		emi += fake_env(rworld) * pow(1.0 - ndv, 3.0) * 0.5;
 		rough = 0.06;
 		cc = 1.0;

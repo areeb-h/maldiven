@@ -55,10 +55,10 @@ const MAX_DRAW_CALLS := 2
 ## (proximal, middle, distal); r: radii at MCP, PIP, DIP and the fingertip.
 const _FINGER_SPECS := {
 	4: [
-		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0718, 0.0334), "dir": Vector3(0.0, -1.0, 0.08), "len": Vector3(0.026, 0.0175, 0.0145), "r": Vector4(0.0103, 0.0098, 0.0093, 0.0096)},
-		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0748, 0.0111), "dir": Vector3(0.0, -1.0, 0.025), "len": Vector3(0.0285, 0.019, 0.0155), "r": Vector4(0.0106, 0.0101, 0.0096, 0.0099)},
-		{"bone": RING1, "mcp": Vector3(-0.0015, -0.0728, -0.0111), "dir": Vector3(0.0, -1.0, -0.035), "len": Vector3(0.027, 0.018, 0.015), "r": Vector4(0.0102, 0.0097, 0.0092, 0.0095)},
-		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0678, -0.0326), "dir": Vector3(0.0, -1.0, -0.1), "len": Vector3(0.021, 0.0145, 0.0125), "r": Vector4(0.0094, 0.0089, 0.0084, 0.0087)},
+		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0718, 0.0334), "dir": Vector3(0.0, -1.0, 0.08), "len": Vector3(0.032, 0.018, 0.014), "r": Vector4(0.0106, 0.0097, 0.0089, 0.0091)},
+		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0748, 0.0111), "dir": Vector3(0.0, -1.0, 0.025), "len": Vector3(0.034, 0.0195, 0.015), "r": Vector4(0.0109, 0.01, 0.0092, 0.0094)},
+		{"bone": RING1, "mcp": Vector3(-0.0015, -0.0728, -0.0111), "dir": Vector3(0.0, -1.0, -0.035), "len": Vector3(0.0325, 0.0185, 0.0145), "r": Vector4(0.0105, 0.0096, 0.0088, 0.009)},
+		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0678, -0.0326), "dir": Vector3(0.0, -1.0, -0.1), "len": Vector3(0.0255, 0.015, 0.0125), "r": Vector4(0.0096, 0.0088, 0.0081, 0.0083)},
 	],
 	3: [
 		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0725, 0.0298), "dir": Vector3(0.0, -1.0, 0.07), "len": Vector3(0.027, 0.018, 0.015), "r": Vector4(0.0136, 0.013, 0.0123, 0.0127)},
@@ -88,19 +88,19 @@ const _POSE_DATA := {
 		"t": [-0.1, 0.05, 0.42, -0.05, 0.0]},
 	"relaxed": {"w": Vector3(0.12, 0.0, -0.04), "f": [Vector4(0.24, 0.36, 0.22, 0.06), Vector4(0.3, 0.44, 0.26, 0.0), Vector4(0.36, 0.5, 0.3, -0.05), Vector4(0.44, 0.58, 0.34, -0.1)],
 		"t": [0.33, 0.11, 0.2, 0.2, 0.22]},
-	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.24, 0.30, 0.0), Vector4(1.34, 1.51, 0.59, 0.0), Vector4(1.22, 1.37, 0.99, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
-		"t": [-0.66, 1.0, 0.2, 1.2, 1.04]},
-	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.23, 0.39, 0.13, 0.07), Vector4(0.15, 0.34, 0.14, 0.01), Vector4(0.14, 0.33, 0.16, -0.05), Vector4(0.19, 0.50, 0.14, -0.11)],
-		"t": [-0.44, 0.10, 0.26, -0.20, -0.06]},
-	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.73, 0.73, 0.16, 0.20), Vector4(0.87, 0.67, 0.23, 0.06), Vector4(0.82, 0.66, 0.22, -0.08), Vector4(0.69, 0.54, 0.15, -0.24)],
-		"t": [0.43, 0.09, 0.72, 0.08, 0.12]},
-	"grip_gun": {"w": Vector3(-0.45, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(-0.01, 1.73, 1.30, 0.0), Vector4(-0.05, 1.72, 1.30, -0.03), Vector4(-0.13, 1.49, 1.22, -0.07)],
-		"t": [-0.70, 0.35, -0.20, 0.42, 0.60]},
-	"grip_gun_trigger": {"w": Vector3(-0.45, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(-0.01, 1.73, 1.30, 0.0), Vector4(-0.05, 1.72, 1.30, -0.03), Vector4(-0.13, 1.49, 1.22, -0.07)],
-		"t": [-0.70, 0.35, -0.20, 0.42, 0.60]},
-	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.0, 1.25, 0.30, 0.0), Vector4(1.35, 1.21, 1.06, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
-		"t": [0.05, 0.89, 0.41, 1.2, 0.64]},
-	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.94, 1.24, 0.30, 0.0), Vector4(1.34, 1.51, 0.59, 0.0), Vector4(1.22, 1.37, 0.99, -0.02), Vector4(1.0, 1.5, 0.96, -0.05)],
+	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
+		"t": [-0.22, 1.4, 0.42, 0.74, 0.31]},
+	"grip_large": {"w": Vector3(-0.6, 0.0, 0.0), "f": [Vector4(0.24, 0.48, 0.02, 0.07), Vector4(0.15, 0.45, 0.03, 0.01), Vector4(0.14, 0.43, 0.06, -0.05), Vector4(0.2, 0.56, 0.03, -0.11)],
+		"t": [-0.44, 0.1, 0.26, -0.2, -0.07]},
+	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.84, 0.75, 0.13, 0.2), Vector4(0.99, 0.65, 0.25, 0.06), Vector4(0.93, 0.65, 0.24, -0.08), Vector4(0.69, 0.69, 0.08, -0.24)],
+		"t": [0.59, 0.12, 0.72, 0.07, 0.12]},
+	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(0.55, 1.2, 0.05, 0.0), Vector4(0.05, 1.75, 0.0, -0.03), Vector4(0.05, 1.38, 0.0, -0.07)],
+		"t": [0.3, 0.54, 0.17, 0.09, 0.04]},
+	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(0.55, 1.2, 0.05, 0.0), Vector4(0.05, 1.75, 0.0, -0.03), Vector4(0.05, 1.38, 0.0, -0.07)],
+		"t": [0.3, 0.54, 0.17, 0.09, 0.04]},
+	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
+		"t": [-0.1, 1.0, 0.4, 0.75, 0.35]},
+	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
 		"t": [-0.32, -0.15, 0.32, -0.12, -0.1]},
 	"wave": {"w": Vector3(-0.15, 0.0, 0.0), "f": [Vector4(0.02, 0.06, 0.04, 0.1), Vector4(0.0, 0.05, 0.04, 0.03), Vector4(0.02, 0.06, 0.04, -0.04), Vector4(0.05, 0.08, 0.05, -0.12)],
 		"t": [-0.1, 0.05, 0.45, 0.0, 0.05]},
@@ -122,8 +122,13 @@ const _POSE_LIFE := {
 	"point": [0.4, "", 0.0], "thumbs_up": [0.4, "", 0.0], "wave": [0.5, "", 0.0], "push": [0.2, "", 0.0],
 	"brace": [0.3, "", 0.0], "limp": [0.3, "", 0.0], "ghost": [0.0, "", 0.0], "curl": [0.8, "", 0.6],
 }
-## Uniform scale the Props blaster takes in the hand (see _GRIP_ANCHORS["gun"]).
-const GUN_SCALE := 0.62
+## The blaster grip this hand is built to hold (metres): depth front-to-back, width
+## side-to-side, length along the grip, corner radius, rake (rad, top toward the
+## barrel), and how much shallower the bottom (pinky) third is. Its centre goes at
+## item-space (0, 0.10, 0.11), the frame's underside 0.06 above that centre (index
+## finger level), the frame ends at most 0.02 behind the grip centre (else it meets
+## the cuff), barrel along -Z.
+const GUN_GRIP := {"depth": 0.060, "width": 0.026, "length": 0.075, "radius": 0.008, "rake": 0.28, "pinky_taper": 0.85}
 ## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
 ## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
 ## toward the palm normal, then rolled by `roll` about the palm normal. The gun's
@@ -136,12 +141,11 @@ const _GRIP_ANCHORS := {
 	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.39, 0.0), "center": Vector3(0.1866, -0.063, 0.0)},
 	# Core (cage radius 0.235, field 0.24): cradled from below-side, palm turned 35 deg up.
 	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2585, -0.064, 0.0)},
-	# Blaster: grip in the palm, barrel along the extended index finger. The Props
-	# blaster grip is 11 cm deep (a 7.4 cm palm cannot close round it), so the held
-	# blaster is shown at pistol scale.
-	# `roll` (about the palm normal) squares the raked grip to the knuckle line, which
-	# cants the barrel 16 deg toward the thumb like a real pistol hold.
-	"gun": {"tilt": 0.0, "roll": -0.28, "scale": GUN_SCALE, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0435, -0.0424, 0.012)},
+	# Blaster, unscaled: the grip's centre (pivot, item space) sits in the palm, the
+	# barrel runs along the extended index finger. Designed for the grip in GUN_GRIP.
+	# `roll` (about the palm normal) squares the grip's 0.28 rad rake to the knuckle
+	# line, which cants the barrel 16 deg toward the thumb like a real pistol hold.
+	"gun": {"tilt": 0.0, "roll": -0.28, "scale": 1.0, "pivot": Vector3(0.0, 0.1, 0.11), "center": Vector3(0.0304, -0.06, -0.0155)},
 }
 ## Grip pose whose wrist angle each anchor is measured with.
 const _ANCHOR_POSE := {"cell": "grip_large", "core": "grip_core", "gun": "grip_gun"}
@@ -329,7 +333,7 @@ func set_motion(speed: float, delta: float) -> void:
 
 
 ## Where a held item's root should sit, in this hand's local space, with the wrist
-## at its grip pose: "cell", "core" or "gun" (the gun anchor carries GUN_SCALE).
+## at its grip pose: "cell", "core" or "gun".
 ## Prefer grip_node(): it rides on the Palm joint, so the item follows the wrist.
 func get_grip_anchor(kind: String) -> Transform3D:
 	if not _GRIP_ANCHORS.has(kind):
@@ -861,87 +865,164 @@ static func _mirror_kit(k: CrewMeshKit) -> void:
 		k.indices[t + 2] = tmp
 
 
-## Wrist: brushed-metal disconnect ring (meets the forearm ribs) over a tapered
-## player-colour gauntlet cuff with rolled lips and a status light on the back. A satin
-## sleeve on the palm bone fills the cuff mouth at every wrist angle.
+## Wrist: a slim gauntlet cuff (player colour, ~15% wider than the forearm ribs at
+## the top) that tapers and flattens from the round forearm to the flat hand, with
+## rolled lips, under a thin brushed-metal disconnect band and a status light on the
+## back. Profiles run bottom -> top (the kit's lathe faces outward that way).
 static func _cuff(k: CrewMeshKit) -> void:
-	var sc := Vector2(0.9, 1.0)
 	k.set_part(WRIST, _M)
-	k.lathe(PackedVector2Array([Vector2(0.0508, 0.0008), Vector2(0.0512, 0.0088), Vector2(0.0462, 0.0118)]),
-		Transform3D.IDENTITY, 12, sc)
+	k.lathe(PackedVector2Array([Vector2(0.0516, 0.0062), Vector2(0.0522, 0.0088), Vector2(0.0494, 0.0108)]),
+		Transform3D.IDENTITY, 12)
 	k.set_part(WRIST, _P, 0.95)
-	# Profiles run bottom -> top (the kit's lathe faces outward that way).
-	k.lathe(PackedVector2Array([Vector2(0.0385, -0.0262), Vector2(0.0446, -0.0292), Vector2(0.0514, -0.0215), Vector2(0.0546, -0.0005), Vector2(0.049, 0.0025)]),
-		Transform3D.IDENTITY, 12, sc, 0.0, TAU, PackedFloat32Array([0.3, 0.9, 0.0, 0.8, 0.0]))
-	# Status light on the back of the wrist (dorsal = -X), in a graphite bezel.
-	var back := Vector3(-0.0484, -0.0112, 0.0)
-	var tilt := Basis(Vector3(0, 0, 1), -0.16)
-	k.set_part(WRIST, _S, 1.3)
-	k.rounded_box(back, Vector3(0.0036, 0.011, 0.024), 0.0, tilt)
+	k.deform = _flatten(0.66, 0.9)
+	k.lathe(PackedVector2Array([Vector2(0.0405, -0.0172), Vector2(0.0446, -0.0192), Vector2(0.0474, -0.0146), Vector2(0.052, 0.0012),
+		Vector2(0.0532, 0.0052), Vector2(0.0508, 0.0068)]),
+		Transform3D.IDENTITY, 12, Vector2.ONE, 0.0, TAU, PackedFloat32Array([0.3, 0.9, 0.0, 0.2, 0.9, 0.3]))
+	k.deform = Callable()
+	# Status light on the back of the wrist (dorsal = -X), flush with the cuff.
+	var y := -0.0055
+	var x := -(0.0474 + (0.052 - 0.0474) * (y + 0.0146) / 0.0158) * _flatten_x(y, 0.66) - 0.0006
 	k.set_part(WRIST, _ST)
-	k.rounded_box(back + tilt * Vector3(-0.0019, 0.0, 0.0), Vector3(0.0012, 0.0056, 0.017), 0.0, tilt)
+	k.rounded_box(Vector3(x, y, 0.0), Vector3(0.0016, 0.0052, 0.016), 0.0, Basis(Vector3(0, 0, 1), 0.36))
 
 
-## Palm block (satin graphite), curved back-of-hand armour plate with an accent strip,
-## rubber grip panel, satin wrist sleeve.
+## Cuff / sleeve section: round at the forearm (y >= +0.006), narrowing toward the
+## hand end, much more across the palm normal (X) than across the knuckles (Z).
+static func _flatten_x(y: float, at_hand: float) -> float:
+	return lerpf(1.0, at_hand, smoothstep(0.006, -0.019, y))
+
+
+static func _flatten(at_hand_x: float, at_hand_z: float) -> Callable:
+	return func(p: Vector3) -> Vector3: return Vector3(p.x * _flatten_x(p.y, at_hand_x), p.y, p.z * _flatten_x(p.y, at_hand_z))
+
+
+## Palm block (satin graphite), sculpted back-of-hand shell, rubber grip panel and a
+## satin wrist sleeve that fills the cuff mouth at every wrist angle.
 static func _palm(k: CrewMeshKit) -> void:
 	k.set_part(PALM, CrewMaterials.FABRIC, 0.7)
-	k.lathe(PackedVector2Array([Vector2(0.034, -0.022), Vector2(0.0425, -0.011), Vector2(0.0455, 0.0075)]),
-		Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.0)), 12, Vector2(0.8, 0.98))
+	k.deform = _flatten(0.55, 0.86)
+	k.lathe(PackedVector2Array([Vector2(0.036, -0.0195), Vector2(0.0425, -0.0075), Vector2(0.0446, 0.0065)]),
+		Transform3D.IDENTITY, 12)
+	k.deform = Callable()
 	k.set_part(PALM, _S, 1.0)
 	k.deform = CrewMeshKit.taper(0.82, 1.0, 0.037, 1.0, 0.8)
-	k.rounded_box(Vector3(-0.0005, -0.0415, 0.0005), Vector3(0.034, 0.074, 0.094), 0.014)
-	# Back plate: wraps across the width, narrows toward the wrist, overhangs the knuckles.
-	var plate_b := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
-	k.set_part(PALM, _P, 1.0)
-	k.deform = CrewMeshKit.shell(0.1, 0.0, 1.0, 0.028, 0.84)
-	k.skip_back = true
-	k.rounded_box(Vector3(-0.0186, -0.046, 0.0005), Vector3(0.085, 0.056, 0.0076), 0.0037, plate_b, 1, Vector3i(3, 1, 1))
+	k.rounded_box(_PALM_C, Vector3(0.034, 0.074, 0.094), 0.014)
 	k.deform = Callable()
-	k.skip_back = false
-	# Accent strip across the plate, just above the knuckles.
-	k.set_part(PALM, _A)
-	k.deform = CrewMeshKit.shell(0.1045, 0.0, 1.0, 0.002)
-	k.rounded_box(Vector3(-0.0228, -0.0655, 0.0005), Vector3(0.05, 0.0026, 0.0012), 0.0, plate_b, 1, Vector3i(2, 1, 1))
-	k.deform = Callable()
+	_back_shell(k)
 	# Rubber grip panel on the palm (lug grooves come from the rubber shader), bowed to
 	# follow the palm's width.
 	k.set_part(PALM, _R, 1.0)
 	k.deform = CrewMeshKit.shell(0.12, 0.0, 1.0, 0.025, 0.88)
 	k.skip_back = true
-	k.rounded_box(Vector3(0.0158, -0.046, 0.0005), Vector3(0.07, 0.05, 0.0024), 0.0, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)), 1, Vector3i(3, 2, 1))
+	k.rounded_box(Vector3(0.0158, -0.046, 0.0005), Vector3(0.07, 0.05, 0.0024), 0.0, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)), 1, Vector3i(2, 2, 1))
 	k.deform = Callable()
 	k.skip_back = false
 
 
-## Palmar grip pad: the rubber half bulges between the joint creases.
+const _PALM_C := Vector3(-0.0005, -0.0415, 0.0005)
+const _SHELL_TOP := -0.0165
+const _SHELL_BOT := -0.0735
+
+
+## Point on the back-of-hand shell. s in [-1, 1] across the hand (+ toward the thumb),
+## v in [0, 1] from the wrist to the knuckles; `inset` (m) moves the point inward from
+## the outline (for the panel line), `lift` raises it off the shell. The shell hugs
+## the palm block (wrapping its rounded sides), is crowned in both directions, thin at
+## the wrist and thick at the knuckle ridge, and ends in a quarter-round lip.
+static func _shell_point(s: float, v: float, lift := 0.0) -> Vector3:
+	var length := _SHELL_TOP - _SHELL_BOT
+	var ly := lerpf(_SHELL_TOP, _SHELL_BOT, v) - _PALM_C.y
+	var t := clampf((ly + 0.037) / 0.074, 0.0, 1.0)
+	var half_w := lerpf(0.039, 0.0448, smoothstep(0.0, 0.85, v))
+	var lz := s * half_w
+	var r := 0.014
+	var flat := 0.047 - r
+	var a := clampf((absf(lz) - flat) / r, 0.0, 1.0)
+	var c := sqrt(1.0 - a * a)
+	var surf := Vector3(-(0.017 - r) - r * c, ly, lz)
+	var n := Vector3(-c, 0.0, signf(lz) * a)
+	var tk := lerpf(0.0032, 0.0066, smoothstep(0.2, 0.88, v)) + 0.0017 * sin(PI * v) * (1.0 - s * s)
+	# Distance to the outline (rounded corners), then a quarter-round lip of radius tk.
+	var ds := (1.0 - absf(s)) * half_w
+	var dv := minf(v, 1.0 - v) * length
+	var ex := maxf(tk - ds, 0.0)
+	var ey := maxf(tk - dv, 0.0)
+	var d := clampf(tk - sqrt(ex * ex + ey * ey), 0.0, tk)
+	var lip := sqrt(maxf(1.0 - pow(1.0 - d / tk, 2.0), 0.0))
+	var p := surf + n * (tk * lip + lift)
+	return _PALM_C + Vector3(p.x * lerpf(0.82, 1.0, t), p.y, p.z * lerpf(1.0, 0.8, t))
+
+
+static func _back_shell(k: CrewMeshKit) -> void:
+	var s_tab: Array[float] = [-1.0, -0.955, -0.83, -0.48, 0.0, 0.48, 0.83, 0.955, 1.0]
+	var v_tab: Array[float] = [0.0, 0.05, 0.16, 0.42, 0.68, 0.86, 0.955, 1.0]
+	var inside := Vector3(0.02, -0.045, 0.0)
+	var start := k.positions.size()
+	k.set_part(PALM, _P, 1.0)
+	k.patch(func(u: float, v: float) -> Vector3:
+			return _shell_point(s_tab[roundi(u * 8.0)], v_tab[roundi(v * 7.0)]),
+		8, 7, inside, Vector2(0.09, 0.057))
+	# Edge wear on the rolled lip (COLOR.g), like the body's plates.
+	for j in v_tab.size():
+		for i in s_tab.size():
+			var e := 1.0 - minf(minf(1.0 - absf(s_tab[i]), minf(v_tab[j], 1.0 - v_tab[j])) / 0.06, 1.0)
+			var col := k.colors[start + j * s_tab.size() + i]
+			col.g = e * 0.9
+			k.colors[start + j * s_tab.size() + i] = col
+	# Engraved panel line: one continuous dark groove following the outline.
+	var ring := func(u: float, w: float) -> Vector3:
+		var th := u * TAU
+		var cs := cos(th)
+		var sn := sin(th)
+		var su := signf(cs) * pow(absf(cs), 0.25)
+		var sv := signf(sn) * pow(absf(sn), 0.25)
+		var v := 0.5 + sv * (0.5 - (0.0062 + w) / (_SHELL_TOP - _SHELL_BOT))
+		var hw := lerpf(0.039, 0.0448, smoothstep(0.0, 0.85, v))
+		return _shell_point(su * (1.0 - (0.0062 + w) / hw), v, 0.00012)
+	k.set_part(PALM, _R, 1.0)
+	k.patch(func(u: float, v: float) -> Vector3: return ring.call(u, (v - 0.5) * 0.0009),
+		20, 1, inside)
+	# Emissive strip riding the knuckle ridge.
+	k.set_part(PALM, _A)
+	k.patch(func(u: float, v: float) -> Vector3: return _shell_point(lerpf(-0.6, 0.6, u), lerpf(0.815, 0.845, v), 0.00015),
+		6, 1, inside)
+
+
+## Palmar grip pad: the rubber half domes softly between the joint creases.
 static func _pad(length: float, amount: float) -> Callable:
 	return func(p: Vector3) -> Vector3:
 		if p.z <= 0.0 or p.y <= 0.0 or p.y >= length:
 			return p
-		var b := pow(sin(PI * p.y / length), 0.7)
+		var b := pow(sin(PI * p.y / length), 1.4)
 		return Vector3(p.x, p.y, p.z * (1.0 + amount * b))
 
 
-## One phalanx along its joint frame: dorsal half (graphite) + palmar rubber half.
-## Its distal end is a cap centred exactly on the next joint, round in the curl plane,
-## so the joint stays closed at every angle; SEG_MID / SEG_TIP start inside the
-## parent's cap instead of carrying their own.
-static func _phalanx(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, length: float, r0: float, r1: float, kind: int, dorsal_mat := _S, dorsal_shade := 1.0, pad := 0.14) -> void:
+## Knuckle flare: each phalanx swells slightly into the rounded cap on its distal joint,
+## so the joints read as overlapping knuckle spheres.
+const _FLARE := 1.045
+
+
+## One phalanx along its joint frame: dorsal half (graphite) + palmar rubber half,
+## 8 sides. Its distal end is a cap centred exactly on the next joint, round in the
+## curl plane, so the joint stays closed at every angle; SEG_MID / SEG_TIP start
+## inside the parent's (flared) cap instead of carrying their own.
+static func _phalanx(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, length: float, r0: float, r1: float, kind: int, dorsal_mat := _S, dorsal_shade := 1.0, pad := 0.16) -> void:
 	var prof := PackedVector2Array()
+	var rk := r1 * _FLARE
 	match kind:
 		SEG_BASE:
-			prof = PackedVector2Array([Vector2(0.0, -r0), Vector2(r0 * 0.74, -r0 * 0.68), Vector2(r0, 0.0), Vector2(r1, length),
-				Vector2(r1 * 0.74, length + r1 * 0.68), Vector2(0.0, length + r1)])
+			prof = PackedVector2Array([Vector2(0.0, -r0), Vector2(r0 * 0.74, -r0 * 0.68), Vector2(r0, 0.0), Vector2(rk, length),
+				Vector2(rk * 0.74, length + rk * 0.68), Vector2(0.0, length + rk)])
 		SEG_MID:
-			prof = PackedVector2Array([Vector2(r0 * 0.95, 0.0), Vector2(r1, length), Vector2(r1 * 0.74, length + r1 * 0.68), Vector2(0.0, length + r1)])
+			prof = PackedVector2Array([Vector2(r0 * 0.94, 0.0), Vector2(rk, length), Vector2(rk * 0.74, length + rk * 0.68), Vector2(0.0, length + rk)])
 		SEG_TIP:
-			prof = PackedVector2Array([Vector2(r0 * 0.95, 0.0), Vector2(r1 * 1.0, length * 0.62), Vector2(r1 * 0.96, length + r1 * 0.22),
-				Vector2(r1 * 0.7, length + r1 * 0.74), Vector2(0.0, length + r1 * 0.98)])
+			# Soft, slightly bulbous fingertip.
+			prof = PackedVector2Array([Vector2(r0 * 0.94, 0.0), Vector2(r1, length * 0.6), Vector2(r1 * 0.97, length + r1 * 0.26),
+				Vector2(r1 * 0.66, length + r1 * 0.78), Vector2(0.0, length + r1)])
 	var xf := Transform3D(Basis(frame.x, -frame.y, -frame.z), at)
 	k.set_part(bone, _R, 1.0)
 	k.deform = _pad(length, pad)
-	k.lathe(prof, xf, 3, Vector2(_WIDTH, 1.0), -PI * 0.5, PI * 0.5)
+	k.lathe(prof, xf, 4, Vector2(_WIDTH, 1.0), -PI * 0.5, PI * 0.5)
 	k.deform = Callable()
 	k.set_part(bone, dorsal_mat, dorsal_shade)
 	k.lathe(prof, xf, 4, Vector2(_WIDTH, 1.0), PI * 0.5, PI * 1.5)
@@ -952,7 +1033,7 @@ static func _phalanx(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, lengt
 ## rolled ends that touch down so it never floats.
 static func _plate(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, r0: float, r1: float, length: float, y0: float, y1: float, lift: float, half_angle: float) -> void:
 	var surf := func(y: float) -> float:
-		return sqrt(maxf(r0 * r0 - y * y, 0.0)) if y < 0.0 else lerpf(r0, r1, clampf(y / length, 0.0, 1.0))
+		return sqrt(maxf(r0 * r0 - y * y, 0.0)) if y < 0.0 else lerpf(r0, r1 * _FLARE, clampf(y / length, 0.0, 1.0))
 	var ys: Array[float] = [y0, y0 + (y1 - y0) * 0.16, y0 + (y1 - y0) * 0.55, y1 - (y1 - y0) * 0.1, y1]
 	var lifts: Array[float] = [0.0003, lift * 0.92, lift, lift * 0.9, 0.0003]
 	var prof := PackedVector2Array()

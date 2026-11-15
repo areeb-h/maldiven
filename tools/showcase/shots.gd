@@ -71,10 +71,10 @@ func shot_crew_lineup(out: String) -> Error:
 ## onto the purple crewmate in the back row, the only suspicious face.
 func shot_one_is_lying(out: String) -> Error:
 	begin_shot("emergency", 202)
-	var cam := Vector3(0.45, 1.62, -11.2)
+	var cam := Vector3(0.42, 1.6, -13.75)
 	var liar_pos := Vector3(0.38, 0, -20.4)
 	var front := [
-		["blue", Vector3(-2.4, 0, -19.0), "neutral", 2, 2],
+		["blue", Vector3(-2.1, 0, -19.5), "neutral", 2, 2],
 		["yellow", Vector3(-1.5, 0, -18.1), "happy", 1, 3],
 		["green", Vector3(-0.58, 0, -17.6), "neutral", 3, 4],
 		["orange", Vector3(1.34, 0, -17.6), "happy", 2, 6],
@@ -96,7 +96,7 @@ func shot_one_is_lying(out: String) -> Error:
 	spot(Vector3(-3.5, 2.6, -21.5), Vector3(-1.5, 1.4, -18.0), Color(1.0, 0.2, 0.1), 7.0, 40.0, 7.0)
 	spot(Vector3(4.5, 2.6, -21.5), Vector3(1.8, 1.4, -18.0), Color(1.0, 0.2, 0.1), 7.0, 40.0, 7.0)
 	spot(cam + Vector3(0, 0.6, 0), Vector3(0.4, 1.4, -18.0), Color(1.0, 0.55, 0.45), 0.9, 30.0, 12.0)
-	frame(cam, liar_pos + Vector3(0.0, 1.38, 0), 28.0, liar_pos + Vector3(0, 1.62, 0.15), 0.6, 0.32)
+	frame(cam, liar_pos + Vector3(0.0, 1.32, 0), 32.0, liar_pos + Vector3(0, 1.62, 0.15), 0.6, 0.3)
 	return await capture(out, "02_one_of_you_is_lying.png", 6)
 
 
@@ -140,25 +140,23 @@ func shot_portraits(out: String) -> Error:
 	return err
 
 
-## 04 Core run: a crewmate sprints down the Reactor-Medical corridor with the
-## glowing core clutched to their chest, an angry chaser close behind, under
-## emergency red. Low camera ahead of the runner, mid-stride.
+## 04 Core run: a crewmate sprints down the long Command-Security corridor with
+## the glowing core clutched to their chest, an angry chaser close behind, under
+## emergency red. Camera ahead and off-axis so the visor clears the core.
 func shot_core_run(out: String) -> Error:
 	begin_shot("emergency", 404)
-	var runner := crew("teal", Vector3(25.4, 0, 20.35), -90.0, "shocked", 0, 7)
-	var chaser := crew("red", Vector3(28.3, 0, 19.6), -96.0, "angry", 0, 1)
+	station.env.glow_intensity = 0.7
+	var runner := crew("teal", Vector3(22.4, 0, -19.45), -90.0, "shocked", 0, 7)
+	var chaser := crew("red", Vector3(25.2, 0, -20.3), -94.0, "angry", 0, 1)
 	pose_stride(runner, 5.4, 0.12, true)
 	pose_stride(chaser, 6.2, 0.62, false)
 	var core := hold(runner.carry_anchor, "core")
-	core.name = "Core"
-	turn_head(runner, 0.0, -4.0)
 	vfx.attach_trail(core, CYAN)
-	# Cyan spill from the core plus warm emergency key and a hard red back rim.
-	omni(runner.global_transform * Vector3(0, 1.3, 0.9), CYAN, 0.5, 1.6)
-	spot(Vector3(23.0, 2.9, 21.2), Vector3(25.4, 1.3, 20.3), Color(1.0, 0.6, 0.4), 3.0, 30.0, 8.0, true, 0.3)
-	spot(Vector3(31.5, 2.4, 20.0), Vector3(26.5, 1.3, 20.2), Color(1.0, 0.12, 0.06), 8.0, 25.0, 9.0)
-	var cam := Vector3(22.5, 0.5, 19.35)
-	frame(cam, Vector3(26.4, 1.25, 20.05), 46.0, Vector3(25.2, 1.45, 20.35), 1.4, 0.12)
+	omni(runner.global_transform * Vector3(0, 1.3, 0.9), CYAN, 0.4, 1.4)
+	spot(Vector3(19.6, 2.9, -18.9), Vector3(22.4, 1.4, -19.45), Color(1.0, 0.62, 0.42), 3.0, 30.0, 8.0, true, 0.3)
+	spot(Vector3(28.5, 2.4, -19.6), Vector3(23.5, 1.3, -19.8), Color(1.0, 0.12, 0.06), 8.0, 25.0, 9.0)
+	var cam := Vector3(18.9, 1.0, -20.7)
+	frame(cam, Vector3(23.2, 1.2, -19.75), 44.0, Vector3(22.3, 1.55, -19.45), 1.4, 0.12)
 	# Slide both runners in along the corridor so the core's trail lays down.
 	var ends := [runner.position, chaser.position]
 	for i in 9:
@@ -187,10 +185,10 @@ func shot_shove(out: String) -> Error:
 	turn_head(attacker, -10.0, 4.0)
 	var cell := place_item("cell", Transform3D(Basis.IDENTITY, Vector3(39.7, 1.05, 0.6)))
 	vfx.attach_trail(cell, Color(1.0, 0.6, 0.15))
-	spot(Vector3(42.2, 3.0, 3.6), Vector3(39.2, 1.3, 0.6), Color(1.0, 0.95, 0.88), 4.5, 34.0, 9.0, true, 0.3)
-	spot(Vector3(41.6, 2.6, -2.4), Vector3(39.5, 1.4, 0.6), Color(1.0, 0.7, 0.25), 9.0, 30.0, 8.0)
-	spot(Vector3(36.0, 2.4, -1.8), Vector3(38.5, 1.4, 0.6), Color(0.3, 1.0, 0.6), 7.0, 30.0, 8.0)
-	frame(Vector3(41.7, 1.05, 3.7), Vector3(39.35, 1.3, 0.45), 40.0, Vector3(39.4, 1.45, 0.55), 1.3, 0.1)
+	spot(Vector3(37.0, 3.0, 3.4), Vector3(39.4, 1.4, 0.55), Color(1.0, 0.95, 0.88), 4.5, 30.0, 9.0, true, 0.3)
+	spot(Vector3(41.8, 2.6, -1.8), Vector3(39.5, 1.4, 0.55), Color(1.0, 0.7, 0.25), 9.0, 30.0, 8.0)
+	spot(Vector3(36.2, 2.4, -2.0), Vector3(38.5, 1.4, 0.55), Color(0.3, 1.0, 0.6), 7.0, 30.0, 8.0)
+	frame(Vector3(36.9, 1.1, 3.55), Vector3(39.5, 1.32, 0.35), 40.0, Vector3(39.5, 1.55, 0.55), 1.3, 0.1)
 	await wait(3)
 	# The cell spins up and away behind the victim; the impact fires mid-flight.
 	var from := cell.position
@@ -199,7 +197,7 @@ func shot_shove(out: String) -> Error:
 		var k := float(i + 1) / 6.0
 		cell.position = from.lerp(to, k) + Vector3(0, 0.3 * 4.0 * k * (1.0 - k), 0)
 		cell.rotation = Vector3(3.2, 5.0, 1.6) * k
-		if i == 3:
+		if i == 4:
 			vfx.burst("shove_impact", Vector3(39.2, 1.3, 0.55), Vector3(1, 0, 0))
 		await get_tree().process_frame
 	return await capture(out, "05_shove.png", 1)
@@ -223,11 +221,11 @@ func shot_gun_question(out: String) -> Error:
 	(sockets["armory"] as SocketVisual).set_state(false, false, true)
 	var d := (target.position - shooter.position).normalized()
 	var right := d.cross(Vector3.UP)
-	var cam := shooter.position - d * 1.05 + right * 0.62 + Vector3(0, 1.62, 0)
+	var cam := shooter.position - d * 1.7 + right * 0.95 + Vector3(0, 1.5, 0)
 	spot(target.position + d * 1.2 - right * 2.4 + Vector3(0, 2.6, 0), target.position + Vector3(0, 1.3, 0), COOL, 6.0, 30.0, 8.0, true, 0.3)
 	spot(target.position + d * 2.2 + right * 1.2 + Vector3(0, 2.0, 0), target.position + Vector3(0, 1.4, 0), Color(1.0, 0.2, 0.08), 12.0, 30.0, 6.0)
 	spot(shooter.position - right * 1.5 + Vector3(0, 2.4, 0), shooter.position + Vector3(0, 1.4, 0), Color(1.0, 0.5, 0.2), 4.0, 35.0, 5.0)
-	frame(cam, target.position + Vector3(0, 1.32, 0) - right * 0.35, 36.0, target.position + Vector3(0, 1.6, 0), 1.0, 0.14)
+	frame(cam, target.position + Vector3(0, 1.3, 0) - right * 0.55, 38.0, target.position + Vector3(0, 1.6, 0), 1.2, 0.12)
 	await wait(4)
 	var muzzle := gun.global_transform * Vector3(0, 0.235, -0.42)
 	var forward := (gun.global_transform.basis * Vector3(0, 0, -1)).normalized()
@@ -240,9 +238,9 @@ func shot_gun_question(out: String) -> Error:
 ## already glows with the revive field. Camera low by the bay, looking back.
 func shot_rescue(out: String) -> Error:
 	begin_shot("restored", 707)
-	var cam := Vector3(0.55, 0.95, 24.75)
-	var carrier := crew("white", Vector3(1.9, 0, 20.5), 0.0, "neutral", 3, 8)
-	face(carrier, Vector3(3.0, 0, 23.0))
+	var cam := Vector3(-2.6, 0.85, 18.9)
+	var carrier := crew("white", Vector3(1.3, 0, 20.7), 0.0, "neutral", 3, 8)
+	face(carrier, Vector3(3.3, 0, 23.0))
 	var body := crew("green", Vector3.ZERO, 0.0, "downed", 3, 4)
 	body.get_parent().remove_child(body)
 	carrier.carry_anchor.add_child(body)
@@ -251,10 +249,10 @@ func shot_rescue(out: String) -> Error:
 	pose(body, 1.5)
 	pose_stride(carrier, 2.1, 0.3, true)
 	(sockets["medbay"] as SocketVisual).set_state(false, false, true)
-	spot(Vector3(-1.2, 2.9, 23.0), Vector3(1.9, 1.1, 20.6), WARM, 4.0, 36.0, 9.0, true, 0.3)
-	spot(Vector3(3.6, 2.4, 17.4), Vector3(1.9, 1.3, 20.5), COOL, 9.0, 30.0, 7.0)
+	spot(Vector3(-1.4, 2.9, 22.4), Vector3(1.3, 1.1, 20.7), WARM, 4.0, 36.0, 9.0, true, 0.3)
+	spot(Vector3(3.4, 2.4, 17.6), Vector3(1.3, 1.3, 20.7), COOL, 9.0, 30.0, 7.0)
 	omni(Vector3(3.3, 1.1, 22.7), Color(0.35, 1.0, 0.55), 1.6, 4.0)
-	frame(cam, Vector3(2.25, 1.15, 20.6), 42.0, Vector3(1.95, 1.3, 20.9), 1.6, 0.1)
+	frame(cam, Vector3(2.2, 1.15, 21.6), 40.0, Vector3(1.3, 1.3, 20.7), 1.8, 0.1)
 	await wait(4)
 	vfx.burst("revive", Vector3(3.5, 0.75, 23.5))
 	return await capture(out, "07_rescue.png", 3)
@@ -264,8 +262,8 @@ func shot_rescue(out: String) -> Error:
 ## by the inner doorway, purple works the cycle console with a sinister face.
 func shot_airlock(out: String) -> Error:
 	begin_shot("emergency", 808)
-	var cam := Vector3(-12.9, 1.5, -0.95)
-	var victim := crew("red", Vector3(-11.5, 0, -1.45), 0.0, "shocked", 0, 1)
+	var cam := Vector3(-14.45, 1.45, -1.0)
+	var victim := crew("red", Vector3(-12.35, 0, -1.6), 0.0, "shocked", 0, 1)
 	var operator := crew("purple", Vector3(-5.8, 0, 2.35), 0.0, "angry", 1, 5)
 	face(victim, Vector3(cam.x, 0, cam.z))
 	face(operator, Vector3(cam.x, 0, cam.z))
@@ -277,9 +275,9 @@ func shot_airlock(out: String) -> Error:
 	# Under-lighting from the console makes the operator sinister.
 	spot(Vector3(-6.4, 0.5, 2.0), Vector3(-5.8, 1.65, 2.35), Color(1.0, 0.25, 0.1), 7.0, 35.0, 3.0)
 	spot(Vector3(-3.8, 2.8, 0.6), Vector3(-5.8, 1.5, 2.35), Color(1.0, 0.55, 0.2), 4.0, 25.0, 5.0)
-	spot(Vector3(-10.4, 2.6, -2.0), Vector3(-11.5, 1.3, -1.45), Color(1.0, 0.12, 0.05), 6.0, 35.0, 4.0)
-	spot(cam + Vector3(0.2, 0.6, 0.3), Vector3(-11.5, 1.5, -1.45), Color(1.0, 0.75, 0.6), 1.2, 30.0, 4.0, false, 0.2)
-	frame(cam, Vector3(-7.4, 1.35, 1.15), 40.0, Vector3(-5.8, 1.65, 2.35), 2.5, 0.08)
+	spot(Vector3(-11.0, 2.6, -2.2), Vector3(-12.35, 1.3, -1.6), Color(1.0, 0.12, 0.05), 6.0, 35.0, 4.0)
+	spot(cam + Vector3(0.2, 0.6, 0.3), Vector3(-12.35, 1.5, -1.6), Color(1.0, 0.75, 0.6), 1.2, 30.0, 4.0, false, 0.2)
+	frame(cam, Vector3(-7.9, 1.4, 0.9), 42.0, Vector3(-5.8, 1.65, 2.35), 2.5, 0.08)
 	station.set_airlock_state("warning")
 	await wait(4)
 	station.set_airlock_state("warning")
