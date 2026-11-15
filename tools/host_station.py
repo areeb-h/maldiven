@@ -242,6 +242,7 @@ def classify_network(interfaces, wsl, fallback=(), windows_ip=None):
     result = {'lan': lan, 'wsl': bool(wsl), 'mode': None, 'internal': [], 'windows_ip': windows_ip,
               'tailscale': tailscale}
     if not wsl:
+        result['primary'] = primary_join(result)
         return result
     home = [ip for _, ip in private if ip.startswith('192.168.') or ip.startswith('10.')]
     nat = [ip for name, ip in private if name == 'eth0' and ip.startswith('172.') and is_private(ip)]
@@ -254,6 +255,7 @@ def classify_network(interfaces, wsl, fallback=(), windows_ip=None):
             # Lead with the adapter Windows routes through; skip Windows' virtual
             # switches (vEthernet, 172.16-31) that phones can't use.
             result['lan'] = [windows_ip] + [ip for ip in home if ip != windows_ip]
+    result['primary'] = primary_join(result)
     return result
 
 
@@ -278,10 +280,11 @@ def network_for(base, server_addresses):
         network['source'] = base.get('source')
         network['tailscale'] = list(base.get('tailscale') or [])
     best = primary_address()
-    if not network['wsl'] and best and best != WSL_DNS_ADDRESS:
+    if not network['wsl'] and best and best != WSL_DNS_ADDRESS and not is_tailscale(best):
         if best in network['lan']:
             network['lan'].remove(best)
         network['lan'].insert(0, best)
+    network['primary'] = primary_join(network)
     return network
 
 
@@ -787,51 +790,69 @@ class PanelHandler(BaseHTTPRequestHandler):
 # --- Main ----------------------------------------------------------------------------
 
 WSL_CONFIG_FIX = ['[wsl2]', 'networkingMode=mirrored']
+WINDOWS_RUN = r'py -3 tools\host_station.py'
+MIRRORED_WARNING = ("can break Docker Desktop's WSL integration and some VPNs; check before enabling")
+TAILSCALE_NOTE = 'phones with Tailscale on the same account, Join by IP; works away from home too'
 
 
-def wsl_fix_steps():
-    """The steps that make a WSL 2 server reachable from phones (console and docs agree)."""
-    steps = [
-        ('In Windows, add these two lines to %UserProfile%\\.wslconfig (create the file if needed):', WSL_CONFIG_FIX),
-        ('In PowerShell opened with "Run as administrator", allow inbound traffic to WSL and the game ports:',
-         [HYPERV_FIREWALL_RULE, FIREWALL_RULE]),
-        ('Restart WSL from PowerShell, then start the server again:', ['wsl --shutdown']),
+def mirrored_steps():
+    """Advanced, last resort: WSL mirrored networking (console and docs agree)."""
+    return [
+        ('Add to %UserProfile%\\.wslconfig in Windows:', WSL_CONFIG_FIX),
+        ('In PowerShell opened with "Run as administrator":', [HYPERV_FIREWALL_RULE, FIREWALL_RULE]),
+        ('Restart WSL, then start the server again:', ['wsl --shutdown']),
     ]
-    return steps
 
 
-TAILSCALE_NOTE = 'phones with Tailscale on the same tailnet, Join by IP; works away from home too'
+def primary_join(network):
+    """The one address to show big: the LAN address, else Tailscale, else none."""
+    if network.get('lan'):
+        return network['lan'][0]
+    if network.get('tailscale'):
+        return network['tailscale'][0]
+    return None
 
 
 def print_wsl_nat_box(console, network):
+    """WSL in NAT mode: phones on the Wi-Fi can't reach it. Options, best first."""
     p = console.paint
     width = 72
     console.line('  ' + p('┌' + '─' * width + '┐', '33'))
 
-    def row(text='', *codes):
-        for chunk in _wrap(text, width - 2) if text else ['']:
-            console.line('  ' + p('│', '33') + ' ' + p(chunk.ljust(width - 2), *codes) + ' ' + p('│', '33'))
+    def row(text='', *codes, indent=''):
+        for index, chunk in enumerate(_wrap(text, width - 2 - len(indent)) if text else ['']):
+            line = (indent if index else '') + chunk if indent else chunk
+            if index and indent:
+                line = ' ' * len(indent) + chunk
+            console.line('  ' + p('│', '33') + ' ' + p(line.ljust(width - 2), *codes) + ' ' + p('│', '33'))
 
-    tailnet = bool(network.get('tailscale'))
+    tailnet = network.get('tailscale') or []
+    internal = ', '.join(network['internal']) or 'a 172.x address'
     row('WSL is in NAT mode, so phones ' + ('on your Wi-Fi ' if tailnet else '') + 'can\'t reach this server.', '1', '33')
-    internal = ', '.join(network['internal']) or 'its 172.x address'
+    row(f'Its address ({internal}) only exists inside this PC. The server still runs for testing here. '
+        'To play with phones:')
+    row()
+    number = 1
     if tailnet:
-        row(f'Its Wi-Fi-side address ({internal}) only exists inside this PC. Phones with Tailscale '
-            'can join now (above); for the others, WSL needs mirrored networking (steps below).')
-    else:
-        row(f'Its address ({internal}) only exists inside this PC. The server still runs, '
-            'so you can test here, but phones need WSL\'s mirrored networking (steps below).')
-    if network.get('windows_ip'):
-        row(f'Afterwards phones join {network["windows_ip"]}, this PC\'s Wi-Fi address.')
-    row('Or skip WSL: install Python for Windows, get the project in a Windows folder '
-        'and run  py tools\\host_station.py  there.')
+        row(f'{number}. Tailscale (shown above): phones with Tailscale on the same account join by IP.', indent='   ')
+        number += 1
+    row(f'{number}. Run the server on Windows itself: install Python for Windows, get the project in '
+        f'a Windows folder and run  {WINDOWS_RUN}  there. Allow the game ports once (command below); '
+        'Nearby stations then works too.', indent='   ')
+    number += 1
+    row(f'{number}. Or let a phone host: open Drift Station on a phone and tap Host.', indent='   ')
+    number += 1
+    row(f'{number}. Advanced: WSL mirrored networking (steps below). It {MIRRORED_WARNING}.', indent='   ')
     console.line('  ' + p('└' + '─' * width + '┘', '33'))
     console.line()
-    for number, (text, commands) in enumerate(wsl_fix_steps(), 1):
-        for index, chunk in enumerate(_wrap(text, 70)):
-            console.line('  ' + (f'{number}. ' if index == 0 else '   ') + chunk)
+    console.line('  Windows firewall rule for a Windows-native server (PowerShell as administrator):')
+    console.line('       ' + p(FIREWALL_RULE, '1'))
+    console.line()
+    console.line('  ' + p('Advanced, mirrored networking', '1') + f': {MIRRORED_WARNING}.')
+    for text, commands in mirrored_steps():
+        console.line('     ' + p(text, '2'))
         for command in commands:
-            console.line('       ' + p(command, '1'))  # one line each, so they copy cleanly
+            console.line('       ' + command)  # one line each, so they copy cleanly
 
 
 def print_big_address(console, address):
@@ -873,7 +894,7 @@ def print_summary(console, status, options, panel_url):
     if network['mode'] == 'nat':
         console.line()
         if tailscale:
-            console.line('  ' + p('Phones with Tailscale', '1') + ' (same tailnet) join by IP, at home or away:')
+            console.line('  ' + p('Phones with Tailscale', '1') + ' on the same account: Join by IP with this address')
             console.line()
             print_big_address(console, tailscale[0])
             console.line(f'    Tailscale: {tailscale[0]}  ({TAILSCALE_NOTE})')
@@ -889,7 +910,7 @@ def print_summary(console, status, options, panel_url):
             if len(addresses) > 1:
                 console.line('    ' + p('also ' + ', '.join(addresses[1:]), '2'))
         elif tailscale:
-            console.line('  ' + p('Phones with Tailscale', '1') + ' (same tailnet) join by IP:')
+            console.line('  ' + p('Phones with Tailscale', '1') + ' on the same account: Join by IP with this address')
             console.line()
             print_big_address(console, tailscale[0])
         else:
