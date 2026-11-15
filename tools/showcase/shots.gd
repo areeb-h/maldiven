@@ -286,25 +286,28 @@ func shot_airlock(out: String) -> Error:
 	return await capture(out, "08_airlock.png", 2)
 
 
-## 09 Ghost: a downed crewmate's ghost drifts through the Reactor's violet light
-## while a living crewmate slots the last cell and the power wave rolls out.
+## 09 Ghost: a crewmate's ghost drifts past the Reactor as a living crewmate
+## slots the last cell and the power wave rolls out. Glow is tamed so the core
+## reads as light rather than a white-out.
 func shot_ghost(out: String) -> Error:
 	begin_shot("restored", 909)
-	var ghost := crew("blue", Vector3(59.4, 0, 18.1), 0.0, "ghost", 2, 2)
+	station.env.glow_intensity = 0.55
+	attrs.exposure_multiplier = 0.72
+	var cam := Vector3(61.0, 1.05, 14.45)
+	var ghost := crew("blue", Vector3(58.7, 0, 17.1), 0.0, "ghost", 2, 2)
 	ghost.set_ghost(true)
-	var worker := crew("yellow", Vector3(58.0, 0, 22.05), 0.0, "neutral", 1, 3)
-	var cam := Vector3(56.2, 0.75, 14.6)
-	face(ghost, Vector3(cam.x - 1.0, 0, cam.z))
+	face(ghost, Vector3(cam.x + 0.6, 0, cam.z))
 	pose(ghost, 2.6)
-	pose(worker, 1.2, 0.0, true)
-	var cell := hold(worker.carry_anchor, "cell")
-	cell.name = "Cell"
+	turn_head(ghost, -8.0, -6.0)
 	vfx.attach_item_fx(ghost, "ghost")
+	var worker := crew("yellow", Vector3(58.0, 0, 22.05), 0.0, "neutral", 1, 3)
+	pose(worker, 1.2, 0.0, true)
+	hold(worker.carry_anchor, "cell")
 	for id in ["reactor_2", "reactor_3"]:
 		(sockets[id] as SocketVisual).set_state(true, false, false)
-	spot(Vector3(57.5, 2.8, 15.5), Vector3(59.4, 1.4, 18.1), COOL, 3.0, 30.0, 7.0)
-	spot(Vector3(61.5, 2.5, 21.0), Vector3(59.4, 1.4, 18.1), Color(0.65, 0.45, 1.0), 9.0, 35.0, 6.0)
-	frame(cam, Vector3(60.2, 1.9, 18.6), 44.0, Vector3(59.4, 1.5, 18.1), 2.0, 0.08)
+	spot(Vector3(60.4, 2.6, 15.2), Vector3(58.7, 1.4, 17.1), COOL, 2.0, 30.0, 6.0, false, 0.3)
+	spot(Vector3(56.4, 2.4, 19.4), Vector3(58.7, 1.4, 17.1), Color(0.7, 0.5, 1.0), 8.0, 35.0, 6.0)
+	frame(cam, Vector3(59.9, 1.75, 18.6), 44.0, Vector3(58.7, 1.55, 17.1), 1.6, 0.1)
 	await wait(4)
 	vfx.burst("power_wave", Vfx.REACTOR_CORE)
 	vfx.burst("insert_cell", Vector3(58.0, 0.9, 23.0))
@@ -312,63 +315,65 @@ func shot_ghost(out: String) -> Error:
 
 
 ## 10 Blackout: three crew sweep Cargo with flashlights in total darkness; the
-## LED visors are the only light on their faces.
+## LED visors are the only light on their faces. Side-on, so the beams cross
+## the frame instead of flaring into the lens.
 func shot_blackout(out: String) -> Error:
 	begin_shot("blackout", 1010)
 	var cast := [
-		["white", Vector3(40.4, 0, -0.6), 4.0, "suspicious", 3, 8, Vector3(39.6, 0.0, 3.6)],
-		["blue", Vector3(38.9, 0, -2.3), 12.0, "shocked", 2, 2, Vector3(36.3, 0.0, 1.0)],
-		["orange", Vector3(42.0, 0, -2.6), -14.0, "neutral", 2, 6, Vector3(44.2, 0.4, 1.6)],
+		["white", Vector3(40.4, 0, -0.6), 4.0, "suspicious", 3, 8, Vector3(40.2, 0.0, 3.4)],
+		["blue", Vector3(38.9, 0, -2.3), 14.0, "shocked", 2, 2, Vector3(38.6, 0.0, 1.6)],
+		["orange", Vector3(42.0, 0, -2.6), -16.0, "neutral", 2, 6, Vector3(43.6, 0.3, 1.2)],
 	]
 	for c in cast:
 		var m := crew(c[0], c[1], c[2], c[3], c[4], c[5])
 		pose_stride(m, 1.1, 0.05 + 0.3 * float(_models.size()), false)
 		flashlight(m, c[6])
-	frame(Vector3(40.9, 0.95, 4.6), Vector3(40.6, 1.3, -1.6), 42.0, Vector3(40.4, 1.6, -0.5), 1.6, 0.1)
+	frame(Vector3(35.6, 1.05, 2.4), Vector3(40.6, 1.2, -1.6), 42.0, Vector3(40.4, 1.6, -0.5), 1.8, 0.1)
 	return await capture(out, "10_blackout.png", 5)
 
 
 ## 11 Shuttle escape: in Docking the crew slot the core into the shuttle as the
-## launch countdown pulses; two crewmates stand guard, lit like heroes.
+## launch countdown pulses; blue and green stand guard. Low heroic angle off the
+## shuttle's nose.
 func shot_shuttle(out: String) -> Error:
 	begin_shot("restored", 1111)
+	attrs.exposure_multiplier = 0.9
+	var cam := Vector3(15.7, 0.42, 4.1)
 	var loader := crew("yellow", Vector3(20.0, 0, -0.62), 180.0, "happy", 1, 3)
 	pose(loader, 1.4, 0.0, true)
-	var core := hold(loader.carry_anchor, "core")
-	core.name = "Core"
-	var guard_a := crew("blue", Vector3(18.0, 0, 1.0), 0.0, "happy", 2, 2)
-	var guard_b := crew("green", Vector3(21.9, 0, 1.25), 0.0, "angry", 3, 4)
-	var cam := Vector3(24.4, 0.45, 5.0)
-	face(guard_a, Vector3(cam.x - 2.0, 0, cam.z))
-	face(guard_b, Vector3(cam.x - 1.0, 0, cam.z + 2.0))
+	hold(loader.carry_anchor, "core")
+	var guard_a := crew("blue", Vector3(18.1, 0, 0.9), 0.0, "happy", 2, 2)
+	var guard_b := crew("green", Vector3(21.8, 0, 1.15), 0.0, "angry", 3, 4)
+	face(guard_a, Vector3(cam.x + 1.0, 0, cam.z))
+	face(guard_b, Vector3(25.5, 0, 4.5))
 	pose(guard_a, 1.4)
 	guard_b.set_aiming(true)
 	pose(guard_b, 1.4)
 	hold(guard_b.hand_anchor, "gun")
 	(sockets["shuttle"] as SocketVisual).set_state(false, false, true)
-	spot(Vector3(25.0, 1.4, 2.6), Vector3(20.0, 1.3, 0.0), Color(1.0, 0.7, 0.4), 6.0, 40.0, 10.0, true)
-	spot(Vector3(16.5, 3.0, -2.0), Vector3(19.0, 1.4, 0.6), CYAN, 10.0, 40.0, 8.0)
-	spot(Vector3(23.5, 3.0, -1.4), Vector3(21.5, 1.4, 1.0), CYAN, 8.0, 30.0, 6.0)
-	frame(cam, Vector3(20.2, 1.85, -0.6), 44.0, Vector3(20.6, 1.4, 0.2), 3.0, 0.06)
-	await wait(4)
+	spot(Vector3(15.0, 1.6, 2.6), Vector3(19.5, 1.3, 0.2), Color(1.0, 0.72, 0.45), 5.0, 40.0, 10.0, true, 0.3)
+	spot(Vector3(23.5, 3.0, -1.6), Vector3(20.5, 1.4, 0.4), CYAN, 9.0, 40.0, 8.0)
+	spot(Vector3(16.0, 3.0, -1.2), Vector3(18.1, 1.4, 0.9), CYAN, 6.0, 30.0, 6.0)
+	frame(cam, Vector3(20.0, 1.75, -1.3), 46.0, Vector3(19.4, 1.5, 0.3), 3.0, 0.06)
+	await wait(3)
 	vfx.countdown_pulse(Vector3(20.0, 0.0, -1.5), Color(1.0, 0.55, 0.15))
-	await wait(4)
-	vfx.countdown_pulse(Vector3(20.0, 0.0, -1.5), Color(1.0, 0.55, 0.15))
-	return await capture(out, "11_shuttle_escape.png", 3)
+	return await capture(out, "11_shuttle_escape.png", 5)
 
 
 ## 12 Turntable trio: one blue crewmate shown front, 3/4 and back against the
 ## clean white Medical wall, evenly lit so the whole suit design reads.
 func shot_turntable(out: String) -> Error:
 	begin_shot("restored", 1212)
-	var base := Vector3(3.9, 0, 15.9)
+	var base := Vector3(3.4, 0, 16.0)
+	var cam := Vector3(1.7, 1.0, 24.3)
 	var yaws := [0.0, -40.0, 180.0]
 	for i in 3:
-		var m := crew("blue", base + Vector3(-1.25 + 1.25 * float(i), 0, 0), yaws[i], "happy", 2, 2)
+		var m := crew("blue", base + Vector3(-1.25 + 1.25 * float(i), 0, 0), 0.0, "happy", 2, 2)
+		face(m, Vector3(cam.x, 0, cam.z))
+		m.rotation.y += deg_to_rad(yaws[i])
 		pose(m, 1.4)
-	var cam := base + Vector3(0, 1.0, 10.5)
-	spot(base + Vector3(-3.0, 3.2, 4.0), base + Vector3(0, 1.0, 0), Color(1.0, 0.95, 0.9), 6.0, 45.0, 12.0, true)
-	spot(base + Vector3(3.5, 2.0, 3.5), base + Vector3(0, 1.0, 0), COOL, 2.0, 45.0, 12.0)
+	spot(base + Vector3(-3.0, 3.2, 4.0), base + Vector3(0, 1.0, 0), Color(1.0, 0.96, 0.92), 5.0, 45.0, 12.0, true, 0.3)
+	spot(base + Vector3(3.5, 2.0, 3.5), base + Vector3(0, 1.0, 0), COOL, 1.6, 45.0, 12.0, false, 0.2)
 	spot(base + Vector3(0, 3.0, -1.5), base + Vector3(0, 1.4, 0.2), Color(0.6, 0.8, 1.0), 5.0, 60.0, 6.0)
 	frame(cam, base + Vector3(0, 0.98, 0), 17.0, base + Vector3(0, 1.0, 0), 2.0, 0.04, false)
 	return await capture(out, "12_turntable_trio.png")
@@ -390,15 +395,13 @@ func shot_overhead(out: String) -> Error:
 			pose_stride(m, s[3], 0.3, s[0] == "green")
 		else:
 			pose(m, 1.2)
-	var core := hold(_models[3].carry_anchor, "core")
-	core.name = "Core"
-	var cam := Vector3(4.0, 30.0, 30.0)
-	frame(cam, Vector3(14.0, 0.0, -2.0), 38.0, Vector3(11.0, 0.0, 0.0), 10.0, 0.1)
+	hold(_models[3].carry_anchor, "core")
+	frame(Vector3(6.0, 27.0, 25.0), Vector3(16.0, 0.0, -3.0), 38.0, Vector3(12.0, 0.0, 0.5), 6.0, 0.16)
 	return await capture(out, "13_overhead_station.png")
 
 
-## 14 Squad selfie: orange holds the "camera" at arm's length in Commons, the
-## squad crowding in behind, purple photobombing with a suspicious look.
+## 14 Squad selfie: orange holds the "camera" at arm's length in Commons with
+## the squad crowding in behind and purple leaning in to photobomb, suspicious.
 func shot_selfie(out: String) -> Error:
 	begin_shot("restored", 1414)
 	var lead := crew("orange", Vector3(-0.6, 0, 1.4), -12.0, "happy", 2, 6)
@@ -406,17 +409,21 @@ func shot_selfie(out: String) -> Error:
 	pose(lead, 1.2)
 	var arm_tip := lead.hand_anchor.global_position
 	var cast := [
-		["blue", Vector3(-1.35, 0, 0.55), "happy", 2, 2],
-		["yellow", Vector3(0.25, 0, 0.6), "happy", 1, 3],
-		["green", Vector3(-0.55, 0, -0.15), "shocked", 3, 4],
-		["purple", Vector3(1.05, 0, -0.35), "suspicious", 1, 5],
+		["blue", Vector3(-1.45, 0, 0.6), "happy", 2, 2],
+		["yellow", Vector3(0.3, 0, 0.65), "happy", 1, 3],
+		["green", Vector3(-2.15, 0, -0.1), "shocked", 3, 4],
+		["purple", Vector3(1.2, 0, -0.05), "suspicious", 1, 5],
 	]
 	for c in cast:
 		var m := crew(c[0], c[1], 0.0, c[2], c[3], c[4])
 		face(m, arm_tip)
 		pose(m, 1.3)
-	var cam := arm_tip + Vector3(0.0, 0.25, 0.25)
-	spot(cam + Vector3(-1.4, 1.2, 0.5), Vector3(-0.3, 1.4, 0.6), WARM, 4.0, 45.0, 8.0, true)
+	# Purple leans in from the edge of the frame (feet are well out of shot).
+	var purple: CrewModel = _models[4]
+	purple.rotate_object_local(Vector3.BACK, deg_to_rad(12.0))
+	turn_head(purple, 12.0, 0.0)
+	var cam := arm_tip + Vector3(0.05, 0.32, 0.45)
+	spot(cam + Vector3(-1.4, 1.2, 0.5), Vector3(-0.3, 1.4, 0.6), WARM, 4.0, 45.0, 8.0, true, 0.3)
 	spot(Vector3(-0.3, 2.6, -2.6), Vector3(-0.3, 1.5, 0.5), COOL, 8.0, 40.0, 7.0)
-	frame(cam, Vector3(-0.25, 1.35, 0.4), 62.0, Vector3(-0.6, 1.6, 1.3), 1.4, 0.08)
+	frame(cam, Vector3(-0.35, 1.4, 0.3), 64.0, Vector3(-0.6, 1.6, 1.3), 1.6, 0.08)
 	return await capture(out, "14_squad_selfie.png")

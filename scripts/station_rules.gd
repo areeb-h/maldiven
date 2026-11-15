@@ -60,6 +60,9 @@ var infiltrator_name := ""
 var timeline: Array = []
 ## Drained by the network layer: public alerts and effects.
 var events: Array = []
+## Host only, optional: func(from: Vector3, to: Vector3) -> Vector3 that pulls a
+## dragged body's position back out of walls. Unset in tests and on clients.
+var wall_clamp := Callable()
 
 
 func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -187,7 +190,15 @@ func set_pose(id: int, pos: Vector3, yaw: float) -> void:
 	player.pos = pos
 	player.yaw = yaw
 	if player.body != 0 and players.has(player.body):
-		players[player.body].pos = pos + _forward(yaw) * 0.7
+		players[player.body].pos = _body_position(pos, yaw)
+
+
+## Where a dragged body sits: in front of the carrier, never inside a wall.
+func _body_position(carrier_pos: Vector3, yaw: float) -> Vector3:
+	var target := carrier_pos + _forward(yaw) * 0.7
+	if wall_clamp.is_valid():
+		target = wall_clamp.call(carrier_pos, target)
+	return target
 
 
 ## Names stay hidden during a blackout, in prompts and alerts as well as tags.
@@ -345,7 +356,7 @@ func request_interact(id: int) -> bool:
 			var target: int = plan.target
 			player.body = target
 			players[target].carried_by = id
-			players[target].pos = player.pos + _forward(player.yaw) * 0.7
+			players[target].pos = _body_position(player.pos, player.yaw)
 			_log("%s started dragging %s." % [player.name, players[target].name])
 		"drop_body":
 			_release_body(id)

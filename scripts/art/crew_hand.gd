@@ -47,29 +47,29 @@ const MAX_DRAW_CALLS := 2
 ## (proximal, middle, distal); r: radii at MCP, PIP, DIP and the fingertip.
 const _FINGER_SPECS := {
 	4: [
-		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0745, 0.0318), "dir": Vector3(0.0, -1.0, 0.075), "len": Vector3(0.031, 0.0215, 0.0175), "r": Vector4(0.0099, 0.0094, 0.0088, 0.0091)},
-		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0775, 0.0107), "dir": Vector3(0.0, -1.0, 0.022), "len": Vector3(0.034, 0.0235, 0.019), "r": Vector4(0.0102, 0.0097, 0.0091, 0.0094)},
-		{"bone": RING1, "mcp": Vector3(-0.0015, -0.0757, -0.0103), "dir": Vector3(0.0, -1.0, -0.035), "len": Vector3(0.032, 0.0225, 0.018), "r": Vector4(0.0098, 0.0093, 0.0087, 0.009)},
-		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0705, -0.0302), "dir": Vector3(0.0, -1.0, -0.1), "len": Vector3(0.025, 0.0175, 0.015), "r": Vector4(0.0089, 0.0084, 0.0079, 0.0082)},
+		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0718, 0.0334), "dir": Vector3(0.0, -1.0, 0.08), "len": Vector3(0.026, 0.0175, 0.0145), "r": Vector4(0.0103, 0.0098, 0.0093, 0.0096)},
+		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0748, 0.0111), "dir": Vector3(0.0, -1.0, 0.025), "len": Vector3(0.0285, 0.019, 0.0155), "r": Vector4(0.0106, 0.0101, 0.0096, 0.0099)},
+		{"bone": RING1, "mcp": Vector3(-0.0015, -0.0728, -0.0111), "dir": Vector3(0.0, -1.0, -0.035), "len": Vector3(0.027, 0.018, 0.015), "r": Vector4(0.0102, 0.0097, 0.0092, 0.0095)},
+		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0678, -0.0326), "dir": Vector3(0.0, -1.0, -0.1), "len": Vector3(0.021, 0.0145, 0.0125), "r": Vector4(0.0094, 0.0089, 0.0084, 0.0087)},
 	],
 	3: [
-		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0745, 0.0285), "dir": Vector3(0.0, -1.0, 0.07), "len": Vector3(0.032, 0.022, 0.018), "r": Vector4(0.0122, 0.0116, 0.0109, 0.0113)},
-		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0775, 0.0), "dir": Vector3(0.0, -1.0, 0.0), "len": Vector3(0.034, 0.0235, 0.019), "r": Vector4(0.0126, 0.012, 0.0113, 0.0117)},
-		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0735, -0.0285), "dir": Vector3(0.0, -1.0, -0.07), "len": Vector3(0.03, 0.021, 0.017), "r": Vector4(0.0118, 0.0112, 0.0106, 0.011)},
+		{"bone": INDEX1, "mcp": Vector3(-0.0015, -0.0725, 0.0298), "dir": Vector3(0.0, -1.0, 0.07), "len": Vector3(0.027, 0.018, 0.015), "r": Vector4(0.0136, 0.013, 0.0123, 0.0127)},
+		{"bone": MIDDLE1, "mcp": Vector3(-0.0015, -0.0755, 0.0), "dir": Vector3(0.0, -1.0, 0.0), "len": Vector3(0.0285, 0.019, 0.0155), "r": Vector4(0.014, 0.0134, 0.0127, 0.0131)},
+		{"bone": PINKY1, "mcp": Vector3(-0.0015, -0.0715, -0.0298), "dir": Vector3(0.0, -1.0, -0.07), "len": Vector3(0.025, 0.017, 0.014), "r": Vector4(0.0132, 0.0126, 0.012, 0.0124)},
 	],
 }
 ## Thumb: CMC (base, inside the thenar pad), MCP and IP pivots of the canonical right hand.
-const _THUMB_CMC := Vector3(0.006, -0.02, 0.027)
-const _THUMB_META_DIR := Vector3(0.36, -0.62, 0.52)
-const _THUMB_META_LEN := 0.036
-const _THUMB_DIR := Vector3(0.3, -0.76, 0.42)
-const _THUMB_LEN := Vector2(0.029, 0.023)
-const _THUMB_R := Vector4(0.0132, 0.0115, 0.0106, 0.0109)  # CMC, MCP, IP, tip
-const _THUMB_NAIL := Vector3(-0.62, 0.0, 0.78)  # dorsal (nail) direction hint
+const _THUMB_CMC := Vector3(0.007, -0.016, 0.026)
+const _THUMB_META_DIR := Vector3(0.34, -0.78, 0.36)
+const _THUMB_META_LEN := 0.03
+const _THUMB_DIR := Vector3(0.3, -0.88, 0.24)
+const _THUMB_LEN := Vector2(0.023, 0.019)
+const _THUMB_R := Vector4(0.0128, 0.0112, 0.0104, 0.0107)  # CMC, MCP, IP, tip
+const _THUMB_NAIL := Vector3(-0.6, 0.0, 0.8)  # dorsal (nail) direction hint
 const _PALM_PIVOT := Vector3(0.0, -0.006, 0.0)
 ## Width / thickness of the finger section (curl-plane section stays circular so the
 ## rounded joint caps cover every curl angle exactly).
-const _WIDTH := 1.05
+const _WIDTH := 1.0
 
 ## Pose table (canonical right hand, radians).
 ##   w: wrist (flex toward the palm, twist = pronation, deviation toward the thumb)
@@ -77,7 +77,7 @@ const _WIDTH := 1.05
 ##   t: thumb CMC flex, CMC twist (opposition), CMC spread (abduction away from the palm), MCP flex, IP flex
 const _POSE_DATA := {
 	"open": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(-0.04, 0.02, 0.02, 0.17), Vector4(-0.04, 0.02, 0.02, 0.05), Vector4(-0.03, 0.02, 0.02, -0.08), Vector4(-0.02, 0.03, 0.03, -0.22)],
-		"t": [-0.15, 0.05, 0.62, -0.05, 0.0]},
+		"t": [-0.1, 0.05, 0.42, -0.05, 0.0]},
 	"relaxed": {"w": Vector3(0.12, 0.0, -0.04), "f": [Vector4(0.24, 0.36, 0.22, 0.06), Vector4(0.3, 0.44, 0.26, 0.0), Vector4(0.36, 0.5, 0.3, -0.05), Vector4(0.44, 0.58, 0.34, -0.1)],
 		"t": [0.12, 0.12, 0.3, 0.16, 0.18]},
 	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.42, 1.72, 0.92, 0.0), Vector4(1.46, 1.74, 0.92, 0.0), Vector4(1.5, 1.74, 0.9, -0.02), Vector4(1.54, 1.74, 0.88, -0.05)],
@@ -793,44 +793,57 @@ static func _mirror_kit(k: CrewMeshKit) -> void:
 		k.indices[t + 2] = tmp
 
 
-## Wrist: brushed-metal disconnect ring (meets the forearm ribs) over a flared
-## player-colour gauntlet cuff with a rolled inner lip and a status light on the back.
+## Wrist: brushed-metal disconnect ring (meets the forearm ribs) over a tapered
+## player-colour gauntlet cuff with rolled lips and a status light on the back. A satin
+## sleeve on the palm bone fills the cuff mouth at every wrist angle.
 static func _cuff(k: CrewMeshKit) -> void:
-	var sc := Vector2(0.88, 1.0)
+	var sc := Vector2(0.9, 1.0)
 	k.set_part(WRIST, _M)
-	k.lathe(PackedVector2Array([Vector2(0.0455, 0.0105), Vector2(0.0502, 0.0085), Vector2(0.0506, 0.0012), Vector2(0.0478, -0.0022)]),
-		Transform3D.IDENTITY, 14, sc)
+	k.lathe(PackedVector2Array([Vector2(0.0508, 0.0008), Vector2(0.0512, 0.0088), Vector2(0.0462, 0.0118)]),
+		Transform3D.IDENTITY, 12, sc)
 	k.set_part(WRIST, _P, 0.95)
-	k.lathe(PackedVector2Array([Vector2(0.0472, 0.0), Vector2(0.0515, -0.0035), Vector2(0.0552, -0.022), Vector2(0.0556, -0.029), Vector2(0.0515, -0.0335), Vector2(0.045, -0.0305)]),
-		Transform3D.IDENTITY, 14, sc, 0.0, TAU, PackedFloat32Array([0.0, 0.7, 0.0, 0.9, 0.5, 0.0]))
-	# Status light on the back of the wrist (dorsal = -X), recessed in a graphite bezel.
-	var back := Vector3(-0.0545 * sc.x, -0.0165, 0.0)
+	# Profiles run bottom -> top (the kit's lathe faces outward that way).
+	k.lathe(PackedVector2Array([Vector2(0.0385, -0.0262), Vector2(0.0446, -0.0292), Vector2(0.0514, -0.0215), Vector2(0.0546, -0.0005), Vector2(0.049, 0.0025)]),
+		Transform3D.IDENTITY, 12, sc, 0.0, TAU, PackedFloat32Array([0.3, 0.9, 0.0, 0.8, 0.0]))
+	# Status light on the back of the wrist (dorsal = -X), in a graphite bezel.
+	var back := Vector3(-0.0484, -0.0112, 0.0)
+	var tilt := Basis(Vector3(0, 0, 1), -0.16)
 	k.set_part(WRIST, _S, 1.3)
-	k.rounded_box(back + Vector3(0.0012, 0.0, 0.0), Vector3(0.004, 0.0135, 0.026), 0.0018)
+	k.rounded_box(back, Vector3(0.0036, 0.011, 0.024), 0.0, tilt)
 	k.set_part(WRIST, _ST)
-	k.rounded_box(back + Vector3(-0.0011, 0.0, 0.0), Vector3(0.0016, 0.0062, 0.018), 0.0)
+	k.rounded_box(back + tilt * Vector3(-0.0019, 0.0, 0.0), Vector3(0.0012, 0.0056, 0.017), 0.0, tilt)
 
 
-## Palm block (satin graphite), curved back-of-hand armour plate, rubber palm pad.
+## Palm block (satin graphite), curved back-of-hand armour plate with an accent strip,
+## rubber grip panel, satin wrist sleeve.
 static func _palm(k: CrewMeshKit, fingers: int) -> void:
+	k.set_part(PALM, CrewMaterials.FABRIC, 0.7)
+	k.lathe(PackedVector2Array([Vector2(0.034, -0.022), Vector2(0.0425, -0.011), Vector2(0.0455, 0.0075)]),
+		Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.0)), 12, Vector2(0.8, 0.98))
 	k.set_part(PALM, _S, 1.0)
-	k.deform = CrewMeshKit.taper(0.8, 1.0, 0.036, 1.0, 0.8)
-	k.rounded_box(Vector3(-0.0005, -0.043, 0.0005), Vector3(0.033, 0.072, 0.088), 0.0135)
+	k.deform = CrewMeshKit.taper(0.82, 1.0, 0.037, 1.0, 0.8)
+	k.rounded_box(Vector3(-0.0005, -0.0415, 0.0005), Vector3(0.034, 0.074, 0.094), 0.014)
 	# Back plate: wraps across the width, narrows toward the wrist, overhangs the knuckles.
+	var plate_b := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
 	k.set_part(PALM, _P, 1.0)
-	k.deform = CrewMeshKit.shell(0.075, 0.0, 1.0, 0.027, 0.82)
+	k.deform = CrewMeshKit.shell(0.1, 0.0, 1.0, 0.028, 0.84)
 	k.skip_back = true
-	k.rounded_box(Vector3(-0.0178, -0.048, 0.0005), Vector3(0.079, 0.054, 0.0065), 0.0036, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)))
+	k.rounded_box(Vector3(-0.0186, -0.046, 0.0005), Vector3(0.085, 0.056, 0.0076), 0.0037, plate_b, 1, Vector3i(3, 1, 1))
 	k.deform = Callable()
 	k.skip_back = false
 	# Accent strip across the plate, just above the knuckles.
 	k.set_part(PALM, _A)
-	k.deform = CrewMeshKit.shell(0.0815, 0.0, 1.0, 0.002)
-	k.rounded_box(Vector3(-0.0245, -0.0665, 0.0005), Vector3(0.05, 0.0028, 0.0014), 0.0, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0)))
+	k.deform = CrewMeshKit.shell(0.1045, 0.0, 1.0, 0.002)
+	k.rounded_box(Vector3(-0.0228, -0.0655, 0.0005), Vector3(0.05, 0.0026, 0.0012), 0.0, plate_b, 1, Vector3i(2, 1, 1))
 	k.deform = Callable()
-	# Rubber palm pad (heel of the hand) with lug grooves from the rubber shader.
+	# Rubber grip panel on the palm (lug grooves come from the rubber shader), bowed to
+	# follow the palm's width.
 	k.set_part(PALM, _R, 1.0)
-	_dome(k, Vector3(0.0128, -0.047, -0.008), Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0.024, 0.0055, 0.03), 10)
+	k.deform = CrewMeshKit.shell(0.12, 0.0, 1.0, 0.025, 0.88)
+	k.skip_back = true
+	k.rounded_box(Vector3(0.0158, -0.046, 0.0005), Vector3(0.07, 0.05, 0.0024), 0.0, Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)), 1, Vector3i(3, 2, 1))
+	k.deform = Callable()
+	k.skip_back = false
 
 
 ## Soft dome: base ellipse (rx across, rz along `up`) on a plane facing `normal`, height h.
@@ -838,7 +851,7 @@ static func _dome(k: CrewMeshKit, center: Vector3, normal: Vector3, up: Vector3,
 	var y := normal.normalized()
 	var z := (up - y * up.dot(y)).normalized()
 	var x := y.cross(z)
-	var prof := PackedVector2Array([Vector2(1.0, -0.15 * size.y), Vector2(0.97, 0.3 * size.y), Vector2(0.72, 0.8 * size.y), Vector2(0.0, size.y)])
+	var prof := PackedVector2Array([Vector2(1.0, -0.2 * size.y), Vector2(0.99, 0.45 * size.y), Vector2(0.8, 0.88 * size.y), Vector2(0.0, size.y)])
 	k.deform = deform
 	k.lathe(prof, Transform3D(Basis(x, y, z), center), cols, Vector2(size.x, size.z), 0.0, TAU, PackedFloat32Array([edge, edge, 0.0, 0.0]))
 	k.deform = Callable()
@@ -853,9 +866,9 @@ static func _pad(length: float, amount: float) -> Callable:
 		return Vector3(p.x, p.y, p.z * (1.0 + amount * b))
 
 
-## One phalanx along its joint frame: dorsal half (graphite or plate) + palmar rubber
-## half. Its distal end is a cap centred exactly on the next joint, round in the curl
-## plane, so the joint stays closed at every angle; SEG_MID / SEG_TIP start inside the
+## One phalanx along its joint frame: dorsal half (graphite) + palmar rubber half.
+## Its distal end is a cap centred exactly on the next joint, round in the curl plane,
+## so the joint stays closed at every angle; SEG_MID / SEG_TIP start inside the
 ## parent's cap instead of carrying their own.
 static func _phalanx(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, length: float, r0: float, r1: float, kind: int, dorsal_mat := _S, dorsal_shade := 1.0, pad := 0.14) -> void:
 	var prof := PackedVector2Array()
@@ -877,21 +890,20 @@ static func _phalanx(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, lengt
 	k.lathe(prof, xf, 4, Vector2(_WIDTH, 1.0), PI * 0.5, PI * 1.5)
 
 
-## Armour plate on the back of a phalanx: a domed shell whose base hugs the digit
-## (cylinder along the phalanx, sphere over the knuckle) so it never floats.
-static func _knuckle_plate(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, r: float, along: float, size: Vector3, mat := _P, shade := 1.0) -> void:
-	var dorsal := frame.z
-	var distal := -frame.y
-	var c := at + distal * along
-	var hug := func(p: Vector3) -> Vector3:
-		# Dome local: x across (hinge), y up (dorsal), z along the finger.
-		var zz := p.z + along
-		var lat := p.x / _WIDTH
-		var q := r * r - lat * lat - minf(zz, 0.0) * minf(zz, 0.0)
-		var surf := sqrt(maxf(q, 0.0))
-		return Vector3(p.x, p.y + surf - 0.0006, p.z)
-	k.set_part(bone, mat, shade)
-	_dome(k, c, dorsal, distal, size, 8, 0.9, hug)
+## Armour plate over the back of a phalanx: a dorsal arc concentric with the digit,
+## lifted off its surface, wrapping from over the knuckle cap (y0 < 0) to y1, with
+## rolled ends that touch down so it never floats.
+static func _plate(k: CrewMeshKit, bone: int, at: Vector3, frame: Basis, r0: float, r1: float, length: float, y0: float, y1: float, lift: float, half_angle: float) -> void:
+	var surf := func(y: float) -> float:
+		return sqrt(maxf(r0 * r0 - y * y, 0.0)) if y < 0.0 else lerpf(r0, r1, clampf(y / length, 0.0, 1.0))
+	var ys: Array[float] = [y0, y0 + (y1 - y0) * 0.16, y0 + (y1 - y0) * 0.55, y1 - (y1 - y0) * 0.1, y1]
+	var lifts: Array[float] = [0.0003, lift * 0.92, lift, lift * 0.9, 0.0003]
+	var prof := PackedVector2Array()
+	for i in ys.size():
+		prof.append(Vector2(float(surf.call(ys[i])) + lifts[i], ys[i]))
+	var xf := Transform3D(Basis(frame.x, -frame.y, -frame.z), at)
+	k.set_part(bone, _P, 1.0)
+	k.lathe(prof, xf, 4, Vector2(_WIDTH, 1.0), PI - half_angle, PI + half_angle, PackedFloat32Array([1.0, 0.5, 0.0, 0.5, 1.0]))
 
 
 static func _finger(k: CrewMeshKit, spec: Dictionary, rest: Array[Transform3D]) -> void:
@@ -902,9 +914,8 @@ static func _finger(k: CrewMeshKit, spec: Dictionary, rest: Array[Transform3D]) 
 	_phalanx(k, b, rest[b].origin, fr, l.x, r.x, r.y, SEG_BASE)
 	_phalanx(k, b + 1, rest[b + 1].origin, fr, l.y, r.y, r.z, SEG_MID)
 	_phalanx(k, b + 2, rest[b + 2].origin, fr, l.z, r.z, r.w, SEG_TIP)
-	# Knuckle guard (player colour) and a small graphite guard on the middle phalanx.
-	_knuckle_plate(k, b, rest[b].origin, fr, r.x, 0.0045, Vector3(r.x * 0.86, 0.0042, r.x * 1.45))
-	_knuckle_plate(k, b + 1, rest[b + 1].origin, fr, r.y, l.y * 0.5, Vector3(r.y * 0.78, 0.0022, l.y * 0.42), _S, 1.45)
+	# Knuckle guard (player colour) riding on the proximal phalanx, over the knuckle.
+	_plate(k, b, rest[b].origin, fr, r.x, r.y, l.x, -r.x * 0.72, l.x * 0.66, 0.0021, 0.95)
 
 
 static func _thumb(k: CrewMeshKit, rest: Array[Transform3D]) -> void:
@@ -912,4 +923,4 @@ static func _thumb(k: CrewMeshKit, rest: Array[Transform3D]) -> void:
 	_phalanx(k, THUMB1, rest[THUMB1].origin, rest[THUMB1].basis, _THUMB_META_LEN, _THUMB_R.x, _THUMB_R.y, SEG_BASE, _S, 1.0, 0.18)
 	_phalanx(k, THUMB2, rest[THUMB2].origin, rest[THUMB2].basis, _THUMB_LEN.x, _THUMB_R.y, _THUMB_R.z, SEG_MID)
 	_phalanx(k, THUMB3, rest[THUMB3].origin, rest[THUMB3].basis, _THUMB_LEN.y, _THUMB_R.z, _THUMB_R.w, SEG_TIP)
-	_knuckle_plate(k, THUMB2, rest[THUMB2].origin, rest[THUMB2].basis, _THUMB_R.y, _THUMB_LEN.x * 0.45, Vector3(_THUMB_R.y * 0.84, 0.004, _THUMB_LEN.x * 0.5))
+	_plate(k, THUMB2, rest[THUMB2].origin, rest[THUMB2].basis, _THUMB_R.y, _THUMB_R.z, _THUMB_LEN.x, -_THUMB_R.y * 0.55, _THUMB_LEN.x * 0.7, 0.0021, 1.05)

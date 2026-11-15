@@ -15,11 +15,11 @@ func _initialize() -> void:
 		"test_airlock_spaces_last_crew", "test_airlock_respawns_items", "test_throw_hits_and_stuns",
 		"test_throw_respects_walls", "test_shove_drops_body", "test_mirror_flight_and_downed",
 		"test_last_crew_leaving_ends_round", "test_blackout_hides_names", "test_setup_resets_state",
-		"test_shove_cooldown_in_snapshot",
+		"test_shove_cooldown_in_snapshot", "test_dragged_body_kept_out_of_walls",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (29 tests)")
+		print("PASS: rules (30 tests)")
 	quit(1 if failures else 0)
 
 
@@ -464,3 +464,18 @@ func test_shove_cooldown_in_snapshot() -> void:
 	var mirror := StationRules.new()
 	mirror.apply_snapshot(rules.public_snapshot(), ids[0], StationRules.CREW)
 	check(mirror.players[ids[0]].shove_ready > mirror.elapsed, "client sees the host's shove cooldown")
+
+
+func test_dragged_body_kept_out_of_walls() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	# A fake wall at z = 5.5: the body must stop short of it.
+	rules.wall_clamp = func(_from: Vector3, to: Vector3) -> Vector3: return Vector3(to.x, to.y, minf(to.z, 5.0))
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 4), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 4))
+	rules.request_shoot(ids[0])
+	rules.set_pose(ids[2], Vector3(0, 0, 3), 0.0)
+	rules.request_interact(ids[2])
+	rules.set_pose(ids[2], Vector3(0, 0, 4.9), 0.0)  # walking into the wall
+	check(rules.players[ids[1]].pos.z <= 5.0, "dragged body stays out of the wall")

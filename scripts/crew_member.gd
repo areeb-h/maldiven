@@ -40,8 +40,14 @@ var _jump_buffer := 0.0
 var _coyote := 0.0
 var _spawn := Vector3.ZERO
 
+## Every live avatar on this peer, so remote puppets can keep personal space.
+static var registry: Array[CrewMember] = []
+
 var visual: Node3D
 var pivot: Node3D
+var _collider: CollisionShape3D
+var _standing_shape: CapsuleShape3D
+var _lying_shape: CapsuleShape3D
 var arm: SpringArm3D
 var camera: Camera3D
 var name_tag: Label3D
@@ -79,13 +85,18 @@ func _ready() -> void:
 	floor_snap_length = 0.35
 	collision_layer = 4 if is_local else 2
 	collision_mask = 1 | 2
-	var shape := CapsuleShape3D.new()
-	shape.radius = 0.38
-	shape.height = 1.8
-	var collider := CollisionShape3D.new()
-	collider.shape = shape
-	collider.position.y = 0.9
-	add_child(collider)
+	_standing_shape = CapsuleShape3D.new()
+	_standing_shape.radius = 0.38
+	_standing_shape.height = 1.8
+	# Downed bodies are solid too: a capsule lying along the body.
+	_lying_shape = CapsuleShape3D.new()
+	_lying_shape.radius = 0.3
+	_lying_shape.height = 1.7
+	_collider = CollisionShape3D.new()
+	_collider.shape = _standing_shape
+	_collider.position.y = 0.9
+	add_child(_collider)
+	registry.append(self)
 	_build_visual()
 	name_tag = Label3D.new()
 	name_tag.text = display_name
@@ -203,6 +214,37 @@ func set_carried(on: bool) -> void:
 		carried = on
 		if visual.has_method("set_carried"):
 			visual.set_carried(on)
+		_apply_collision()
+
+
+func _exit_tree() -> void:
+	registry.erase(self)
+
+
+## Collision by state: standing capsule; a lying capsule while downed (still
+## solid so nobody walks through a body); nothing while carried (it moves with
+## its carrier) or as a ghost.
+func _apply_collision() -> void:
+	var own_layer := 4 if is_local else 2
+	match life_state:
+		"ok":
+			_collider.shape = _standing_shape
+			_collider.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 0))
+			collision_layer = own_layer
+			collision_mask = 1 | 2
+		"downed":
+			_collider.shape = _lying_shape
+			_orient_lying_collider()
+			collision_layer = 0 if carried else own_layer
+			collision_mask = 1
+		_:
+			collision_layer = 0
+			collision_mask = 0
+
+
+func _orient_lying_collider() -> void:
+	var along := Basis(Vector3.UP, _facing) * Basis(Vector3.RIGHT, PI / 2.0)
+	_collider.transform = Transform3D(along, Vector3(0, 0.3, 0))
 
 
 ## "ok", "downed" or "dead" (ghost).
@@ -220,9 +262,7 @@ func set_life_state(state: String) -> void:
 	if not _model_api:
 		visual.rotation.x = -PI / 2.0 if state == "downed" else 0.0
 		_visual_base = Vector3(0, 0.25 if state == "downed" else 0.0, 0)
-	var standing := state == "ok"
-	collision_layer = (4 if is_local else 2) if standing else 0
-	collision_mask = 0 if ghost else (1 | 2 if standing else 1)
+	_apply_collision()
 	name_tag.modulate.a = 0.5 if ghost else 1.0
 	if ghost and is_local:
 		velocity = Vector3.ZERO
@@ -283,7 +323,10 @@ func _process(delta: float) -> void:
 		var blend := 1.0 - exp(-delta * 14.0)
 		position = position.lerp(_target_pos, blend)
 		_facing = lerp_angle(_facing, _target_yaw, blend)
+		_keep_personal_space()
 		visual.position = _visual_base
+		if life_state == "downed" and not carried:
+			_orient_lying_collider()
 	visual.rotation.y = _facing + _visual_yaw_offset
 
 
@@ -386,6 +429,24 @@ func _camera_fx(delta: float, smoothed: Vector3) -> void:
 	if aiming:
 		target_fov = 60.0 + _fov_kick
 	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, delta * 8.0))
+
+
+## Remote puppets follow network poses, which can briefly overlap another
+## player's capsule. Push this puppet out so bodies never visibly interpenetrate.
+func _keep_personal_space() -> void:
+	if life_state != "ok":
+		return
+	const MIN_GAP := 0.78  # two capsule radii plus a hair
+	for other in registry:
+		if other == self or other.life_state != "ok" or not other.is_inside_tree():
+			continue
+		var offset := Vector2(position.x - other.position.x, position.z - other.position.z)
+		var distance := offset.length()
+		if distance >= MIN_GAP:
+			continue
+		var push := (MIN_GAP - distance) * (1.0 if other.is_local else 0.5)
+		var away := offset.normalized() if distance > 0.001 else Vector2(1, 0)
+		position += Vector3(away.x, 0, away.y) * push
 
 
 ## Lean into turns (body rolls toward the inside of the curve).

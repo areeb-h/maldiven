@@ -104,6 +104,7 @@ func _ready() -> void:
 		else:
 			rng.randomize()
 		rules.setup(Net.roster, rng)
+		rules.wall_clamp = _clamp_to_walls
 		if OS.get_cmdline_user_args().has("--bot-host-infiltrator") and rules.players.size() > 1:
 			for id in rules.players:  # dev/screenshot option: host plays the infiltrator
 				rules.players[id].role = StationRules.INFILTRATOR if id == 1 else StationRules.CREW
@@ -142,6 +143,19 @@ func _builder(method: String, args: Array) -> void:
 		if entry.name == method:
 			script.callv(method, args)
 			return
+
+
+## Host-side: keep a point carried in front of a player out of walls by
+## stopping it 0.45 m short of any wall between the carrier and the point.
+func _clamp_to_walls(carrier: Vector3, target: Vector3) -> Vector3:
+	var chest := Vector3(0, 0.6, 0)
+	var query := PhysicsRayQueryParameters3D.create(carrier + chest, target + chest, 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return target
+	var direction := (target - carrier).normalized()
+	var stop: Vector3 = hit.position - chest - direction * 0.45
+	return Vector3(stop.x, target.y, stop.z)
 
 
 ## Host-side wall check for shots and throws (world geometry is layer 1).
