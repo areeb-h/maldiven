@@ -104,8 +104,8 @@ func run() -> void:
 			var half: float = (spec.size.x if axis.x != 0 else spec.size.y) * 0.5
 			for lateral in [-1.0, 0.0, 1.0]:
 				for y in [0.5, 1.2]:
-					var from := c + side * lateral
-					var target := from + axis * (half + 1.5)
+					var from: Vector2 = c + side * float(lateral)
+					var target: Vector2 = from + axis * (half + 1.5)
 					var hit := _ray(space, Vector3(from.x, y, from.y), Vector3(target.x, y, target.y))
 					if not hit.is_empty():
 						fail("doorway blocked in %s towards %s at %s" % [corridor_id, spec[room_key], hit.position])

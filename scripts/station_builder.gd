@@ -1358,7 +1358,7 @@ static func _potted_plant(kit: ArtMeshKit, body: StaticBody3D, pos: Vector3, see
 static func _pillar(kit: ArtMeshKit, body: StaticBody3D, pos: Vector3, w: float, color: Color) -> void:
 	kit.bevel_box("painted", pos + Vector3(0, H * 0.5, 0), Vector3(w, H, w), 0.08, GRAPHITE)
 	kit.bevel_box("painted", pos + Vector3(0, 0.15, 0), Vector3(w + 0.1, 0.3, w + 0.1), 0.05, DARK)
-	kit.bevel_box("painted", pos + Vector3(0, H - 0.25, 0), Vector3(w + 0.1, 0.5, w + 0.1), 0.06, color.darkened(0.12))
+	kit.bevel_box("painted", pos + Vector3(0, H - 0.5, 0), Vector3(w + 0.06, 0.2, w + 0.06), 0.05, color.darkened(0.12))
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var corner := pos + Vector3(sx * (w * 0.5 + 0.005), 0, sz * (w * 0.5 + 0.005))
@@ -1776,10 +1776,10 @@ static func _dress_commons(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	_collider(body, Vector3(-5.4, 0.225, -4.4), Vector3(1.16, 0.45, 0.76))
 	_reg("coffee_table", Vector3(-5.4, 0.225, -4.4), Vector3(1.16, 0.45, 0.76))
 	_potted_plant(kit, body, Vector3(-7.35, 0, -6.35), 5)
-	# Four slim pillars frame the spawn floor (sightline breakers, cover).
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			_pillar(kit, body, Vector3(sx * 3.0, 0, sz * 4.6), 0.5, color)
+	# Two slim pillars frame the lounge side of the spawn floor (sightline
+	# breakers, something to duck behind).
+	for sz in [-1.0, 1.0]:
+		_pillar(kit, body, Vector3(-3.0, 0, sz * 4.6), 0.5, color)
 	# Planter under the south-west windows, clear of the airlock console.
 	_planter(kit, body, Vector3(-7.35, 0, 5.6), Vector2(0.7, 2.0), 0.6, 7)
 	# Hazard apron in front of the airlock doorway.
