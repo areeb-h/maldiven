@@ -15,19 +15,24 @@ var _failures: Array[String] = []
 func _initialize() -> void:
 	var t0 := Time.get_ticks_msec()
 	var models: Array[CrewModel] = []
-	for c in COLORS:
-		var m := CrewModel.build(c)
+	for ci in COLORS.size():
+		var m := CrewModel.build(COLORS[ci], ci % CrewBody.VARIANTS, ci + 1)
 		root.add_child(m)
 		models.append(m)
 	print("crew: built %d models in %d ms" % [models.size(), Time.get_ticks_msec() - t0])
 	var first := models[0]
-	_check(models[1].body.mesh == first.body.mesh, "body mesh is shared between players")
+	_check(models[4].body.mesh == first.body.mesh, "body mesh is shared between players of a variant")
+	_check(models[1].body.mesh != first.body.mesh, "variants have their own meshes")
 	_check(first.carry_anchor != null and first.carry_anchor.get_parent() == first, "carry_anchor exists")
 	_check(first.hand_anchor != null and first.hand_anchor.get_parent().name == "RightHand", "hand_anchor on right hand")
-	for n in ["LeftLeg", "RightLeg", "LeftArm", "RightArm", "Hips", "Spine", "Chest", "Neck", "Head", "LeftForearm", "LeftHand", "LeftShin", "LeftFoot"]:
+	for n in ["LeftLeg", "RightLeg", "LeftArm", "RightArm", "Hips", "Spine", "Chest", "Neck", "Head", "LeftForearm", "LeftHand", "LeftShin", "LeftFoot", "LeftFingers", "RightThumb", "Antenna", "Backpack"]:
 		_check(first.find_child(n, true, false) is Node3D, "pivot %s exists" % n)
 	var tris := 0
 	var calls := 0
+	for v in CrewBody.VARIANTS:
+		var tc := CrewBody.triangle_counts(v)
+		print("crew: variant %d: %d body + %d visor triangles" % [v, tc.x, tc.y])
+		_check(tc.x + tc.y <= MAX_TRIS, "variant %d triangle budget (%d)" % [v, tc.x + tc.y])
 	for node in first.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
 		calls += mi.mesh.get_surface_count()
@@ -53,6 +58,28 @@ func _initialize() -> void:
 			for f in 45:
 				m.set_motion(st[1], st[2], st[3], st[4], dt)
 		_check_finite(first, st[0])
+	# Footsteps fire while walking.
+	var steps := [0]
+	first.footstep.connect(func(_side: int) -> void: steps[0] += 1)
+	for f in 90:
+		first.set_motion(CrewModel.WALK_SPEED, true, false, false, dt)
+	_check(steps[0] >= 3, "footstep signal fires (%d)" % steps[0])
+	# Faces and fidgets.
+	for e in CrewMaterials.EXPRESSIONS:
+		first.set_expression(e)
+		first._process(dt)
+		_check(first.get_expression() == e, "expression " + e)
+	first.set_expression("shocked", 0.2)
+	for f in 20:
+		first._process(dt)
+	_check(first.get_expression() == "ghost", "held expression returns to the base face")
+	first.set_expression("neutral")
+	for k in 3:
+		first.play_fidget(k)
+		for f in 60:
+			first.set_motion(0.0, true, false, false, dt)
+		_check_finite(first, "fidget %d" % k)
+	first.set_number(7)
 	# Feet must not skate: during stance, the planted foot moves backward at the ground speed.
 	_check(_stance_speed_ok(first), "stance foot matches ground speed")
 	# Overlays and states.

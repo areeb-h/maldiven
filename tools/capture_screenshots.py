@@ -50,7 +50,10 @@ def main():
                for i in range(args.players - 1)]
     host_log, _ = host.communicate(timeout=args.timeout + 60)
     for client in clients:
-        client.communicate(timeout=30)
+        try:
+            client.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            client.kill()
     shots = [l.split(' ', 1)[1] for l in host_log.splitlines() if l.startswith('BOT_SHOT')]
     for line in host_log.splitlines():
         if line.startswith(('BOT_RESULT', 'BOT_ROLE', 'BOT_TIMEOUT', 'SCRIPT ERROR')):

@@ -101,7 +101,19 @@ func _clean_name(text: String) -> String:
 
 
 func _on_connected() -> void:
+	_relax_timeout(1)
 	_register.rpc_id(1, _local_name, PROTOCOL)
+
+
+## Loading a round (or a slow phone) can stall a frame for seconds; ENet's
+## default 5 s minimum timeout would drop the connection mid-load.
+func _relax_timeout(id: int) -> void:
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet == null:
+		return
+	var packet_peer := enet.get_peer(id)
+	if packet_peer != null:
+		packet_peer.set_timeout(64, 20000, 60000)
 
 
 func _on_connection_failed() -> void:
@@ -114,8 +126,10 @@ func _on_server_disconnected() -> void:
 	session_ended.emit("The host closed the station.")
 
 
-func _on_peer_connected(_id: int) -> void:
-	pass  # Wait for _register before listing them.
+func _on_peer_connected(id: int) -> void:
+	if multiplayer.is_server():
+		_relax_timeout(id)
+	# Wait for _register before listing them.
 
 
 func _on_peer_disconnected(id: int) -> void:

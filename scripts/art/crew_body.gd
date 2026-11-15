@@ -186,7 +186,7 @@ static func _hips(k: CrewMeshKit) -> void:
 	# Belt (the hip ring the thigh guards tuck under).
 	k.set_part(HIPS, S, 1.0)
 	k.lathe(PackedVector2Array([Vector2(0.142, 0.962), Vector2(0.16, 0.968), Vector2(0.164, 0.99), Vector2(0.163, 1.014), Vector2(0.156, 1.026), Vector2(0.14, 1.032)]),
-		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.004)), 24, Vector2(1.0, 0.8), 0.0, TAU, PackedFloat32Array([0, 1, 0, 0, 1, 0]))
+		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.004)), 20, Vector2(1.0, 0.8), 0.0, TAU, PackedFloat32Array([0, 1, 0, 0, 1, 0]))
 	k.set_part(HIPS, M, 1.0)
 	k.rounded_box(Vector3(0, 0.997, 0.13), Vector3(0.075, 0.054, 0.022), 0.009, Basis.IDENTITY, 1)
 	k.set_part(HIPS, A)
@@ -279,10 +279,10 @@ static func _torso(k: CrewMeshKit) -> void:
 	# Collar ring: the soft seal the helmet sits in.
 	k.set_part(CHEST, S, 1.0)
 	k.lathe(PackedVector2Array([Vector2(0.108, 1.44), Vector2(0.132, 1.452), Vector2(0.144, 1.47), Vector2(0.14, 1.492), Vector2(0.126, 1.503), Vector2(0.11, 1.506)]),
-		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.012)), 22, Vector2(1.05, 0.98), 0.0, TAU, PackedFloat32Array([0, 0.6, 1, 0.6, 0.3, 0]))
+		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.012)), 20, Vector2(1.05, 0.98), 0.0, TAU, PackedFloat32Array([0, 0.6, 1, 0.6, 0.3, 0]))
 	k.set_part(CHEST, M)
 	k.lathe(PackedVector2Array([Vector2(0.1, 1.5), Vector2(0.113, 1.503), Vector2(0.115, 1.512), Vector2(0.104, 1.518)]),
-		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.012)), 22, Vector2(1.05, 0.98))
+		Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.012)), 20, Vector2(1.05, 0.98))
 	# Neck seal bellows.
 	var np := PackedVector2Array()
 	for i in 7:
@@ -434,7 +434,7 @@ static func _nozzle(k: CrewMeshKit, at: Vector3) -> void:
 static func _head(k: CrewMeshKit, variant: int) -> void:
 	var top := HELMET_C + HELMET_RY
 	k.set_part(HEAD, P, 1.0)
-	k.lathe(helmet_profile(), Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 26, Vector2(1.0, HELMET_DEPTH))
+	k.lathe(helmet_profile(), Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 24, Vector2(1.0, HELMET_DEPTH))
 	# Graphite jaw ring (panel seam between shell and collar seal).
 	var jaw := PackedVector2Array()
 	var jaw_y: Array[float] = [HELMET_BASE - 0.006, HELMET_BASE, 1.54, 1.562, 1.572]
@@ -443,10 +443,10 @@ static func _head(k: CrewMeshKit, variant: int) -> void:
 		var inset := -0.008 if i == 0 else (-0.004 if i == jaw_y.size() - 1 else 0.0)
 		jaw.append(Vector2(helmet_radius(maxf(y, HELMET_BASE)) * 1.035 + inset, y))
 	k.set_part(HEAD, S, 1.1)
-	k.lathe(jaw, Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 26, Vector2(1.0, HELMET_DEPTH), 0.0, TAU, PackedFloat32Array([0, 1, 0, 1, 0]))
+	k.lathe(jaw, Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 24, Vector2(1.0, HELMET_DEPTH), 0.0, TAU, PackedFloat32Array([0, 1, 0, 1, 0]))
 	# Visor frame.
 	k.set_part(HEAD, S, 1.3)
-	k.tube(_visor_outline(0.006), 0.0072, 6, 30, 0.0, 0.0, true)
+	k.tube(_visor_outline(0.006), 0.0072, 6, 26, 0.0, 0.0, true)
 	for s in [1.0, -1.0]:
 		# Ear pucks: graphite, emissive ring, metal cap.
 		var c := Vector3(s * 0.168, HELMET_C, -0.012)
@@ -575,7 +575,7 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	var out := Vector3(s, 0, 0)
 	# Shoulder bearing ball: fills the socket whatever the arm angle.
 	k.set_part(up, F, 0.7)
-	k.ellipsoid(Vector3(x - s * 0.008, 1.425, z0), Vector3(0.074, 0.07, 0.078), Basis.IDENTITY, 12, 6)
+	k.ellipsoid(Vector3(x - s * 0.008, 1.425, z0), Vector3(0.074, 0.07, 0.078), Basis.IDENTITY, 10, 5)
 	# Upper arm: wide at the shoulder, tapering to the elbow.
 	k.set_part(up, F, 0.85)
 	_limb(k, Vector3(x, 1.17, z0), Vector3(x, 1.42, z0), [0.053, 0.058, 0.064, 0.067] as Array[float], 10)
@@ -589,12 +589,12 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 	var pad_c := Vector3(x + s * 0.03, 1.448, z0)
 	k.set_part(up, S, 1.15)
 	k.lathe(PackedVector2Array([Vector2(0.09, -0.05), Vector2(0.106, -0.044), Vector2(0.11, -0.022), Vector2(0.1, 0.0), Vector2(0.084, 0.012)]),
-		Transform3D(pad_basis, pad_c), 16, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0.5, 1, 0]))
+		Transform3D(pad_basis, pad_c), 14, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0.5, 1, 0]))
 	k.set_part(up, P, 1.0)
 	var dome := PackedVector2Array([Vector2(0.092, -0.006), Vector2(0.1, 0.006), Vector2(0.095, 0.034), Vector2(0.076, 0.062), Vector2(0.042, 0.078), Vector2(0.0, 0.083)])
-	k.lathe(dome, Transform3D(pad_basis, pad_c), 16, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0, 0, 0, 0]))
+	k.lathe(dome, Transform3D(pad_basis, pad_c), 14, Vector2(1.0, 1.08), 0.0, TAU, PackedFloat32Array([0, 1, 0, 0, 0, 0]))
 	k.set_part(up, A)
-	k.ring(pad_c + pad_dir * 0.012, 0.1, 0.0035, pad_basis, 16, 4, Vector2(1.0, 1.08))
+	k.ring(pad_c + pad_dir * 0.012, 0.1, 0.0035, pad_basis, 14, 4, Vector2(1.0, 1.08))
 	# Player number on the outer face of the pauldron, following the dome.
 	var out_h := Vector3(s * 0.866, -0.5, 0.0)
 	var side := Vector3(0, 0, -s)
@@ -635,12 +635,12 @@ static func _arm(k: CrewMeshKit, s: float) -> void:
 		var zf := z0 + 0.009 + (float(i) - 1.0) * 0.031
 		k.set_part(hand, R, 1.0)
 		k.set_blend(fingers, Vector3(x, 0.772, zf), Vector3.DOWN, 0.014)
-		k.capsule(Vector3(x - s * 0.006, 0.786, zf), Vector3(x - s * 0.01, 0.722, zf + 0.003), 0.0165, 0.0155, 8, 2, 2)
+		k.capsule(Vector3(x - s * 0.006, 0.786, zf), Vector3(x - s * 0.01, 0.722, zf + 0.003), 0.0165, 0.0155, 6, 2, 2)
 	k.set_part(hand, R, 1.0)
 	var tb := Vector3(x - s * 0.014, 0.835, z0 + 0.05)
 	var tt := Vector3(x - s * 0.03, 0.79, z0 + 0.078)
 	k.set_blend(thumb, tb + (tt - tb) * 0.3, (tt - tb).normalized(), 0.012)
-	k.capsule(tb, tt, 0.016, 0.015, 8, 2, 1)
+	k.capsule(tb, tt, 0.016, 0.015, 6, 2, 1)
 	k.clear_blend()
 
 
@@ -661,7 +661,7 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	# Thigh: muscle-like taper, skinned into the hips at the top.
 	k.set_part(thigh, F, 0.85)
 	k.set_blend(HIPS, Vector3(x, 0.9, 0), Vector3.UP, 0.05)
-	_limb(k, Vector3(x, 0.545, 0.0), Vector3(x, 0.97, -0.005), [0.07, 0.08, 0.09, 0.096, 0.097] as Array[float], 12)
+	_limb(k, Vector3(x, 0.545, 0.0), Vector3(x, 0.97, -0.005), [0.07, 0.08, 0.09, 0.096, 0.097] as Array[float], 10)
 	k.clear_blend()
 	k.set_part(thigh, P, 1.0)
 	_plate(k, Vector3(x, 0.75, 0.0), 0.09, s * 0.3, Vector3(0.16, 0.27, 0.028), 0.012, 0.7, 0.78)
@@ -670,14 +670,14 @@ static func _leg(k: CrewMeshKit, s: float) -> void:
 	k.set_part(thigh, A)
 	_plate(k, Vector3(x, 0.82, -0.005), 0.13, s * PI * 0.5, Vector3(0.05, 0.006, 0.004), 0.0)
 	# Knee: bellows sleeve, hinge caps with bolts, domed knee guard on the shin.
-	_bellows(k, Vector3(x, 0.507, -0.004), Vector3.DOWN, 0.09, 0.07, 3, 12, thigh, shin)
+	_bellows(k, Vector3(x, 0.507, -0.004), Vector3.DOWN, 0.09, 0.07, 3, 10, thigh, shin)
 	_hinge(k, shin, Vector3(x + s * 0.07, 0.505, -0.005), out, 0.034)
 	_hinge(k, shin, Vector3(x - s * 0.07, 0.505, -0.005), -out, 0.03)
 	k.set_part(shin, P, 0.82)
 	_plate(k, Vector3(x, 0.512, -0.005), 0.072, 0.0, Vector3(0.118, 0.125, 0.032), 0.015, 0.08)
 	# Shin with a calf bulge, shin guard and accent.
 	k.set_part(shin, F, 0.85)
-	_limb(k, Vector3(x, 0.15, -0.01), Vector3(x, 0.49, -0.005), [0.056, 0.062, 0.072, 0.074, 0.066] as Array[float], 12, Vector2(1.0, 1.08))
+	_limb(k, Vector3(x, 0.15, -0.01), Vector3(x, 0.49, -0.005), [0.056, 0.062, 0.072, 0.074, 0.066] as Array[float], 10, Vector2(1.0, 1.08))
 	k.set_part(shin, P, 1.0)
 	_plate(k, Vector3(x, 0.345, -0.005), 0.068, 0.0, Vector3(0.12, 0.24, 0.028), 0.012, 0.9, 0.78, Vector3i(1, 2, 1))
 	k.set_part(shin, A)
