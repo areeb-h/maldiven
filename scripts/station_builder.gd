@@ -313,8 +313,10 @@ static func _wbox(kit: ArtMeshKit, key: String, along_x: bool, a0: float, a1: fl
 	kit.box(key, c, _s(along_x, a1 - a0, y1 - y0, depth), color, Basis.IDENTITY, color_b, 0 if along_x else 2)
 
 
-## Pill-shaped light strip(s) running along a wall at height y. With `offset`
-## > 0 one strip sits on each face (walls are seen from both sides).
+## Light strip(s) running along a wall at height y. With `offset` > 0 one strip
+## sits on each face (walls are seen from both sides). Flat-capped: the ends
+## always butt into door pylons or the next wall, so no sphere caps (they were
+## ~40% of all strip triangles).
 static func _pill(kit: ArtMeshKit, key: String, along_x: bool, a0: float, a1: float, y: float, across: float, offset: float, radius: float, color: Color, color_b = null) -> void:
 	var faces := [0.0] if offset <= 0.0 else [-offset, offset]
 	for f in faces:
@@ -328,8 +330,6 @@ static func _pill(kit: ArtMeshKit, key: String, along_x: bool, a0: float, a1: fl
 				kit.cylinder(key, a.lerp(b, t0), a.lerp(b, t1), radius, color.lerp(color_b, (t0 + t1) * 0.5), 6)
 		else:
 			kit.cylinder(key, a, b, radius, color, 6)
-		kit.sphere(key, a, radius, color, 6)
-		kit.sphere(key, b, radius, color_b if color_b is Color else color, 6)
 
 
 ## Collision box on layer 1. Also feeds the room's shadow proxy (tops clamped
@@ -705,8 +705,6 @@ static func _doorway(fx: ArtStationFX, kit: ArtMeshKit, body: StaticBody3D, alon
 		for face: float in [-1.0, 1.0]:
 			var strip := _v(along_x, edge + side * 0.05, 0.0, across + face * (depth * 0.5 + 0.02))
 			kit.cylinder("door", strip + Vector3(0, 0.2, 0), strip + Vector3(0, top - 0.25, 0), 0.04, color, 6)
-			kit.sphere("door", strip + Vector3(0, 0.2, 0), 0.04, color, 6)
-			kit.sphere("door", strip + Vector3(0, top - 0.25, 0), 0.04, color, 6)
 		kit.sphere("door", _v(along_x, post_c, top + 0.01, across), 0.1, color, 12, Vector3(1.0, 0.4, 1.0))
 		# Hazard chevrons on the jamb base.
 		kit.bevel_box("hazard", _v(along_x, post_c, 0.25, across), _s(along_x, 0.4, 0.5, depth + 0.07), 0.06, Color.WHITE)

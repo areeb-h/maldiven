@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#060a12">
+  <title>Drift Station Server</title>
+  <meta name="description" content="Control panel for the Drift Station dedicated server running on this computer.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/orbitron-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/rajdhani-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="is-booting">
+  <div class="backdrop" aria-hidden="true"><div class="backdrop__glow"></div><div class="backdrop__grid"></div></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand__mark" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="80 27" transform="rotate(-50 24 24)"/>
+        <circle cx="24" cy="24" r="7" fill="currentColor"/>
+        <circle cx="38.5" cy="12.5" r="3" fill="currentColor"/>
+      </svg>
+      <div class="brand__text">
+        <span class="eyebrow">Drift Station server</span>
+        <label class="station-name">
+          <span class="visually-hidden">Station name</span>
+          <input id="room-name" class="station-name__input" type="text" maxlength="32" spellcheck="false" autocomplete="off" value="Drift Station" aria-describedby="room-name-hint">
+          <svg class="icon station-name__pen" aria-hidden="true"><use href="#i-pen"/></svg>
+        </label>
+        <span id="room-name-hint" class="visually-hidden">Phones see this name under Nearby stations. Press Enter to save.</span>
+      </div>
+    </div>
+    <div class="topbar__meta">
+      <span id="version" class="chip chip--quiet">v–</span>
+      <span id="status-pill" class="pill pill--wait" role="status" aria-live="polite"><span class="pill__dot"></span><span id="status-text">Starting…</span></span>
+    </div>
+    <div class="topbar__actions">
+      <button id="help-open" class="btn btn--ghost" type="button" aria-controls="help" aria-expanded="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><span>Troubleshooting</span>
+      </button>
+      <button id="stop-server" class="btn btn--ghost btn--danger-ghost" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-power"/></svg><span>Stop server</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout" id="main">
+    <div class="col col--a">
+    <section class="card card--join" aria-labelledby="join-title">
+      <header class="card__head">
+        <span class="eyebrow">Invite your crew</span>
+        <h2 id="join-title" class="card__title">Join from a phone</h2>
+      </header>
+      <ol class="join-steps">
+        <li><span class="join-steps__n">1</span><span>Connect the phones to the <strong>same Wi-Fi</strong> as this computer.</span></li>
+        <li><span class="join-steps__n">2</span><span>Open <strong>Drift Station</strong>. Your station appears under <strong>Nearby stations</strong>: tap it.</span></li>
+      </ol>
+      <div class="join-address">
+        <div class="join-address__text">
+          <span class="eyebrow">Not listed? Join by IP</span>
+          <div class="address-row">
+            <output id="address" class="address" aria-live="polite">–</output>
+            <button id="copy-address" class="icon-btn" type="button" aria-label="Copy the address">
+              <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+            </button>
+          </div>
+          <p id="address-more" class="muted small" hidden></p>
+          <p id="public-address" class="muted small" hidden></p>
+        </div>
+        <figure class="qr" id="qr-figure">
+          <svg id="qr" class="qr__code" role="img" aria-label="QR code of the address"></svg>
+          <figcaption class="muted small">Scan to copy</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="card card--feed" aria-labelledby="feed-title">
+      <header class="card__head">
+        <span class="eyebrow">Live</span>
+        <h2 id="feed-title" class="card__title">Station log</h2>
+      </header>
+      <ol class="feed" id="feed" aria-live="polite"></ol>
+      <p class="feed-empty muted small" id="feed-empty">Events appear here as they happen.</p>
+    </section>
+    </div>
+    <div class="col col--b">
+    <section class="card card--round" aria-labelledby="round-title">
+      <header class="card__head card__head--row">
+        <div>
+          <span class="eyebrow" id="round-eyebrow">Round</span>
+          <h2 id="round-title" class="card__title">Lobby</h2>
+        </div>
+        <div class="round-clock" id="round-clock" hidden>
+          <span class="eyebrow">Time left</span>
+          <span class="round-clock__value" id="round-time">10:00</span>
+        </div>
+      </header>
+
+      <ol class="phases" id="phases" aria-label="Round phases">
+        <li data-phase="lobby"><span class="phases__dot"></span><span class="phases__label">Lobby</span></li>
+        <li data-phase="briefing"><span class="phases__dot"></span><span class="phases__label">Briefing</span></li>
+        <li data-phase="stabilise"><span class="phases__dot"></span><span class="phases__label">Restore power</span></li>
+        <li data-phase="extraction"><span class="phases__dot"></span><span class="phases__label">Extraction</span></li>
+        <li data-phase="result"><span class="phases__dot"></span><span class="phases__label">Result</span></li>
+      </ol>
+
+      <div class="round-body" id="round-lobby">
+        <p class="round-lead" id="lobby-lead">Waiting for the crew to join.</p>
+        <div class="round-actions">
+          <button id="start-round" class="btn btn--primary btn--big" type="button" disabled>
+            <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span>Start round</span>
+          </button>
+          <p class="round-reason" id="start-reason">Needs at least 2 players.</p>
+        </div>
+      </div>
+
+      <div class="round-body" id="round-live" hidden>
+        <div class="meter" aria-hidden="true"><div class="meter__fill" id="round-meter"></div></div>
+        <div class="stats" id="round-stats">
+          <div class="stat"><span class="eyebrow">Power cells</span><span class="cells" id="cells"></span></div>
+          <div class="stat"><span class="eyebrow">Crew standing</span><span class="stat__value" id="standing">–</span></div>
+          <div class="stat stat--wide" id="countdowns"></div>
+        </div>
+        <div class="round-actions round-actions--end">
+          <button id="lobby-live" class="btn btn--secondary" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span>Back to lobby</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="round-body" id="round-result" hidden>
+        <div class="verdict" id="verdict">
+          <svg class="icon verdict__icon" aria-hidden="true"><use id="verdict-icon" href="#i-shield"/></svg>
+          <div>
+            <p class="verdict__title" id="verdict-title">Crew win</p>
+            <p class="verdict__reason" id="verdict-reason"></p>
+          </div>
+        </div>
+        <p class="reveal" id="reveal"></p>
+        <details class="timeline" id="timeline-box">
+          <summary>Round timeline</summary>
+          <ol id="timeline"></ol>
+        </details>
+        <div class="round-actions round-actions--end">
+          <p class="round-reason" id="lobby-countdown"></p>
+          <button id="lobby-result" class="btn btn--primary" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span>Back to lobby</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card card--crew" aria-labelledby="crew-title">
+      <header class="card__head card__head--row">
+        <div>
+          <span class="eyebrow">Connected phones</span>
+          <h2 id="crew-title" class="card__title">Crew</h2>
+        </div>
+        <span class="count" id="crew-count">0 / 8</span>
+      </header>
+      <ul class="crew" id="crew" aria-live="polite"></ul>
+      <p class="muted small crew-note" id="crew-note">This computer runs the station and isn't a player. Roles stay secret here until the round ends.</p>
+    </section>
+
+    </div>
+  </main>
+
+  <footer class="footer muted small">
+    <span id="footer-ports">UDP 24600 · discovery 24601</span>
+    <span class="footer__sep" aria-hidden="true">·</span>
+    <span>Panel visible on this computer only</span>
+    <span class="footer__sep" aria-hidden="true">·</span>
+    <span id="uptime">Up 0 min</span>
+  </footer>
+
+  <!-- Troubleshooting drawer -->
+  <div class="scrim" id="help-scrim" hidden></div>
+  <aside class="drawer" id="help" aria-labelledby="help-title" aria-hidden="true" tabindex="-1">
+    <header class="drawer__head">
+      <div>
+        <span class="eyebrow">Troubleshooting</span>
+        <h2 id="help-title" class="card__title">Phones can't find the station?</h2>
+      </div>
+      <button class="icon-btn" id="help-close" type="button" aria-label="Close troubleshooting">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </header>
+    <div class="drawer__body">
+      <section class="tip" id="tip-firewall">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Firewall</h3>
+        <p id="firewall-text">The computer must accept incoming UDP on ports 24600 (game) and 24601 (Nearby stations).</p>
+        <div class="code" id="firewall-code" hidden>
+          <code id="firewall-command"></code>
+          <button class="icon-btn" id="copy-firewall" type="button" aria-label="Copy the command">
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+          </button>
+        </div>
+        <ul class="tip__notes" id="firewall-notes"></ul>
+      </section>
+      <section class="tip">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-wifi"/></svg>Same network</h3>
+        <p>Phones and this computer must be on the same Wi-Fi. <strong>Guest networks</strong> usually keep devices apart: use the main network. Mobile data, VPNs and private relays on the phone also hide the station.</p>
+      </section>
+      <section class="tip">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-router"/></svg>Router "client isolation"</h3>
+        <p>Some routers (offices, dorms, hotels, mesh systems) block devices from talking to each other. Look for <strong>AP isolation</strong>, <strong>client isolation</strong> or <strong>wireless isolation</strong> in the router settings and turn it off, or plug the computer into the router with a cable.</p>
+      </section>
+      <section class="tip">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>Join by IP</h3>
+        <p>If the station doesn't show up under Nearby stations, tap <strong>Join by IP</strong> on the phone and type <strong id="help-address">the address</strong>. Joining by IP still needs the firewall and network fixes above.</p>
+      </section>
+      <section class="tip">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>Friends elsewhere</h3>
+        <p>Over the internet you need a UDP tunnel or port forward to UDP 24600 on this computer. Start the server with <code>--public-address</code> to show that address here. Nearby stations only works on the local network.</p>
+      </section>
+      <section class="tip">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-power"/></svg>Stopping</h3>
+        <p>Press <strong>Ctrl+C</strong> in the server's terminal window, or use <strong>Stop server</strong> here. Phones are told the station is closing and return to their home screen.</p>
+      </section>
+    </div>
+  </aside>
+
+  <!-- Error / stopped / starting overlay -->
+  <div class="overlay" id="overlay" hidden>
+    <div class="overlay__card" role="alertdialog" aria-labelledby="overlay-title" aria-describedby="overlay-text">
+      <div class="overlay__icon" id="overlay-icon"><svg class="icon" aria-hidden="true"><use id="overlay-icon-use" href="#i-warning"/></svg></div>
+      <h2 class="overlay__title" id="overlay-title">The server stopped</h2>
+      <p class="overlay__text" id="overlay-text"></p>
+      <pre class="overlay__log" id="overlay-log" hidden></pre>
+      <div class="overlay__actions">
+        <button id="restart" class="btn btn--primary" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span id="restart-label">Restart server</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm dialog -->
+  <dialog class="dialog" id="confirm" aria-labelledby="confirm-title">
+    <form method="dialog" class="dialog__card">
+      <h2 class="dialog__title" id="confirm-title">Are you sure?</h2>
+      <p class="dialog__text" id="confirm-text"></p>
+      <div class="dialog__actions">
+        <button class="btn btn--secondary" value="cancel" type="submit" id="confirm-cancel">Cancel</button>
+        <button class="btn btn--danger" value="ok" type="submit" id="confirm-ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <svg width="0" height="0" class="sprite" aria-hidden="true">
+    <defs>
+      <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1.1" fill="currentColor"/></symbol>
+      <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8 M7 6.3a7.5 7.5 0 1 0 10 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-6.5 8 6.5 M6.5 9.5V19h11V9.5 M10 19v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6L12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.8 12l2.2 2.2 4.3-4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-mask" viewBox="0 0 24 24"><path d="M3 8.5c3-1.6 6-1.6 9 0 3-1.6 6-1.6 9 0 0 5-2.2 8.5-5.5 8.5-1.6 0-2.6-1.4-3.5-2.6-.9 1.2-1.9 2.6-3.5 2.6C5.2 17 3 13.5 3 8.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.8 11.3c.9-.7 2-.7 2.9 0 M14.3 11.3c.9-.7 2-.7 2.9 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4l9 15.5H3L12 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.1" fill="currentColor"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95 M19 4.5v4h-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3.5 9.5a12 12 0 0 1 17 0 M6.5 12.7a7.7 7.7 0 0 1 11 0 M9.5 15.8a3.4 3.4 0 0 1 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="19" r="1.3" fill="currentColor"/></symbol>
+      <symbol id="i-router" viewBox="0 0 24 24"><rect x="3.5" y="13" width="17" height="6" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 13l-2-6 M16.5 13l2-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="11.5" cy="16" r="1" fill="currentColor"/></symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 10.2h.01M10.3 10.2h.01M13.7 10.2h.01M17 10.2h.01M8 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 12h17 M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5S9.6 5.9 12 3.5z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="i-kick" viewBox="0 0 24 24"><circle cx="10" cy="8.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19.5c.6-3.6 3.2-5.5 6.5-5.5 1.3 0 2.5.3 3.5.9 M16 14.5l4.5 4.5 M20.5 14.5L16 19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 3L5.5 13.5h5.5L10 21l8.5-11H13l.5-7z" fill="currentColor"/></symbol>
+      <symbol id="i-shuttle" viewBox="0 0 24 24"><path d="M12 2.8c3 2.4 4.4 5.8 4.4 9.7v4.2H7.6v-4.2c0-3.9 1.4-7.3 4.4-9.7z M7.6 13.5l-3 3.2v2.8l3-1.2 M16.4 13.5l3 3.2v2.8l-3-1.2 M10 19.5l2 2 2-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/><circle cx="12" cy="9.5" r="1.7" fill="currentColor"/></symbol>
+      <symbol id="i-pod" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8.5v4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15.6" r="1.1" fill="currentColor"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+      <symbol id="i-airlock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5v6 M19.4 16.3l-5.2-3 M4.6 16.3l5.2-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/></symbol>
+      <symbol id="i-ghost" viewBox="0 0 24 24"><path d="M5.5 20V11a6.5 6.5 0 0 1 13 0v9l-2.2-1.6-2.1 1.6-2.2-1.6-2.2 1.6-2.1-1.6L5.5 20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="9.6" cy="11" r="1.2" fill="currentColor"/><circle cx="14.4" cy="11" r="1.2" fill="currentColor"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-core" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/><ellipse cx="12" cy="12" rx="9" ry="3.6" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-25 12 12)"/></symbol>
+      <symbol id="i-cell" viewBox="0 0 24 24"><rect x="7" y="4.5" width="10" height="16" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 2.8h4 M12.6 8.3l-2.4 4h3.6l-2.4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-gun" viewBox="0 0 24 24"><path d="M3.5 7.5h15l2 2.5-2 1h-7l-1.5 2.5h-2l-1 5H4.5l1.5-6.5-2.5-2V7.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+      <symbol id="i-carry" viewBox="0 0 24 24"><circle cx="12" cy="6.5" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c.6-4.2 3.1-6.8 7-6.8s6.4 2.6 7 6.8 M7 13.5h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19.5c.7-3.8 3.4-5.8 7-5.8s6.3 2 7 5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1.2" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+
+  <script src="/qr.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

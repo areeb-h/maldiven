@@ -273,7 +273,7 @@ func text(key: String, s: String, t: Transform3D, color: Color, height: float, m
 		tm.font_size = 48
 		tm.pixel_size = 1.0 / 48.0
 		tm.depth = 0.0
-		tm.curve_step = 1.5
+		tm.curve_step = 4.0
 		tm.text = s
 		_text_cache[s] = tm
 	var k := height
@@ -303,6 +303,7 @@ func build(materials: Dictionary) -> ArrayMesh:
 		arrays[Mesh.ARRAY_TEX_UV] = s.uv
 		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		am.surface_set_material(am.get_surface_count() - 1, materials[key])
+		am.surface_set_name(am.get_surface_count() - 1, key)
 	return am
 
 

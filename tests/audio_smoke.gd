@@ -13,6 +13,8 @@ const LENGTHS := {
 	"gunshot": [0.25, 0.45], "downed": [0.55, 0.85], "revive": [0.85, 1.15], "throw": [0.2, 0.4],
 	"airlock_warning": [1.3, 1.7], "airlock_vent": [2.2, 2.8], "ghost_drift": [5.5, 6.5],
 }
+const TRAILER := "res://assets/audio/music/trailer_theme.wav"
+const CUES := "res://assets/audio/music/trailer_cues.txt"
 const LOOPS := ["ambience_station", "ambience_emergency", "alarm_pod", "airlock_warning", "ghost_drift"]
 
 var _failures: Array[String] = []
@@ -56,6 +58,21 @@ func _run() -> void:
 			_check(looped.loop_end > looped.loop_begin, "%s has an empty loop" % sound)
 			_check(absf(float(looped.loop_end) / float(looped.mix_rate) - looped.get_length()) < 0.01,
 				"%s loop_end %d does not cover the file" % [sound, looped.loop_end])
+	# Music: three stereo loops of 30-60 s, plus the 80 s trailer and its cue sheet.
+	for state in Sfx.MUSIC:
+		var track: String = Sfx.MUSIC[state]
+		var music := load(Sfx.MUSIC_DIR + track + ".wav") as AudioStreamWAV
+		_check(music != null, "music %s missing" % track)
+		if music != null:
+			_check(music.stereo, "music %s should be stereo" % track)
+			_check(music.get_length() >= 30.0 and music.get_length() <= 60.0,
+				"music %s length %.1f s outside 30-60 s" % [track, music.get_length()])
+	var trailer := load(TRAILER) as AudioStreamWAV
+	_check(trailer != null and trailer.stereo and trailer.mix_rate == 44100
+		and absf(trailer.get_length() - 80.0) < 0.1, "trailer_theme.wav must be 80 s, 44.1 kHz stereo")
+	_check(FileAccess.file_exists(CUES) and FileAccess.get_file_as_string(CUES).contains("HARD STOP"),
+		"trailer_cues.txt missing or incomplete")
+
 	var one_shot := sfx.get_stream("alarm_pod") as AudioStreamWAV
 	_check(one_shot != null and one_shot.loop_mode == AudioStreamWAV.LOOP_DISABLED,
 		"one-shot alarm resource must stay non-looping")
@@ -101,8 +118,29 @@ func _run() -> void:
 	sfx.set_ambience("off")
 	await _frames(3)
 
+	Sfx.set_music("lobby")  # static: callable without an Sfx instance
+	await _frames(3)
+	_check(Sfx.get_music_state() == "lobby" and Sfx.is_music_playing(), "lobby music did not start")
+	_check(AudioServer.get_bus_index(Sfx.MUSIC_BUS) > 0, "Music bus was not created")
+	for state in Sfx.MUSIC:
+		var looped := Sfx._music._loop(Sfx.MUSIC[state]) as AudioStreamWAV
+		_check(looped != null and looped.loop_mode == AudioStreamWAV.LOOP_FORWARD
+			and absf(float(looped.loop_end) / float(looped.mix_rate) - looped.get_length()) < 0.01,
+			"music %s is not looping over the whole file" % state)
+	Sfx.set_music("tension")
+	await _frames(3)
+	sfx.set_music("extraction")  # instance call works too
+	await _frames(3)
+	_check(Sfx.get_music_state() == "extraction" and Sfx.is_music_playing(), "music did not switch to extraction")
+	Sfx.set_music("off")
+	await _frames(3)
+	_check(Sfx.get_music_state() == "off", "music did not turn off")
+	Sfx.set_music("lobby")
+	await _frames(2)
+
 	sfx.stop_all()
-	_check(not sfx.is_alarm_playing() and sfx.get_ambience_state() == "", "stop_all() left audio running")
+	_check(not sfx.is_alarm_playing() and sfx.get_ambience_state() == "" and not Sfx.is_music_playing(),
+		"stop_all() left audio running")
 	# Give the audio thread real time to release stopped playbacks before freeing.
 	await create_timer(0.25).timeout
 	sfx.queue_free()
