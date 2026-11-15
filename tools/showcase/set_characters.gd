@@ -63,7 +63,7 @@ func shot_roster(out: String) -> Error:
 	var c := stage(5.2)
 	var order := ["red", "blue", "yellow", "green", "purple", "orange", "teal", "white"]
 	var faces := ["happy", "neutral", "happy", "happy", "suspicious", "happy", "neutral", "happy"]
-	var cam := c + Vector3(0.0, 1.05, 9.6)
+	var cam := c + Vector3(0.0, 1.0, 8.0)
 	for i in 8:
 		var k := float(i) - 3.5
 		var m := crew(order[i], c + Vector3(k * 1.05, 0, -absf(k) * absf(k) * 0.06), 0.0, faces[i], i % 4, i + 1)
@@ -73,7 +73,7 @@ func shot_roster(out: String) -> Error:
 	spot(c + Vector3(5.5, 2.5, 5.0), c + Vector3(0, 1.0, 0), COOL, 2.0, 40.0, 16.0, false, 0.2)
 	spot(c + Vector3(-5.5, 2.8, -3.5), c + Vector3(-1.5, 1.2, 0), Color(0.6, 0.4, 1.0), 12.0, 40.0, 12.0)
 	spot(c + Vector3(5.5, 2.8, -3.5), c + Vector3(1.5, 1.2, 0), CYAN, 12.0, 40.0, 12.0)
-	frame(cam, c + Vector3(0, 1.45, 0), 30.0, c + Vector3(0, 1.3, 0), 3.0, 0.05)
+	frame(cam, c + Vector3(0, 1.2, 0), 28.0, c + Vector3(0, 1.3, 0), 3.0, 0.05)
 	return await capture(out, "02_roster_all_colours.png")
 
 
@@ -211,8 +211,8 @@ func shot_one_is_lying(out: String) -> Error:
 ## clean white Medical wall, evenly lit so the whole suit design reads.
 func shot_turntable(out: String) -> Error:
 	begin_shot("restored", 1212)
-	var base := Vector3(3.4, 0, 16.0)
-	var cam := Vector3(1.7, 1.0, 24.3)
+	var base := Vector3(3.1, 0, 16.0)
+	var cam := Vector3(1.4, 1.0, 23.3)
 	var yaws := [0.0, -55.0, 180.0]
 	for i in 3:
 		var m := crew("blue", base + Vector3(-1.25 + 1.25 * float(i), 0, 0), 0.0, "happy", 2, 2)

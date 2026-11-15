@@ -16,12 +16,12 @@ const SHOTS: Array[Dictionary] = [
 
 ## Product rig around `subject`: soft warm key high on the left, two hard
 ## coloured rims behind, a faint fill, and a pool of light on the stage.
-func product_lights(subject: Vector3, rim_a: Color, rim_b: Color, scale := 1.0) -> void:
-	spot(subject + Vector3(-1.6, 2.0, 2.2) * scale, subject, WARM, 4.0, 30.0, 6.0 * scale, true, 0.6)
-	spot(subject + Vector3(-1.8, 0.9, -1.6) * scale, subject, rim_a, 10.0, 26.0, 5.0 * scale)
-	spot(subject + Vector3(1.8, 1.1, -1.5) * scale, subject, rim_b, 10.0, 26.0, 5.0 * scale)
-	spot(subject + Vector3(1.8, 0.2, 2.0) * scale, subject, COOL, 0.6, 35.0, 6.0 * scale, false, 0.2)
-	spot(subject + Vector3(0, 3.0, 0.3) * scale, subject - Vector3(0, 0.4, 0), Color(0.8, 0.9, 1.0), 2.0, 22.0, 5.0 * scale)
+func product_lights(subject: Vector3, rim_a: Color, rim_b: Color, scale := 1.0, power := 1.0) -> void:
+	spot(subject + Vector3(-1.6, 2.0, 2.2) * scale, subject, WARM, 4.0 * power, 30.0, 6.0 * scale, true, 0.6)
+	spot(subject + Vector3(-1.8, 0.9, -1.6) * scale, subject, rim_a, 10.0 * power, 26.0, 5.0 * scale, false, 0.4)
+	spot(subject + Vector3(1.8, 1.1, -1.5) * scale, subject, rim_b, 10.0 * power, 26.0, 5.0 * scale, false, 0.4)
+	spot(subject + Vector3(1.8, 0.2, 2.0) * scale, subject, COOL, 0.6 * power, 35.0, 6.0 * scale, false, 0.2)
+	spot(subject + Vector3(0, 3.0, 0.3) * scale, subject - Vector3(0, 0.4, 0), Color(0.8, 0.9, 1.0), 2.0 * power, 22.0, 5.0 * scale)
 
 
 ## 01 The gun: the chunky toy blaster floating at a hero angle over the stage,
@@ -32,8 +32,8 @@ func shot_gun(out: String) -> Error:
 	var c := stage(1.1)
 	var xf := Transform3D(Basis.from_euler(Vector3(deg_to_rad(-8.0), deg_to_rad(35.0), deg_to_rad(12.0))), c + Vector3(0, 0.42, 0))
 	var gun := stage_item("gun", xf)
-	product_lights(gun.global_position + Vector3(0, 0.1, 0), Color(1.0, 0.45, 0.15), CYAN, 0.6)
-	frame(c + Vector3(0.35, 0.62, 1.25), c + Vector3(0.0, 0.5, 0), 30.0, gun.global_position + Vector3(0, 0.1, 0.1), 0.35, 0.12)
+	product_lights(gun.global_position + Vector3(0, 0.1, 0), Color(1.0, 0.45, 0.15), CYAN, 0.6, 0.5)
+	frame(c + Vector3(0.25, 0.56, 0.95), c + Vector3(0.0, 0.5, 0), 28.0, gun.global_position + Vector3(0, 0.1, 0.1), 0.35, 0.12)
 	return await capture(out, "01_gun.png", 5)
 
 
@@ -69,7 +69,7 @@ func shot_trio(out: String) -> Error:
 	stage_item("core", Transform3D(Basis.IDENTITY, c + Vector3(0.05, 0, -0.35)))
 	stage_item("gun", Transform3D(Basis.from_euler(Vector3(0.0, deg_to_rad(-60.0), deg_to_rad(90.0))), c + Vector3(0.75, 0.05, 0.15)))
 	product_lights(c + Vector3(0, 0.3, 0), Color(1.0, 0.5, 0.15), CYAN, 1.0)
-	frame(c + Vector3(0.0, 0.75, 2.6), c + Vector3(0, 0.3, -0.1), 32.0, c + Vector3(0, 0.3, 0), 1.2, 0.08)
+	frame(c + Vector3(0.0, 0.6, 2.1), c + Vector3(0, 0.28, -0.1), 30.0, c + Vector3(0, 0.3, 0), 1.2, 0.08)
 	return await capture(out, "04_items_trio.png", 6)
 
 
@@ -97,5 +97,5 @@ func shot_sockets(out: String) -> Error:
 		spot(socket.global_position + Vector3(0, 3.2, 1.6), socket.global_position + Vector3(0, 0.6, 0), WARM, 4.0, 28.0, 6.0, i % 2 == 0, 0.4)
 	spot(c + Vector3(-7.0, 3.0, -2.0), c + Vector3(-2.0, 0.8, 0), Color(0.6, 0.4, 1.0), 10.0, 40.0, 14.0)
 	spot(c + Vector3(7.0, 3.0, -2.0), c + Vector3(2.0, 0.8, 0), CYAN, 10.0, 40.0, 14.0)
-	frame(c + Vector3(0, 2.4, 9.2), c + Vector3(0, 0.6, -0.3), 40.0, c + Vector3(0, 0.8, -1.4), 4.0, 0.04)
+	frame(c + Vector3(0, 2.0, 8.4), c + Vector3(0, 0.9, -0.4), 34.0, c + Vector3(0, 0.8, -1.4), 4.0, 0.04)
 	return await capture(out, "05_sockets.png", 6)

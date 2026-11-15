@@ -33,7 +33,7 @@ func extras(cast: Array) -> void:
 ## seen from high off its south-east corner.
 func shot_exterior(out: String) -> Error:
 	begin_shot("restored", 2101)
-	frame(Vector3(52.0, 16.0, 44.0), Vector3(22.0, 0.0, -6.0), 46.0, Vector3(28.0, 0.0, 0.0), 30.0, 0.0)
+	frame(Vector3(52.0, 12.0, 46.0), Vector3(20.0, 5.0, -12.0), 46.0, Vector3(28.0, 6.0, 0.0), 30.0, 0.0)
 	return await capture(out, "01_exterior_planet.png")
 
 
@@ -55,7 +55,7 @@ func shot_overhead(out: String) -> Error:
 			pose_stride(m, s[3], 0.3, s[0] == "green")
 		else:
 			pose(m, 1.2)
-	frame(Vector3(6.0, 27.0, 25.0), Vector3(16.0, 0.0, -3.0), 38.0, Vector3(12.0, 0.0, 0.5), 6.0, 0.16)
+	frame(Vector3(6.0, 27.0, 25.0), Vector3(16.0, 0.0, -3.0), 38.0, Vector3(12.0, 3.4, 0.5), 6.0, 0.16)
 	return await capture(out, "02_overhead_tilt_shift.png")
 
 
@@ -64,7 +64,7 @@ func shot_overhead(out: String) -> Error:
 func shot_commons(out: String) -> Error:
 	begin_shot("restored", 2103)
 	extras([["yellow", Vector3(1.6, 0, 1.4), -120.0, "happy"], ["blue", Vector3(0.5, 0, 0.6), 60.0, "happy"]])
-	frame(Vector3(6.4, 1.55, 6.1), Vector3(-1.5, 1.6, -3.0), 64.0, Vector3(1.0, 1.4, 1.0), 6.0, 0.03)
+	frame(Vector3(6.0, 2.3, 6.4), Vector3(-1.0, 1.2, -2.5), 62.0, Vector3(1.0, 1.4, 1.0), 6.0, 0.03)
 	return await capture(out, "03_commons.png")
 
 
@@ -83,7 +83,7 @@ func shot_security(out: String) -> Error:
 	begin_shot("emergency", 2105)
 	seat_item("armory", "gun")
 	extras([["orange", Vector3(39.6, 0, -21.8), -150.0, "neutral"]])
-	frame(Vector3(45.6, 1.6, -14.8), Vector3(38.5, 1.3, -23.5), 62.0, Vector3(39.6, 1.4, -21.8), 6.0, 0.03)
+	frame(Vector3(40.0, 1.65, -13.6), Vector3(37.6, 1.3, -23.5), 58.0, Vector3(39.6, 1.4, -21.8), 6.0, 0.03)
 	return await capture(out, "05_security.png")
 
 
@@ -91,7 +91,7 @@ func shot_security(out: String) -> Error:
 func shot_docking(out: String) -> Error:
 	begin_shot("restored", 2106)
 	extras([["green", Vector3(17.2, 0, 0.6), 160.0, "happy"]])
-	frame(Vector3(26.1, 1.35, 5.1), Vector3(19.0, 1.5, -3.0), 62.0, Vector3(19.0, 1.4, -2.0), 8.0, 0.03)
+	frame(Vector3(25.9, 1.5, 2.9), Vector3(19.0, 1.5, -3.0), 60.0, Vector3(19.0, 1.4, -1.0), 8.0, 0.03)
 	return await capture(out, "06_docking_shuttle.png")
 
 
@@ -107,7 +107,7 @@ func shot_cargo(out: String) -> Error:
 func shot_engineering(out: String) -> Error:
 	begin_shot("restored", 2108)
 	extras([["teal", Vector3(60.4, 0, -2.6), 170.0, "neutral"]])
-	frame(Vector3(66.6, 1.6, 5.4), Vector3(58.5, 1.3, -4.0), 62.0, Vector3(60.4, 1.4, -2.6), 8.0, 0.03)
+	frame(Vector3(64.6, 1.7, 5.4), Vector3(58.5, 1.3, -4.0), 60.0, Vector3(60.4, 1.4, -2.6), 8.0, 0.03)
 	return await capture(out, "08_engineering.png")
 
 
@@ -115,15 +115,15 @@ func shot_engineering(out: String) -> Error:
 ## out from the core. Low angle, glow tamed so the core keeps its shape.
 func shot_reactor_wave(out: String) -> Error:
 	begin_shot("restored", 2109)
-	station.env.glow_intensity = 0.5
-	station.current["reactor"] = 1.2  # full 2.0 blooms the core to a flat white shape
+	station.env.glow_intensity = 0.35
+	station.current["reactor"] = 0.8  # full 2.0 blooms the core to a flat white shape
 	attrs.exposure_multiplier = 0.85
 	var worker := crew("yellow", Vector3(66.0, 0, 21.9), 0.0, "happy", 1, 3)
 	hold(worker, "cell")
 	pose(worker, 1.2, 0.0, true)
 	for id in ["reactor_1", "reactor_2"]:
 		(sockets[id] as SocketVisual).set_state(true, false, false)
-	frame(Vector3(58.2, 0.55, 14.6), Vector3(62.4, 2.3, 19.6), 54.0, Vector3(62.0, 1.6, 19.3), 6.0, 0.03)
+	frame(Vector3(58.2, 0.55, 14.6), Vector3(62.4, 2.3, 19.6), 54.0, Vector3(61.2, 1.6, 17.6), 6.0, 0.03)
 	await wait(4)
 	vfx.burst("power_wave", Vfx.REACTOR_CORE)
 	vfx.burst("insert_cell", Vector3(66.0, 0.9, 23.0))
@@ -133,8 +133,8 @@ func shot_reactor_wave(out: String) -> Error:
 ## 10 Medical: beds, the medbay scanner and green trim, calm and clean.
 func shot_medical(out: String) -> Error:
 	begin_shot("restored", 2110)
-	extras([["green", Vector3(2.0, 0, 21.6), 150.0, "happy"]])
-	frame(Vector3(6.3, 1.6, 15.0), Vector3(-1.0, 1.0, 22.5), 62.0, Vector3(2.0, 1.4, 21.6), 8.0, 0.03)
+	extras([["green", Vector3(2.0, 0, 21.6), 190.0, "happy"]])
+	frame(Vector3(0.6, 1.75, 14.7), Vector3(2.5, 1.0, 23.0), 60.0, Vector3(2.0, 1.4, 21.6), 8.0, 0.03)
 	return await capture(out, "10_medical.png")
 
 
@@ -142,7 +142,7 @@ func shot_medical(out: String) -> Error:
 func shot_observation(out: String) -> Error:
 	begin_shot("restored", 2111)
 	extras([["purple", Vector3(29.5, 0.24, 16.6), 180.0, "neutral"], ["blue", Vector3(32.2, 0.24, 16.8), 170.0, "happy"]])
-	frame(Vector3(37.6, 1.6, 25.6), Vector3(29.0, 1.5, 16.0), 62.0, Vector3(30.8, 1.4, 16.8), 8.0, 0.03)
+	frame(Vector3(36.2, 1.8, 21.0), Vector3(26.5, 1.2, 17.0), 60.0, Vector3(30.8, 1.4, 16.8), 8.0, 0.03)
 	return await capture(out, "11_observation.png")
 
 

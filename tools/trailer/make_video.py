@@ -78,11 +78,11 @@ def teaser(full_mp4, out_mp4, height_share):
         parts.append(f'[0:v]trim={a}:{b},setpts=PTS-STARTPTS[v{i}];[0:a]atrim={a}:{b},asetpts=PTS-STARTPTS,'
                      f'afade=t=in:d=0.05,afade=t=out:st={b - a - 0.08:.2f}:d=0.08[a{i}]')
         labels.append(f'[v{i}][a{i}]')
-    pic_h = int(round(720 * (1.0 - 2.0 * height_share) / 2.0)) * 2
+    pic = 1.0 - 2.0 * height_share
     parts.append(f"{''.join(labels)}concat=n={len(TEASER)}:v=1:a=1[cv][ca]")
     parts.append('[cv]split=2[bgsrc][fgsrc]')
     parts.append('[bgsrc]scale=-2:1920,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.12[bg]')
-    parts.append(f'[fgsrc]crop=1280:{pic_h}:0:(ih-{pic_h})/2,scale=1080:-2[fg]')
+    parts.append(f'[fgsrc]crop=iw:trunc(ih*{pic:.4f}/2)*2:0:(ih-oh)/2,scale=1080:-2[fg]')
     parts.append('[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[vout]')
     run(['ffmpeg', '-y', '-i', str(full_mp4), '-filter_complex', ';'.join(parts), '-map', '[vout]', '-map', '[ca]',
          '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-c:a', 'aac', '-b:a', '160k',
