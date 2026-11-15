@@ -68,7 +68,7 @@ def net_round(engine, plan, players=3, seed=11, timeout=150, host_infiltrator=Fa
         rests = []
         for _, out in logs:
             rests += [l.split() for l in out.splitlines() if l.startswith('BOT_THROW_REST')]
-        if len(rests) != players or any(r[5] != 'True' for r in rests):
+        if len(rests) != players or any(r[5].lower() != 'true' for r in rests):
             problems.append('throw replication: expected every peer to see the thrown cell at rest: ' + repr(rests))
         else:
             points = [tuple(float(v) for v in r[2:5]) for r in rests]

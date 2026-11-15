@@ -3,7 +3,9 @@ extends Node3D
 ## VFX, ambient effects), then gives each shot a clean "set" to dress with crew,
 ## props and extra lights, a cinematic camera with depth of field, and a capture.
 ##
-## Shots live in shots.gd (which extends this script). Every helper here is
+## Shots live in the set scripts (set_*.gd), which extend this one; the first
+## set builds the world with setup() and the others borrow it with share_world().
+## The trailer (tools/trailer/) reuses the same rig. Every helper here is
 ## deterministic for a given seed, so re-running a shot reproduces the frame.
 
 ## Player suit colours, in lobby order.
@@ -13,6 +15,13 @@ const COLORS := {
 }
 ## Fixed simulation step used to pose characters (independent of render speed).
 const STEP := 1.0 / 60.0
+## Light colours shared by the shots.
+const WARM := Color(1.0, 0.86, 0.68)
+const COOL := Color(0.55, 0.75, 1.0)
+const CYAN := Color(0.3, 0.9, 1.0)
+## Floating product stage, high above the station so only stars and the gas
+## giant sit behind it (camera looking north).
+const STAGE := Vector3(30.0, 60.0, 40.0)
 
 var station: ArtStationFX
 var vfx: Vfx
@@ -60,17 +69,32 @@ func setup() -> void:
 		_env_defaults[key] = env.get(key)
 
 
-## Clears the previous set and returns the station to a neutral baseline.
-## `power` is "emergency", "restored" or "blackout"; `seed_value` fixes randomness.
-func begin_shot(power: String, seed_value: int) -> void:
-	seed(seed_value)
+## Borrows the world another set node built with setup().
+func share_world(from: Node3D) -> void:
+	station = from.station
+	vfx = from.vfx
+	sockets = from.sockets
+	camera = from.camera
+	attrs = from.attrs
+	_env_defaults = from._env_defaults
+
+
+## Frees whatever the last shot of this set left behind.
+func end_set() -> void:
 	if set_root != null and is_instance_valid(set_root):
 		set_root.free()
-	_models.clear()
 	for node in _extras:
 		if is_instance_valid(node):
 			node.free()
 	_extras.clear()
+	_models.clear()
+
+
+## Clears the previous set and returns the station to a neutral baseline.
+## `power` is "emergency", "restored" or "blackout"; `seed_value` fixes randomness.
+func begin_shot(power: String, seed_value: int) -> void:
+	seed(seed_value)
+	end_set()
 	set_root = Node3D.new()
 	set_root.name = "Set"
 	add_child(set_root)
@@ -147,6 +171,19 @@ func hands_up(m: CrewModel) -> void:
 	m._upload()
 	glove(m, 0, "open")
 	glove(m, 1, "open")
+
+
+## Pose override: one arm raised high (a wave or a call to the crew), glove
+## waving. side 0 = left, 1 = right. Call after the last pose step.
+func raise_arm(m: CrewModel, side: int) -> void:
+	var s := 1.0 if side == 0 else -1.0
+	var up := CrewBody.L_ARM if side == 0 else CrewBody.R_ARM
+	var raise := Basis(Vector3(0, 0, -s), Vector3(-s, 0, 0), Vector3(0, 1, 0))
+	m.bones[up].basis = Basis(Vector3.UP, -s * 0.2) * Basis(Vector3.BACK, s * 0.75) * raise
+	m.bones[up + 1].basis = Basis(Vector3.RIGHT, -0.7)
+	m.bones[up + 2].basis = Basis.IDENTITY
+	m._upload()
+	glove(m, side, "wave")
 
 
 ## Pose override: snaps one glove (0 left, 1 right) to a CrewHand pose such as
@@ -300,6 +337,62 @@ func place_item(kind: String, xf: Transform3D, with_fx := true) -> Node3D:
 	node.transform = xf
 	set_root.add_child(node)
 	if with_fx and (kind == "core" or kind == "cell"):
+		vfx.attach_item_fx(node, kind)
+	return node
+
+
+# --- product stage --------------------------------------------------------------------
+
+## Builds the floating product stage (a dark glossy disc with a glowing rim) at
+## STAGE + offset and returns its top centre. Pair it with begin_shot("blackout")
+## and stage_lighting() so only the shot's own lights shape the subject.
+func stage(radius := 1.4, offset := Vector3.ZERO, rim := CYAN) -> Vector3:
+	var top := STAGE + offset
+	var disc := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius * 0.92
+	mesh.height = 0.16
+	mesh.radial_segments = 64
+	disc.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.05, 0.055, 0.065)
+	mat.metallic = 0.7
+	mat.roughness = 0.18
+	disc.material_override = mat
+	disc.position = top - Vector3(0, 0.08, 0)
+	set_root.add_child(disc)
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = radius - 0.02
+	torus.outer_radius = radius + 0.02
+	torus.rings = 96
+	ring.mesh = torus
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = rim * 1.6
+	ring.material_override = glow
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.position = top + Vector3(0, -0.01, 0)
+	set_root.add_child(ring)
+	return top
+
+
+## Night-studio look for the stage: no fog, sky reflections back on for the
+## glossy surfaces, a touch of ambient.
+func stage_lighting() -> void:
+	station.env.fog_density = 0.0
+	station.env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	station.env.ambient_light_energy = 0.25
+
+
+## A crew-free item for product shots, parented so its fx treat it as held (no
+## floor beacon), with its glow fx.
+func stage_item(kind: String, xf: Transform3D) -> Node3D:
+	var node := Props.make_item(kind)
+	cast_root.add_child(node)
+	node.global_transform = xf
+	if kind == "core" or kind == "cell":
 		vfx.attach_item_fx(node, kind)
 	return node
 

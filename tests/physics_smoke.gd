@@ -191,8 +191,6 @@ func test_item_sync() -> void:
 	var settled := false
 	for i in range(360):
 		await _steps(1)
-		if i % 40 == 0:
-			print("  debug rest %d: %s v %s w %s sl %s" % [i, body.global_position, body.linear_velocity, body.angular_velocity, body.sleeping])
 		if body.sleeping:
 			settled = true
 			break
@@ -351,12 +349,6 @@ func test_ragdoll() -> void:
 		# Joints hold: the thigh stays attached at the hip.
 		var hip_world: Vector3 = rd.parts[CrewBody.HIPS].global_transform * (CrewBody.JOINTS[CrewBody.L_LEG] - CrewBody.JOINTS[CrewBody.HIPS])
 		stretch = maxf(stretch, hip_world.distance_to(rd.parts[CrewBody.L_LEG].global_position))
-		if frame % 30 == 0:
-			var fast := ""
-			for bone in rd.parts:
-				if rd.parts[bone].linear_velocity.length() > 0.14:
-					fast += "%s:%.2f " % [CrewBody.BONE_NAMES[bone], rd.parts[bone].linear_velocity.length()]
-			print("  debug rd %d: %s" % [frame, fast])
 		if rd.settled and settled_at < 0.0:
 			settled_at = frame * DT
 	check(finite and not rd.is_broken(), "ragdoll stays finite")
@@ -403,9 +395,13 @@ func test_replication() -> void:
 	var idle_bytes := 0
 	# Fly, land, sleep, then one reliable keyframe of what changed; after
 	# that a resting station sends nothing at all.
-	for i in range(int((StationPhysics.KEYFRAME_INTERVAL + 5.0) * 60.0)):
+	for i in range(600):
 		await _steps(1)
 		mirror.apply_snapshot(rules.public_snapshot(), 2, StationRules.CREW)
+		if i > 60 and phys.awake_count() == 0:
+			break
+	check(phys.awake_count() == 0, "everything asleep again after the throw")
+	await _steps(int((StationPhysics.KEYFRAME_INTERVAL + 0.5) * 60.0))
 	idle_bytes = packets[0]
 	await _steps(int((StationPhysics.KEYFRAME_INTERVAL + 1.0) * 60.0))
 	mirror.apply_snapshot(rules.public_snapshot(), 2, StationRules.CREW)

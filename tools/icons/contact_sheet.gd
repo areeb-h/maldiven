@@ -102,30 +102,39 @@ func _save(img: Image, base: String, simulate: bool) -> void:
 		print("  wrote ", ProjectSettings.globalize_path(sim_path))
 
 
-## Colour-vision-deficiency simulation in linear RGB.
+## Colour-vision-deficiency simulation in linear RGB (lookup tables both ways).
 func _simulate(src: Image, m: Array) -> Image:
 	var img := src.duplicate() as Image
 	img.convert(Image.FORMAT_RGBA8)
-	var lut := PackedFloat32Array()
-	lut.resize(256)
+	var to_lin := PackedFloat32Array()
+	to_lin.resize(256)
 	for i in range(256):
 		var c := i / 255.0
-		lut[i] = c / 12.92 if c <= 0.04045 else pow((c + 0.055) / 1.055, 2.4)
+		to_lin[i] = c / 12.92 if c <= 0.04045 else pow((c + 0.055) / 1.055, 2.4)
+	var to_srgb := PackedByteArray()
+	to_srgb.resize(4097)
+	for i in range(4097):
+		var v := i / 4096.0
+		var s := v * 12.92 if v <= 0.0031308 else 1.055 * pow(v, 1.0 / 2.4) - 0.055
+		to_srgb[i] = int(round(clampf(s, 0.0, 1.0) * 255.0))
+	var m00: float = m[0][0] * 4096.0
+	var m01: float = m[0][1] * 4096.0
+	var m02: float = m[0][2] * 4096.0
+	var m10: float = m[1][0] * 4096.0
+	var m11: float = m[1][1] * 4096.0
+	var m12: float = m[1][2] * 4096.0
+	var m20: float = m[2][0] * 4096.0
+	var m21: float = m[2][1] * 4096.0
+	var m22: float = m[2][2] * 4096.0
 	var data := img.get_data()
 	for i in range(0, data.size(), 4):
-		var r := lut[data[i]]
-		var g := lut[data[i + 1]]
-		var b := lut[data[i + 2]]
-		data[i] = _to_srgb8(m[0][0] * r + m[0][1] * g + m[0][2] * b)
-		data[i + 1] = _to_srgb8(m[1][0] * r + m[1][1] * g + m[1][2] * b)
-		data[i + 2] = _to_srgb8(m[2][0] * r + m[2][1] * g + m[2][2] * b)
+		var r := to_lin[data[i]]
+		var g := to_lin[data[i + 1]]
+		var b := to_lin[data[i + 2]]
+		data[i] = to_srgb[clampi(int(m00 * r + m01 * g + m02 * b), 0, 4096)]
+		data[i + 1] = to_srgb[clampi(int(m10 * r + m11 * g + m12 * b), 0, 4096)]
+		data[i + 2] = to_srgb[clampi(int(m20 * r + m21 * g + m22 * b), 0, 4096)]
 	return Image.create_from_data(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8, data)
-
-
-func _to_srgb8(v: float) -> int:
-	v = clampf(v, 0.0, 1.0)
-	var s := v * 12.92 if v <= 0.0031308 else 1.055 * pow(v, 1.0 / 2.4) - 0.055
-	return int(round(s * 255.0))
 
 
 # --- Painters -----------------------------------------------------------------
