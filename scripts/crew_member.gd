@@ -10,6 +10,13 @@ signal landed(at: Vector3, impact: float)
 const WALK_SPEED := 3.4
 const RUN_SPEED := 6.2
 const CREW_MODEL_PATH := "res://scripts/art/crew_model.gd"
+const STEP_HEIGHT := 0.25  # ledges up to this climb without a jump
+const FLOOR_MAX_ANGLE := deg_to_rad(46.0)
+const KNOCKBACK_SPEED := 9.5
+const KNOCKBACK_LIFT := 3.5
+const WALL_BOUNCE := 0.42  # share of an into-wall knockback speed that bounces back
+const BOUNCE_MIN_SPEED := 3.5
+const CARRY_LIFT_SECONDS := 0.3
 
 var peer_id := 0
 var is_local := false
@@ -25,6 +32,17 @@ var variant := 0  # cosmetic helmet/backpack style
 var carried := false
 var input_enabled := true  # false while a menu covers the screen
 var forced_position = null  # Vector3 set by the host for downed bodies, else null
+## Velocity bias from the environment (airlock decompression), set by the world.
+var external_push := Vector3.ZERO
+## The avatar carrying this (downed) body, so the visual can ride in its arms.
+var carrier: CrewMember = null
+## Physical reactions layered on the CrewModel rig (stagger, ragdoll, dangle).
+var reactions: CrewReactions
+var _push_load := 0.0  # 0..1: how much the prop being pushed slows us
+var _knock_time := 0.0  # s of reduced control after a knock
+var _step_offset := 0.0  # visual height lag after a step-up (eases to 0)
+var _carry_blend := 0.0
+var _carry_from := Transform3D.IDENTITY
 # Render-rate smoothing: physics runs at a fixed 60 Hz, screens may run at
 # 90/120 Hz. The visual and camera are drawn between the last two physics
 # positions so motion stays smooth at any refresh rate.
@@ -83,8 +101,11 @@ func setup(id: int, local: bool, player_name: String, suit: Color, spawn_at: Vec
 
 func _ready() -> void:
 	floor_snap_length = 0.35
+	floor_max_angle = FLOOR_MAX_ANGLE
+	floor_constant_speed = true
+	max_slides = 6
 	collision_layer = 4 if is_local else 2
-	collision_mask = 1 | 2
+	collision_mask = _standing_mask()
 	_standing_shape = CapsuleShape3D.new()
 	_standing_shape.radius = 0.38
 	_standing_shape.height = 1.8
@@ -150,6 +171,8 @@ func _build_visual() -> void:
 		visual = Props.make_crew_visual(color)
 		_visual_yaw_offset = PI  # explorer.glb faces -Z
 	add_child(visual)
+	if _model_api and visual.get("bones") is Array:
+		reactions = CrewReactions.new(self, visual)
 	visual.rotation.y = _visual_yaw_offset
 	if not _model_api:
 		for limb_name in ["LeftLeg", "RightLeg", "LeftArm", "RightArm"]:
@@ -191,9 +214,22 @@ func set_remote_pose(pos: Vector3, facing: float, moving: float) -> void:
 	_remote_moving = moving
 
 
-func knockback(direction: Vector3) -> void:
-	if is_local and life_state == "ok":
-		velocity = direction.normalized() * 9.5 + Vector3(0, 3.5, 0)
+## Launch this (local) player along `direction`. strength 1 = a full shove;
+## walls stop it (move_and_slide) and bounce a share of it back.
+func knockback(direction: Vector3, strength := 1.0) -> void:
+	if not is_local or life_state != "ok":
+		return
+	var flat := Vector3(direction.x, 0.0, direction.z)
+	if flat.length() < 0.01:
+		return
+	velocity = flat.normalized() * KNOCKBACK_SPEED * strength + Vector3(0, KNOCKBACK_LIFT * minf(strength, 1.0), 0)
+	_knock_time = 0.25 + 0.2 * strength
+
+
+## Turn the body to a yaw at once (downed bodies lie along the fall).
+func snap_facing(next_yaw: float) -> void:
+	_facing = next_yaw
+	_target_yaw = next_yaw
 
 
 ## Camera juice: shake plus FOV punch, 0..1 strength.
@@ -214,6 +250,10 @@ func set_carried(on: bool) -> void:
 		carried = on
 		if visual.has_method("set_carried"):
 			visual.set_carried(on)
+		if reactions != null:
+			reactions.set_dangle(on)
+		_carry_from = visual.global_transform if visual.is_inside_tree() else Transform3D.IDENTITY
+		_carry_blend = 0.0
 		_apply_collision()
 
 
@@ -231,7 +271,7 @@ func _apply_collision() -> void:
 			_collider.shape = _standing_shape
 			_collider.transform = Transform3D(Basis.IDENTITY, Vector3(0, 0.9, 0))
 			collision_layer = own_layer
-			collision_mask = 1 | 2
+			collision_mask = _standing_mask()
 		"downed":
 			_collider.shape = _lying_shape
 			_orient_lying_collider()
@@ -242,6 +282,13 @@ func _apply_collision() -> void:
 			collision_mask = 0
 
 
+## The local player collides with the world, other players and prop replicas
+## (props are pushed by the host's proxy of this player, which runs a little
+## ahead, so the replica usually moves before the capsule reaches it).
+func _standing_mask() -> int:
+	return 1 | 2 | (PhysicsLayers.PROP if is_local else 0)
+
+
 func _orient_lying_collider() -> void:
 	var along := Basis(Vector3.UP, _facing) * Basis(Vector3.RIGHT, PI / 2.0)
 	_collider.transform = Transform3D(along, Vector3(0, 0.3, 0))
@@ -249,6 +296,8 @@ func _orient_lying_collider() -> void:
 
 ## "ok", "downed" or "dead" (ghost).
 func set_life_state(state: String) -> void:
+	if reactions != null and state != "downed" and reactions.is_ragdolling():
+		reactions.end_ragdoll(true)  # revived mid-fall: ease out of it
 	life_state = state
 	var ghost := state == "dead"
 	if visual.has_method("set_downed"):
@@ -314,10 +363,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_step_offset = move_toward(_step_offset, 0.0, delta * 2.6)
 	if is_local:
 		var smoothed := _physics_prev.lerp(_physics_now, Engine.get_physics_interpolation_fraction())
-		visual.position = _visual_base + (smoothed - global_position)
-		_camera_fx(delta, smoothed)
+		visual.position = _visual_base + (smoothed - global_position) + Vector3(0, _step_offset, 0)
+		_camera_fx(delta, smoothed + Vector3(0, _step_offset, 0))
 	else:
 		# Remote players: ease toward the latest network pose every rendered frame.
 		var blend := 1.0 - exp(-delta * 14.0)
@@ -328,6 +378,23 @@ func _process(delta: float) -> void:
 		if life_state == "downed" and not carried:
 			_orient_lying_collider()
 	visual.rotation.y = _facing + _visual_yaw_offset
+	if carried:
+		_ride_carrier(delta)
+	if reactions != null:
+		reactions.post_render(delta)
+
+
+## A carried body rides across its carrier's arms (the rules keep its logical
+## position on the floor in front of them). Eases up from the floor when lifted.
+func _ride_carrier(delta: float) -> void:
+	if carrier == null or not is_instance_valid(carrier) or carrier.carry_point == null:
+		return
+	var carrier_basis := Basis(Vector3.UP, carrier.visual.global_rotation.y)
+	var anchor := carrier.carry_point.global_position
+	var target := Transform3D(carrier_basis, anchor + carrier_basis * Vector3(0.0, 0.02, 0.06))
+	_carry_blend = minf(1.0, _carry_blend + delta / CARRY_LIFT_SECONDS)
+	var k := smoothstep(0.0, 1.0, _carry_blend)
+	visual.global_transform = _carry_from.interpolate_with(target, k) if k < 1.0 else target
 
 
 func _input_axis() -> Vector2:
@@ -346,15 +413,22 @@ func _local_physics(delta: float) -> void:
 	var direction := Basis(Vector3.UP, yaw) * Vector3(axis.x, 0, axis.y)
 	var shift := input_enabled and Input.is_physical_key_pressed(KEY_SHIFT)
 	var running := shift or (move_input.length() > 0.8)
-	var speed := (RUN_SPEED if running else WALK_SPEED) * speed_factor
-	# Snappy start, firm stop, limited air control; stuns slide.
+	# Pushing a heavy prop slows you down (barrel ~40 %, crate ~30 %, a chair barely).
+	var speed := (RUN_SPEED if running else WALK_SPEED) * speed_factor * (1.0 - _push_load)
+	# Snappy start, firm stop, limited air control; stuns and knocks slide.
 	var accel := 30.0 if axis.length() > 0.05 else 36.0
 	if not is_on_floor():
 		accel = 10.0
+	if _knock_time > 0.0:
+		accel = 8.0
+		_knock_time -= delta
 	if stunned:
 		accel = 6.0
-	velocity.x = move_toward(velocity.x, direction.x * speed, accel * delta)
-	velocity.z = move_toward(velocity.z, direction.z * speed, accel * delta)
+	# Decompression drags the target velocity towards the outer door: walking
+	# out is possible but slow; standing still slides you in.
+	var want := direction * speed + external_push
+	velocity.x = move_toward(velocity.x, want.x, accel * delta)
+	velocity.z = move_toward(velocity.z, want.z, accel * delta)
 	_coyote = 0.12 if is_on_floor() else maxf(0.0, _coyote - delta)
 	_jump_buffer = 0.14 if jump_pending else maxf(0.0, _jump_buffer - delta)
 	jump_pending = false
@@ -364,7 +438,11 @@ func _local_physics(delta: float) -> void:
 		velocity.y = 6.5
 		_jump_buffer = 0.0
 		_coyote = 0.0
+	velocity = velocity.limit_length(24.0)
+	_try_step_up(delta)
+	var before := velocity
 	move_and_slide()
+	_after_slide(before, delta)
 	var horizontal := Vector2(velocity.x, velocity.z)
 	if aiming:
 		_facing = lerp_angle(_facing, yaw + PI, minf(1.0, delta * 16.0))  # face where the camera looks
@@ -392,6 +470,70 @@ func _ghost_physics(delta: float) -> void:
 	position.y = 0.6 + sin(_bob * 1.7) * 0.15
 	if velocity.length() > 0.3:
 		_facing = lerp_angle(_facing, atan2(velocity.x, velocity.z), minf(1.0, delta * 6.0))
+
+
+## Small ledges (platform edges, a fallen toolbox) are climbed without a jump:
+## if the way ahead is blocked by something vertical but clear 0.25 m higher,
+## and there's walkable floor on top, pop up onto it. The visual eases up.
+func _try_step_up(delta: float) -> void:
+	if not is_on_floor() or stunned or velocity.y > 0.5:
+		return
+	var motion := Vector3(velocity.x, 0.0, velocity.z) * delta
+	if motion.length() < 0.0005:
+		return
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, motion, hit):
+		return
+	if absf(hit.get_normal().y) > 0.3:
+		return  # a slope: floor_max_angle handles those
+	var up := Vector3(0, STEP_HEIGHT + 0.02, 0)
+	if test_move(global_transform, up):
+		return  # no headroom
+	var raised := global_transform.translated(up)
+	var ahead := motion.normalized() * maxf(motion.length(), 0.08)
+	if test_move(raised, ahead):
+		return  # still blocked higher up: a real wall
+	var probe := raised.translated(ahead)
+	var down := KinematicCollision3D.new()
+	if not test_move(probe, -up, down):
+		return  # nothing to stand on
+	if down.get_normal().angle_to(Vector3.UP) > floor_max_angle:
+		return
+	var rise := up.y - down.get_travel().length()
+	if rise <= 0.02 or rise > STEP_HEIGHT:
+		return
+	global_position.y += rise
+	_physics_prev.y += rise  # the visual eases up instead of popping
+	_step_offset -= rise
+
+
+## After moving: knockback bounces off walls, and pushing a prop costs speed.
+func _after_slide(before: Vector3, delta: float) -> void:
+	var load := 0.0
+	var bounce := Vector3.ZERO
+	for i in range(get_slide_collision_count()):
+		var hit := get_slide_collision(i)
+		var other := hit.get_collider()
+		if other is NetBody and (other as NetBody).is_prop:
+			load = maxf(load, (other as NetBody).push_resist)
+		var normal := hit.get_normal()
+		if absf(normal.y) < 0.5 and (_knock_time > 0.0 or stunned):
+			var into := before.dot(normal)
+			if into < -BOUNCE_MIN_SPEED and absf(into) > absf(bounce.dot(normal)):
+				bounce = -into * WALL_BOUNCE * Vector3(normal.x, 0.0, normal.z).normalized()
+	if bounce != Vector3.ZERO:
+		velocity += bounce
+		camera_kick(clampf(bounce.length() / 8.0, 0.15, 0.4))
+		landed.emit(global_position + Vector3(0, 0.9, 0), bounce.length())
+	# The host pushes props a little ahead of us, so also feel a prop just in front.
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	if load == 0.0 and flat.length() > 0.3:
+		var probe := KinematicCollision3D.new()
+		if test_move(global_transform, flat.normalized() * 0.3, probe) and probe.get_collider() is NetBody:
+			var body := probe.get_collider() as NetBody
+			if body.is_prop:
+				load = body.push_resist
+	_push_load = move_toward(_push_load, load, delta * (4.0 if load > _push_load else 2.0))
 
 
 ## Touch players: when moving without touching the camera for a moment, ease
@@ -476,6 +618,8 @@ func _animate(delta: float, horizontal_speed: float) -> void:
 			visual.set_aiming(aiming)
 		if visual.has_method("set_flashlight_on"):
 			visual.set_flashlight_on(flashlight.visible)
+		if reactions != null:
+			reactions.post_animate(delta)
 		return
 	if life_state != "ok":
 		return

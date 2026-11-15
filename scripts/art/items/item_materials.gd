@@ -492,10 +492,12 @@ void fragment() {
 		float core = 1.0 - smoothstep(0.0, 0.5, abs(UV.x - 0.5));
 		add = warn_color * warn * pow(1.0 - along, 1.8) * core * 0.9;
 	} else if (id < 25.5) {
-		// Scanner sheet: bright leading line plus a faint curtain.
-		float line = exp(-pow((UV.x - 0.5) * 18.0, 2.0));
-		float grid = step(0.85, fract(UV.y * 24.0)) * 0.3;
-		add = status_color * status_energy * scan * (line * 1.1 + 0.06 + grid * line);
+		// Scanner curtain (UV.y 0 at the bed, 1 at the arch): bright at the emitter
+		// edge, scanlines rolling down, a faint body.
+		float edge_glow = pow(UV.y, 6.0) * 0.9;
+		float roll = smoothstep(0.9, 1.0, fract(UV.y * 9.0 + t * 1.4)) * 0.35;
+		float sides = 1.0 - smoothstep(0.42, 0.5, abs(UV.x - 0.5));
+		add = status_color * status_energy * scan * (0.06 + edge_glow + roll) * sides;
 	} else {
 		// Seat glow: soft disc with rings converging on the seat.
 		float r = length(UV - 0.5) * 2.0;

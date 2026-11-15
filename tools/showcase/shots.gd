@@ -227,10 +227,9 @@ func shot_gun_question(out: String) -> Error:
 	spot(shooter.position - right * 1.5 + Vector3(0, 2.4, 0), shooter.position + Vector3(0, 1.4, 0), Color(1.0, 0.5, 0.2), 4.0, 35.0, 5.0)
 	frame(cam, target.position + Vector3(0, 1.3, 0) - right * 0.55, 38.0, target.position + Vector3(0, 1.6, 0), 1.2, 0.12)
 	await wait(4)
-	var muzzle := gun.global_transform * Vector3(0, 0.235, -0.42)
-	var forward := (gun.global_transform.basis * Vector3(0, 0, -1)).normalized()
-	vfx.burst("muzzle_flash", muzzle, forward)
-	vfx.tracer(muzzle, target.position + Vector3(0, 1.95, 0) + right * 0.45 + d * 5.0)
+	var tip := muzzle(gun)
+	vfx.burst("muzzle_flash", tip.origin, -tip.basis.z)
+	vfx.tracer(tip.origin, target.position + Vector3(0, 1.95, 0) + right * 0.45 + d * 5.0)
 	return await capture(out, "06_gun_question.png", 1)
 
 

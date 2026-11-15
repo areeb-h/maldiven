@@ -222,18 +222,27 @@ static func _shapes(kind: String) -> Array:
 	return out
 
 
-## Item colliders (items are visual nodes owned by Props; these match their volumes).
-static func item_shapes(kind: String) -> Array:
+## Item colliders fitted to the item visual's bounds (items are visual nodes
+## owned by Props/ItemFactory; fitting at runtime follows any art change).
+## `aabb` is the visual's local AABB (origin = the item's origin).
+static func item_shapes(kind: String, aabb := AABB()) -> Array:
+	if aabb.size.length() < 0.05:
+		aabb = {"cell": AABB(Vector3(-0.17, 0, -0.17), Vector3(0.34, 0.62, 0.34)),
+			"core": AABB(Vector3(-0.24, 0, -0.24), Vector3(0.48, 0.6, 0.48)),
+			"gun": AABB(Vector3(-0.043, -0.052, -0.091), Vector3(0.085, 0.213, 0.406))}.get(kind, AABB(Vector3(-0.2, 0, -0.2), Vector3(0.4, 0.4, 0.4)))
+	var c := aabb.get_center()
+	var s := aabb.size
 	match kind:
 		"cell":
-			return [[_cylinder(0.17, 0.58), Transform3D(Basis.IDENTITY, Vector3(0, 0.3, 0))]]
+			var r := maxf(0.08, minf(s.x, s.z) * 0.5 - 0.005)
+			return [[_cylinder(r, s.y), Transform3D(Basis.IDENTITY, c)]]
 		"core":
-			return [[_cylinder(0.21, 0.12), Transform3D(Basis.IDENTITY, Vector3(0, 0.06, 0))],
-				[_sphere(0.24), Transform3D(Basis.IDENTITY, Vector3(0, 0.36, 0))]]
-		"gun":
-			return [[_box(Vector3(0.13, 0.17, 0.5)), Transform3D(Basis.IDENTITY, Vector3(0, 0.23, -0.07))],
-				[_box(Vector3(0.09, 0.2, 0.12)), Transform3D(Basis(Vector3.RIGHT, -0.28), Vector3(0, 0.1, 0.11))]]
-	return [[_sphere(0.2), Transform3D(Basis.IDENTITY, Vector3(0, 0.2, 0))]]
+			# A low base plus a ball for the cage: rolls a little, comes to rest upright-ish.
+			var r := maxf(0.1, minf(s.x, s.z) * 0.5 - 0.01)
+			var base_h := minf(0.14, s.y * 0.25)
+			return [[_cylinder(r * 0.85, base_h), Transform3D(Basis.IDENTITY, Vector3(c.x, aabb.position.y + base_h * 0.5, c.z))],
+				[_sphere(minf(r, (s.y - base_h * 0.5) * 0.5)), Transform3D(Basis.IDENTITY, Vector3(c.x, aabb.end.y - minf(r, (s.y - base_h * 0.5) * 0.5), c.z))]]
+	return [[_box(s.max(Vector3(0.05, 0.05, 0.05))), Transform3D(Basis.IDENTITY, c)]]
 
 
 const ITEM_SPECS := {

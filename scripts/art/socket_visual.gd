@@ -37,6 +37,10 @@ var alarm: OmniLight3D
 ## Moving parts: {node, a: Transform3D (rest), b: Transform3D (moved), driver: "unlock" | "fill" | "active", sweep: Vector3}
 var parts: Array[Dictionary] = []
 var number := 0
+## Deprecated: only referenced by Props' old (unused) socket builders.
+var status_mat: ShaderMaterial
+var field: Node3D
+var field_mat: ShaderMaterial
 var filled := false
 var locked := false
 var active := false

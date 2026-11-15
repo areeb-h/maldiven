@@ -63,6 +63,7 @@ func _init() -> void:
 	words.add_child(_title)
 	_reason = UiStyle.label("", "body", 22, UiStyle.MUTED)
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_reason.custom_minimum_size = Vector2(WIDTH - 56.0 - 96.0 - 24.0, 0)
 	words.add_child(_reason)
 	# Infiltrator reveal.
 	_reveal = PanelContainer.new()
@@ -244,6 +245,7 @@ func _timeline_row(text: String, colors: Dictionary) -> Control:
 	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	words.custom_minimum_size = Vector2(WIDTH - 56.0 - 24.0 - 48.0 - 22.0 - 24.0 - 16.0, 0)
 	words.mouse_filter = Control.MOUSE_FILTER_PASS
 	words.add_theme_font_size_override("normal_font_size", 22)
 	words.add_theme_font_size_override("bold_font_size", 22)

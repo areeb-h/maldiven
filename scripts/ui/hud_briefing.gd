@@ -95,6 +95,7 @@ func set_role(role: String) -> void:
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.custom_minimum_size = Vector2(WIDTH - 64.0 - 42.0 - 16.0, 0)
 		row.add_child(text)
 		_lines.add_child(UiMotion.slide(row))
 

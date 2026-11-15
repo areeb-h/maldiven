@@ -147,65 +147,7 @@ static func _build_core(root: Node3D) -> void:
 ## "vault", "reactor", "shuttle", "pod", "armory", "medbay" or "airlock_console".
 ## Returns a SocketVisual (front = +Z).
 static func make_socket(kind: String) -> Node3D:
-	var socket := SocketVisual.new()
-	socket.name = "Socket_" + kind
-	socket.kind = kind
-	var kit := ArtMeshKit.new()
-	var status := ArtMaterials.glow(2.0)
-	socket.status_mat = status
-	var body := StaticBody3D.new()
-	body.name = "Collision"
-	body.collision_layer = 1
-	body.collision_mask = 1
-	socket.add_child(body)
-	var seat_y := 0.9
-	match kind:
-		"vault":
-			seat_y = _build_vault(socket, kit, body)
-		"reactor":
-			seat_y = _build_reactor_socket(kit, body)
-		"shuttle":
-			seat_y = _build_launch_socket(kit, body, Color(0.86, 0.87, 0.86), Color(0.25, 0.78, 0.65), false)
-		"pod":
-			seat_y = _build_launch_socket(kit, body, Color(0.5, 0.36, 0.2), Color(1.0, 0.6, 0.15), true)
-		"armory":
-			seat_y = _build_armory(socket, kit, body)
-		"medbay":
-			seat_y = _build_medbay(kit, body)
-		"airlock_console":
-			seat_y = _build_airlock_console(kit, body)
-		_:
-			push_warning("Props.make_socket: unknown kind " + kind)
-	var mats := _base_mats()
-	mats["status"] = status
-	mats["alarm_btn"] = status
-	socket.add_child(kit.to_instance(mats, "Mesh"))
-	var seat := Marker3D.new()
-	seat.name = "Seat"
-	seat.position = Vector3(0, seat_y, 0)
-	if kind == "armory":
-		# Gun stands upright in the rack, barrel up, grip facing the room.
-		seat.position = Vector3(0, seat_y, -0.1)
-		seat.basis = Basis(Vector3.RIGHT, PI / 2.0)
-	elif kind == "medbay":
-		# A body lies on its back along local X, feet at -X, face up.
-		seat.position = Vector3(-0.9, seat_y, 0.0)
-		seat.basis = Basis(Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 1, 0))
-	elif kind == "airlock_console":
-		seat.position = Vector3(0, seat_y, 0.2)
-	socket.add_child(seat)
-	socket.seat = seat
-	var alarm := OmniLight3D.new()
-	alarm.name = "Alarm"
-	alarm.light_color = SocketVisual.ACTIVE
-	alarm.omni_range = 5.0
-	alarm.shadow_enabled = false
-	alarm.position = Vector3(0, 1.8, 0.3)
-	alarm.visible = false
-	socket.add_child(alarm)
-	socket.alarm = alarm
-	socket.set_state(false, kind in ["vault", "armory"], false)
-	return socket
+	return SocketKit.make(kind)  # scripts/art/items/sockets/ (SocketVisual: set_state, get_seat_transform)
 
 
 static func _box_collider(body: StaticBody3D, center: Vector3, size: Vector3) -> void:

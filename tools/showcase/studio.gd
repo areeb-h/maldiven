@@ -270,6 +270,20 @@ func seat_item(socket_id: String, kind: String) -> Node3D:
 	return node
 
 
+## World-space muzzle of a gun item (barrel along its +Z): the centre of the
+## front face of its mesh bounds, and the barrel direction.
+func muzzle(gun: Node3D) -> Transform3D:
+	var box := AABB()
+	var first := true
+	for mi: MeshInstance3D in gun.find_children("*", "MeshInstance3D", true, false):
+		var local := gun.global_transform.affine_inverse() * mi.global_transform * mi.get_aabb()
+		box = local if first else box.merge(local)
+		first = false
+	var tip := Vector3(box.get_center().x, box.position.y + box.size.y * 0.62, box.end.z)
+	var forward := (gun.global_transform.basis * Vector3.BACK).normalized()
+	return Transform3D(Basis.looking_at(forward), gun.global_transform * tip)
+
+
 ## Places a loose item in the world. Cells and cores get their glow fx.
 func place_item(kind: String, xf: Transform3D, with_fx := true) -> Node3D:
 	var node := Props.make_item(kind)

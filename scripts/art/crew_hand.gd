@@ -90,14 +90,14 @@ const _POSE_DATA := {
 		"t": [0.33, 0.11, 0.2, 0.2, 0.22]},
 	"fist": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
 		"t": [-0.22, 1.4, 0.42, 0.74, 0.31]},
-	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.0, 1.35, 0.8, 0.04), Vector4(1.0, 1.35, 0.8, 0.0), Vector4(1.05, 1.35, 0.8, -0.03), Vector4(1.1, 1.35, 0.8, -0.06)],
-		"t": [0.4, 0.8, 0.2, 0.5, 0.4]},
-	"grip_core": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.84, 0.75, 0.13, 0.2), Vector4(0.99, 0.65, 0.25, 0.06), Vector4(0.93, 0.65, 0.24, -0.08), Vector4(0.69, 0.69, 0.08, -0.24)],
-		"t": [0.59, 0.12, 0.72, 0.07, 0.12]},
-	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(0.7, 1.3, 0.4, 0.0), Vector4(0.75, 1.3, 0.4, -0.03), Vector4(0.8, 1.3, 0.4, -0.07)],
-		"t": [0.3, 0.6, 0.15, 0.3, 0.2]},
-	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(0.7, 1.3, 0.4, 0.0), Vector4(0.75, 1.3, 0.4, -0.03), Vector4(0.8, 1.3, 0.4, -0.07)],
-		"t": [0.3, 0.6, 0.15, 0.3, 0.2]},
+	"grip_large": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.6, 0.77, 0.39, 0.04), Vector4(0.61, 0.92, 0.37, 0.0), Vector4(0.59, 0.9, 0.39, -0.03), Vector4(0.6, 1.0, 0.42, -0.06)],
+		"t": [-0.07, 1.02, 0.3, 1.1, 0.3]},
+	"grip_core": {"w": Vector3(-0.6, 0.0, 0.0), "f": [Vector4(0.55, 0.21, -0.05, 0.2), Vector4(0.38, 0.24, -0.05, 0.06), Vector4(0.21, 0.37, -0.05, -0.08), Vector4(0.12, 0.49, -0.05, -0.24)],
+		"t": [-0.09, 0.14, 0.65, -0.3, 0.04]},
+	"grip_gun": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.08, 0.06, 0.04, 0.02), Vector4(0.88, 1.45, 0.0, 0.0), Vector4(0.85, 1.43, 0.0, -0.03), Vector4(0.87, 1.18, 0.0, -0.07)],
+		"t": [-0.18, 1.09, 0.0, 0.61, 0.21]},
+	"grip_gun_trigger": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(0.42, 0.88, 0.42, 0.0), Vector4(0.88, 1.45, 0.0, 0.0), Vector4(0.85, 1.43, 0.0, -0.03), Vector4(0.87, 1.18, 0.0, -0.07)],
+		"t": [-0.18, 1.09, 0.0, 0.61, 0.21]},
 	"point": {"w": Vector3(-0.05, 0.0, 0.0), "f": [Vector4(0.0, 0.03, 0.03, 0.04), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
 		"t": [-0.1, 1.0, 0.4, 0.75, 0.35]},
 	"thumbs_up": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(1.45, 1.5, 0.71, 0.0), Vector4(1.45, 1.5, 0.79, 0.0), Vector4(1.45, 1.5, 0.73, -0.02), Vector4(1.45, 1.5, 0.45, -0.05)],
@@ -132,22 +132,22 @@ const _GRIP_ANCHORS := {
 	# Power cell (CellVisual): power grip round a side carry handle's rubber sleeve
 	# (vertical bar, radius 0.017, at item x = -0.1985, y 0.205..0.315). The bar lies
 	# in the curled fingers against the distal palm; the left hand takes the +X handle.
-	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(-0.1985, 0.26, 0.0), "center": Vector3(0.0352, -0.071, 0.0)},
+	"cell": {"tilt": 0.0, "yaw": PI, "scale": 1.0, "pivot": Vector3(-0.1985, 0.26, 0.0), "center": Vector3(0.0457, -0.0721, 0.0)},
 	# Core (CoreVisual, cage ribs at radius 0.214 + 0.0115): cradled from below-side,
 	# palm turned 35 deg up, below the sweep of the precessing emitter rings.
-	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2444, -0.064, 0.0)},
+	"core": {"tilt": 0.61, "yaw": PI, "scale": 1.0, "pivot": Vector3(0.0, 0.36, 0.0), "center": Vector3(0.2455, -0.0621, -0.0439)},
 	# Gun (GunVisual: origin mid-grip, barrel +Z, grip raked 0.24): the grip's centre
 	# sits against the palm with the front strap ~1.5 cm past the knuckle line; `roll`
 	# squares the rake to the knuckle line, canting the barrel toward the thumb like a
 	# real pistol hold. Unscaled.
-	"gun": {"tilt": 0.0, "yaw": PI, "roll": -0.24, "scale": 1.0, "pivot": Vector3(0.0, 0.002, -0.012), "center": Vector3(0.0339, -0.066, -0.0155)},
+	"gun": {"tilt": 0.0, "yaw": PI, "roll": -0.24, "scale": 1.0, "pivot": Vector3(0.0, 0.002, -0.012), "center": Vector3(0.0444, -0.0382, 0.0018)},
 }
 ## The blaster grip this hand is built to hold (metres), for the items agent: depth
 ## front-to-back, width side-to-side (incl. panels), length frame-to-pommel, corner
 ## radius, rake (rad, top toward the barrel), and how much shallower the pinky third
 ## may be. Nothing (frame, slide) may reach more than 0.045 behind the grip centre
 ## within 0.07 above it, or it meets the glove cuff.
-const GUN_GRIP := {"depth": 0.050, "width": 0.026, "length": 0.080, "radius": 0.009, "rake": 0.24, "pinky_taper": 0.85}
+const GUN_GRIP := {"depth": 0.048, "width": 0.027, "length": 0.095, "radius": 0.009, "rake": 0.24, "pinky_taper": 0.9}
 ## Grip pose whose wrist angle each anchor is measured with.
 const _ANCHOR_POSE := {"cell": "grip_large", "core": "grip_core", "gun": "grip_gun"}
 
@@ -900,11 +900,15 @@ static func _flatten(at_hand_x: float, at_hand_z: float) -> Callable:
 ## Palm block (satin graphite), sculpted back-of-hand shell, rubber grip panel and a
 ## satin wrist sleeve that fills the cuff mouth at every wrist angle.
 static func _palm(k: CrewMeshKit) -> void:
-	k.set_part(PALM, CrewMaterials.FABRIC, 0.7)
+	# The sleeve is skinned across the wrist: rigid with the cuff at the top, following
+	# the palm below the cuff mouth, so it bends instead of swinging out at full flex.
+	k.set_part(WRIST, CrewMaterials.FABRIC, 0.7)
+	k.set_blend(PALM, Vector3(0.0, -0.011, 0.0), Vector3.DOWN, 0.007)
 	k.deform = _flatten(0.55, 0.86)
 	k.lathe(PackedVector2Array([Vector2(0.036, -0.0195), Vector2(0.0425, -0.0075), Vector2(0.0446, 0.0065)]),
 		Transform3D.IDENTITY, 12)
 	k.deform = Callable()
+	k.clear_blend()
 	k.set_part(PALM, _S, 1.0)
 	k.deform = CrewMeshKit.taper(0.82, 1.0, 0.037, 1.0, 0.8)
 	k.rounded_box(_PALM_C, Vector3(0.034, 0.074, 0.094), 0.014)

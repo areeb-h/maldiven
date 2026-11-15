@@ -85,10 +85,10 @@ func _draw() -> void:
 		# Upward chevrons riding above the ring.
 		for i in range(3):
 			var phase := fmod(_time * 0.9 + i / 3.0, 1.0)
-			var y := -RADIUS - 14.0 - phase * 18.0
+			var y := 44.0 - phase * 14.0
 			var a := alpha * sin(phase * PI) * 0.9
-			draw_polyline(PackedVector2Array([Vector2(-9, y + 6), Vector2(0, y - 2), Vector2(9, y + 6)]),
-				UiStyle.with_alpha(color, a), 3.0, true)
+			draw_polyline(PackedVector2Array([Vector2(-7, y + 4), Vector2(0, y - 2), Vector2(7, y + 4)]),
+				UiStyle.with_alpha(color, a), 2.5, true)
 	else:
 		# Hazard frame: rotating dashes around the ring.
 		var dashes := 16
@@ -102,7 +102,7 @@ func _draw() -> void:
 	var font_size := 56
 	var digit_color := Color.WHITE if urgent else color.lightened(0.35)
 	var width := font.get_string_size(digits, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	var baseline := Vector2(-width * 0.5, font_size * 0.36)
+	var baseline := Vector2(-width * 0.5, font_size * 0.3)
 	draw_string_outline(font, baseline, digits, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 10, Color(0, 0, 0, 0.55 * alpha))
 	draw_string(font, baseline, digits, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, UiStyle.with_alpha(digit_color, alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

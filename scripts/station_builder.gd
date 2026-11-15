@@ -99,6 +99,7 @@ static func build(parent: Node3D) -> Node3D:
 		print("DBG room ", room_id, " ", Time.get_ticks_msec())
 		_build_room(fx, mats, room_id)
 	for corridor_id in StationLayout.CORRIDORS:
+		print("DBG corr ", corridor_id, " ", Time.get_ticks_msec())
 		_build_corridor(fx, mats, corridor_id)
 	_build_exterior(fx, mats)
 	_ctx_fx = null
@@ -1822,7 +1823,7 @@ static func _dress_docking(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	for e in [[pad0.x, pad1.x, pad0.z, pad0.z + 0.12], [pad0.x, pad1.x, pad1.z - 0.12, pad1.z], [pad0.x, pad0.x + 0.12, pad0.z, pad1.z], [pad1.x - 0.12, pad1.x, pad0.z, pad1.z]]:
 		kit.box_mm("painted", Vector3(e[0], 0.0, e[2]), Vector3(e[1], 0.009, e[3]), pad_c)
 	for cx in [pad0.x + 0.12, pad1.x - 0.12]:
-		var gx := cx + 0.3 if cx < hc.x else cx - 0.3
+		var gx: float = cx + 0.3 if cx < hc.x else cx - 0.3
 		kit.box("guide", Vector3(gx, 0.008, pad1.z - 0.35), Vector3(0.14, 0.012, 0.14), GUIDE)
 	_text(kit, "painted", "PAD 01", Vector3(pad1.x - 1.3, 0.01, pad1.z - 0.45), Vector3(0, 0, 1), 0.36, pad_c, true)
 	_text(kit, "painted", "CREW SHUTTLE", Vector3(pad0.x + 1.9, 0.01, pad1.z - 0.45), Vector3(0, 0, 1), 0.26, pad_c.darkened(0.15), true)

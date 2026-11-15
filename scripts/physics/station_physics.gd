@@ -51,7 +51,8 @@ var peer_rtt := Callable()
 var send_stream := Callable()
 
 
-func setup(p_world: Node, p_rules: StationRules, p_authority: bool) -> void:
+## `item_visuals`: item id -> the item's visual node, so colliders fit the art.
+func setup(p_world: Node, p_rules: StationRules, p_authority: bool, item_visuals := {}) -> void:
 	name = "Physics"
 	world = p_world
 	rules = p_rules
@@ -60,7 +61,8 @@ func setup(p_world: Node, p_rules: StationRules, p_authority: bool) -> void:
 		var kind: String = StationLayout.ITEMS[item_id].kind
 		var desc: Dictionary = PropFactory.ITEM_SPECS.get(kind, PropFactory.ITEM_SPECS.cell).duplicate()
 		desc["kind"] = kind
-		desc["shapes"] = PropFactory.item_shapes(kind)
+		var bounds := visual_aabb(item_visuals[item_id]) if item_visuals.has(item_id) else AABB()
+		desc["shapes"] = PropFactory.item_shapes(kind, bounds)
 		var body := NetBody.new()
 		body.name = "Loose_" + item_id
 		body.item_id = item_id
@@ -84,6 +86,24 @@ func setup(p_world: Node, p_rules: StationRules, p_authority: bool) -> void:
 		bodies.append(body)
 	for body in item_bodies.values():
 		body.impact.connect(_on_impact.bind(body))
+
+
+## Local-space bounds of a visual's meshes (skipping VFX attachments).
+static func visual_aabb(node: Node3D, xform := Transform3D.IDENTITY) -> AABB:
+	var out := AABB()
+	var first := true
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		out = xform * (node as MeshInstance3D).mesh.get_aabb()
+		first = false
+	for child in node.get_children():
+		if not child is Node3D or child.has_meta("vfx_skip"):
+			continue
+		var sub := visual_aabb(child, xform * (child as Node3D).transform)
+		if sub.size == Vector3.ZERO:
+			continue
+		out = sub if first else out.merge(sub)
+		first = false
+	return out
 
 
 func _ready() -> void:

@@ -207,8 +207,25 @@ func _anchor(control: Control, ax: float, ay: float, rect: Rect2) -> void:
 func _center(card: Control, height := 0.0) -> void:
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	card.set_meta("fit_height", height)
 	var width := card.custom_minimum_size.x
 	_anchor(card, 0.5, 0.5, Rect2(-width / 2.0, -height / 2.0, width, height))
+
+
+## Controls never shrink on their own once text re-wraps, so cards are refit
+## to their minimum size every frame (centred on their anchor, plus `y`).
+func _fit(card: Control, y := 0.0, bottom_anchored := false) -> void:
+	if not card.visible:
+		return
+	var need := card.get_combined_minimum_size()
+	var width := maxf(need.x, card.custom_minimum_size.x)
+	var height := maxf(need.y, float(card.get_meta("fit_height", 0.0)))
+	height = minf(height, size.y - _margin.position.y - _margin.size.y) if not bottom_anchored else height
+	card.offset_left = -width * 0.5
+	card.offset_right = width * 0.5
+	card.offset_top = y - (height if bottom_anchored else height * 0.5)
+	card.offset_bottom = y + (0.0 if bottom_anchored else height * 0.5)
+	card.pivot_offset = Vector2(width, height) * 0.5
 
 
 ## Safe-area margins in logical px: max(inset, 24) at the sides, 16 top, 20 bottom.
@@ -749,6 +766,9 @@ func _reveal_role() -> void:
 	if _role_word_tween != null:
 		_role_word_tween.kill()
 	_role_word.reset_size()
+	# Just under the objective panel, whatever its height right now.
+	_role_word.offset_top = _top_panel.size.y + UiStyle.S1
+	_role_word.offset_bottom = _role_word.offset_top
 	_role_word_tween = _role_word.create_tween()
 	_role_word_tween.tween_property(_role_word, "modulate:a", 1.0, 0.15)
 	_role_word_tween.tween_interval(2.0)
@@ -770,10 +790,7 @@ func set_life_state(state: String, down_left: float) -> void:
 			tween.tween_callback(_status.hide)
 		else:
 			_status.show()
-			_status.reset_size()
-			_status.offset_left = -_status.size.x * 0.5
-			_status.offset_right = _status.size.x * 0.5
-			UiMotion.enter(_status, 0.0, 24.0)
+			UiMotion.card_in(_status)
 	match state:
 		"downed":
 			_status_icon.icon = "downed"
@@ -804,6 +821,11 @@ func _process(delta: float) -> void:
 	var target := Color(1.0 - cold * 0.6, 1.0 - red * 0.85 - cold * 0.4, 1.0 - red * 0.85, 0.85 + red * 0.15 + cold * 0.15)
 	_vignette.modulate = _vignette.modulate.lerp(target, 1.0 - exp(-delta * 8.0))
 	_update_timer_look(delta)
+	_fit(_menu)
+	_fit(_result)
+	_fit(_status, -112.0, true)
+	if not _briefing.leaving:
+		_fit(_briefing)
 	if _pips.get_meta("pop") > 0.0:
 		_pips.set_meta("pop", maxf(0.0, _pips.get_meta("pop") - delta / 0.35))
 		_pips.queue_redraw()
@@ -884,10 +906,16 @@ func _update_controls(delta: float) -> void:
 		var target := 1.0 if _wanted(id) else 0.0
 		_vis[id] = move_toward(_vis[id], target, delta / (0.22 if target > 0.0 else 0.16))
 		# Spring for press squash and ready pop (slight overshoot).
+		# Substepped so a slow frame can't blow the spring up.
 		var spring: Vector2 = _spring[id]
 		var rest := 0.92 if _pressed.has(id) else 1.0
-		spring.y += ((rest - spring.x) * 900.0 - spring.y * 30.0) * delta
-		spring.x += spring.y * delta
+		var left := minf(delta, 0.1)
+		while left > 0.0:
+			var step := minf(left, 1.0 / 240.0)
+			spring.y += ((rest - spring.x) * 900.0 - spring.y * 30.0) * step
+			spring.x += spring.y * step
+			left -= step
+		spring.x = clampf(spring.x, 0.7, 1.3)
 		_spring[id] = spring
 		_flash[id] = maxf(0.0, _flash[id] - delta / 0.35)
 		_deny[id] = maxf(0.0, _deny[id] - delta / 0.3)
