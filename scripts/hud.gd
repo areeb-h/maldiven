@@ -186,7 +186,7 @@ func _build_countdown() -> void:
 	_countdown_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_countdown_box.add_theme_constant_override("separation", -10)
 	add_child(_countdown_box)
-	_anchor(_countdown_box, 0.5, 0.5, Rect2(-300, -250, 600, 150))
+	_anchor(_countdown_box, 0.5, 0.0, Rect2(-300, 168, 600, 150))  # below the alert banner
 	_countdown_caption = UiStyle.outlined(UiStyle.label("", "head", 22, UiStyle.TEXT), 8)
 	_countdown_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_countdown_box.add_child(_countdown_caption)

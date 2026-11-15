@@ -53,14 +53,14 @@ float sd_seg(vec2 p, vec2 a, vec2 b, float r) {
 	return length(pa - ba * h) - r;
 }
 
-// Rounded stencil seven-segment digit in a unit-height box; 0 draws the crew emblem.
+// Rounded stencil seven-segment digit 0..9 in a unit-height box; n < 0 draws the crew emblem.
 float glyph(vec2 p, int n) {
-	if (n <= 0) {
+	if (n < 0) {
 		float c = min(sd_seg(p, vec2(-0.26, -0.05), vec2(0.0, 0.2), 0.075), sd_seg(p, vec2(0.0, 0.2), vec2(0.26, -0.05), 0.075));
 		return min(c, length(p - vec2(0.0, -0.27)) - 0.085);
 	}
 	int m = 111;
-	if (n == 1) { m = 6; } else if (n == 2) { m = 91; } else if (n == 3) { m = 79; } else if (n == 4) { m = 102; }
+	if (n == 0) { m = 63; } else if (n == 1) { m = 6; } else if (n == 2) { m = 91; } else if (n == 3) { m = 79; } else if (n == 4) { m = 102; }
 	else if (n == 5) { m = 109; } else if (n == 6) { m = 125; } else if (n == 7) { m = 7; } else if (n == 8) { m = 127; }
 	float w = 0.25;
 	float h = 0.42;
@@ -80,20 +80,20 @@ float glyph(vec2 p, int n) {
 
 const _SUIT_FRAGMENT := """
 // Inset panel seam + corner rivets on box faces (UV centred, UV2 = half extents).
-vec2 panel_detail(vec2 uv, vec2 hx, float fade, out float cav) {
+vec2 panel_detail(vec2 uv, vec2 hx, float fade, float flatness, out float cav) {
 	cav = 0.0;
 	vec2 tilt = vec2(0.0);
 	if (min(hx.x, hx.y) > 0.024 && fade > 0.0) {
 		vec2 q = abs(uv) - (hx - 0.017);
 		float box = max(q.x, q.y);
-		float g = (1.0 - smoothstep(0.0005, 0.0017, abs(box))) * fade;
+		float g = (1.0 - smoothstep(0.0005, 0.0017, abs(box))) * fade * flatness;
 		vec2 dv = q.x > q.y ? vec2(sign(uv.x), 0.0) : vec2(0.0, sign(uv.y));
 		tilt += dv * sign(box) * g * 0.7;
 		cav += g * 0.55;
 		if (min(hx.x, hx.y) > 0.034) {
 			vec2 d = uv - sign(uv) * (hx - 0.028);
 			float rl = length(d);
-			float head = (1.0 - smoothstep(0.0026, 0.0034, rl)) * fade;
+			float head = (1.0 - smoothstep(0.0026, 0.0034, rl)) * fade * flatness;
 			tilt += d / 0.003 * 0.45 * head;
 			cav += (1.0 - smoothstep(0.0, 0.0007, abs(rl - 0.0034))) * 0.5 * fade;
 		}
@@ -127,14 +127,14 @@ void fragment() {
 		// Glossy composite shell: clearcoat, micro scratches, lighter worn edges, seams, rivets.
 		vec3 base = id < 0.5 ? primary : trim;
 		float cav;
-		tilt = panel_detail(UV, UV2, fade, cav);
+		tilt = panel_detail(UV, UV2, fade, 1.0 - smoothstep(0.15, 0.4, edge), cav);
 		float wear = smoothstep(0.62, 0.95, edge * (0.5 + nhi * 0.7));
 		float scr = smoothstep(0.62, 0.8, scratch) * fade;
 		alb = base * shade * (0.95 + 0.1 * nlo);
 		alb = mix(alb, mix(base, vec3(0.95), 0.45), clamp(edge * 0.3, 0.0, 1.0));
-		alb = mix(alb, vec3(0.6, 0.61, 0.63), wear * 0.55);
+		alb = mix(alb, vec3(0.6, 0.61, 0.63), wear * 0.3);
 		alb *= 1.0 - cav * 0.6;
-		met = mix(0.04, 0.85, wear);
+		met = mix(0.04, 0.6, wear * 0.5);
 		rough = 0.22 + 0.06 * nlo + scr * 0.14 + cav * 0.3;
 		cc = 0.9 * (1.0 - wear);
 		nd = 0.04;
@@ -142,7 +142,7 @@ void fragment() {
 	} else if (id < 1.5) {
 		// Satin graphite composite.
 		float cav2;
-		tilt = panel_detail(UV, UV2, fade, cav2) * 0.8;
+		tilt = panel_detail(UV, UV2, fade, 1.0 - smoothstep(0.15, 0.4, edge), cav2) * 0.8;
 		alb = secondary * shade * (0.93 + 0.14 * nlo) * (1.0 - cav2 * 0.5);
 		alb = mix(alb, vec3(0.2, 0.21, 0.23), edge * 0.18);
 		met = 0.4;
@@ -206,14 +206,46 @@ void fragment() {
 		} else if (style == 3) {
 			alb = secondary * 0.7;
 			float gx = (UV.x - 0.12) * UV2.y;
-			float num = 1.0 - smoothstep(-aa, aa, glyph(vec2(gx, UV.y - 0.5) / 0.8, decal_number));
+			float num = 1.0 - smoothstep(-aa, aa, glyph(vec2(gx, UV.y - 0.5) / 0.8, decal_number > 0 ? decal_number : -1));
 			float row = step(0.28, UV.x) * step(UV.x, 0.92) * step(0.3, UV.y) * step(UV.y, 0.7);
 			float dash = step(0.35, fract(UV.x * 9.0 + floor(UV.y * 3.0) * 0.37)) * row;
 			emi = accent * accent_energy * 0.6 * max(num, dash * 0.35);
 			rough = 0.35;
 			cc = 0.6;
+		} else if (style == 4) {
+			// Round vent grille: concentric slots in a brushed rim.
+			float d = length(UV - 0.5) * 2.0;
+			float slot = step(0.55, fract(d * 4.5)) * step(d, 0.8);
+			alb = mix(secondary * 0.9, vec3(0.012), slot);
+			alb = mix(alb, vec3(0.5, 0.52, 0.55), step(0.86, d));
+			met = mix(0.5, 0.9, step(0.86, d));
+			rough = 0.35;
+		} else if (style == 5) {
+			// Crew insignia and stencil text, painted on the shell.
+			float lum5 = dot(primary, vec3(0.3, 0.55, 0.15));
+			vec3 paint5 = lum5 > 0.45 ? vec3(0.06, 0.065, 0.07) : vec3(0.93, 0.94, 0.95);
+			float em = 1.0 - smoothstep(-aa, aa, glyph((dp - vec2(-0.32, 0.08)) / 0.62, -1));
+			float rowa = step(0.08, UV.x - 0.42) * step(UV.x, 0.92) * step(0.56, UV.y) * step(UV.y, 0.68);
+			float rowb = step(0.08, UV.x - 0.42) * step(UV.x, 0.8) * step(0.36, UV.y) * step(UV.y, 0.46);
+			float txt = (rowa + rowb) * step(0.3, fract(UV.x * 14.0));
+			alb = mix(primary, paint5, max(em, txt * 0.85));
+			rough = 0.26;
+			cc = 0.8;
+			gloss_rim = 0.22;
+		} else if (style == 6) {
+			// Chest status screen: two-digit oxygen readout and a segmented bar.
+			int pct = int(clamp(oxygen, 0.0, 0.99) * 100.0);
+			float dig = min(glyph((UV - vec2(0.36, 0.64)) / 0.42, pct / 10), glyph((UV - vec2(0.62, 0.64)) / 0.42, pct - (pct / 10) * 10));
+			float ink = 1.0 - smoothstep(-0.02, 0.02, dig);
+			float bar = step(0.14, UV.x) * step(UV.x, 0.14 + 0.72 * oxygen) * step(0.16, UV.y) * step(UV.y, 0.3) * step(0.2, fract(UV.x * 12.0));
+			float frame = 1.0 - step(0.06, min(min(UV.x, 1.0 - UV.x), min(UV.y, 1.0 - UV.y)));
+			vec3 c6 = mix(vec3(1.0, 0.45, 0.05), accent, smoothstep(0.35, 0.6, oxygen));
+			alb = vec3(0.015);
+			emi = c6 * accent_energy * (ink * 0.8 + bar * 0.9 + frame * 0.15) * (0.9 + 0.1 * sin(UV.y * 120.0));
+			rough = 0.15;
+			cc = 1.0;
 		} else {
-			float gd = glyph(dp / 0.78, decal_number);
+			float gd = glyph(dp / 0.78, decal_number > 0 ? decal_number : -1);
 			float ink = 1.0 - smoothstep(-aa, aa, gd);
 			if (style == 1) {
 				alb = secondary * 0.8;
@@ -366,6 +398,9 @@ void fragment() {
 	env += vec3(0.5, 0.62, 0.8) * exp(-pow((r.y - 0.06) * 10.0, 2.0)) * 0.55;
 	env += vec3(1.6, 1.55, 1.45) * smoothstep(0.93, 0.985, dot(r, normalize(vec3(-0.55, 0.62, 0.55))));
 	env += vec3(0.7, 0.85, 1.2) * smoothstep(0.95, 0.99, dot(r, normalize(vec3(0.7, 0.35, -0.2))));
+	// Station interior: a row of lit wall panels around the horizon.
+	float az = atan(r.x, r.z);
+	env += vec3(0.45, 0.6, 0.85) * smoothstep(0.55, 0.85, sin(az * 7.0)) * smoothstep(0.0, 0.05, r.y) * (1.0 - smoothstep(0.18, 0.26, r.y)) * 0.35;
 	// LED face behind the glass (parallax so it sits inside the helmet).
 	vec2 vt = vec2(dot(VIEW, TANGENT), dot(VIEW, BINORMAL));
 	vec2 puv = UV - vt / max(dot(VIEW, n), 0.35) * eye_depth;
@@ -384,6 +419,9 @@ void fragment() {
 	vec2 qn = UV / vec2(0.17, 0.09);
 	float rimg = smoothstep(0.6, 1.05, max(abs(qn.x), abs(qn.y)));
 	vec3 inner = led * (0.012 + 0.05 * rimg) * flick;
+	// Thin emissive line just inside the bezel (UV2 = visor patch parameters).
+	float edge = max(abs(UV2.x * 2.0 - 1.0), abs(UV2.y * 2.0 - 1.0));
+	inner += eye_color * smoothstep(0.88, 0.94, edge) * (1.0 - smoothstep(0.97, 1.0, edge)) * 0.9;
 	%s
 }
 """

@@ -2,6 +2,22 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · gameplay-v1
+
+Commit `55eab36` · studio/station renders · 13 frames · [folder](2026-11-15-gameplay-v1/)
+
+First real gameplay capture: a 3-player networked bot round (crew win by shuttle), Mobile renderer, phone touch HUD. Character v2 suits (limb rework in progress). Known issues found here: countdown overlaps the alert banner at 720p; camera too high/far so characters read small.
+
+| | |
+| --- | --- |
+| ![home](2026-11-15-gameplay-v1/00_home.jpg)<br>home | ![lobby](2026-11-15-gameplay-v1/01_lobby.jpg)<br>lobby |
+| ![briefing](2026-11-15-gameplay-v1/02_briefing.jpg)<br>briefing | ![spawn commons](2026-11-15-gameplay-v1/03_spawn_commons.jpg)<br>spawn commons |
+| ![near cell 1](2026-11-15-gameplay-v1/04_near_cell_1.jpg)<br>near cell 1 | ![carrying cell 1](2026-11-15-gameplay-v1/05_carrying_cell_1.jpg)<br>carrying cell 1 |
+| ![before reactor 1](2026-11-15-gameplay-v1/06_before_reactor_1.jpg)<br>before reactor 1 | ![after reactor 1](2026-11-15-gameplay-v1/07_after_reactor_1.jpg)<br>after reactor 1 |
+| ![power restored](2026-11-15-gameplay-v1/08_power_restored.jpg)<br>power restored | ![at vault](2026-11-15-gameplay-v1/09_at_vault.jpg)<br>at vault |
+| ![before shuttle](2026-11-15-gameplay-v1/10_before_shuttle.jpg)<br>before shuttle | ![after shuttle](2026-11-15-gameplay-v1/11_after_shuttle.jpg)<br>after shuttle |
+| ![result](2026-11-15-gameplay-v1/12_result.jpg)<br>result |   |
+
 ## 2026-11-15 · character-v2
 
 Commit `2a9dc8c` · studio/station renders · 20 frames · [folder](2026-11-15-character-v2/)

@@ -107,6 +107,11 @@ static func arc_z(radius: float) -> Callable:
 		return Vector3(p.x, cos(a) * rr - radius, sin(a) * rr)
 
 
+## Basis that shears local Z by local Y (z' = z - k * y): sweeps a part backward with height.
+static func shear_basis(k: float) -> Basis:
+	return Basis(Vector3(1, 0, 0), Vector3(0, 1, -k), Vector3(0, 0, 1))
+
+
 static func taper(bottom: float, top: float, half_h: float, bottom_z := -1.0, top_z := -1.0) -> Callable:
 	var bz := bottom if bottom_z < 0.0 else bottom_z
 	var tz := top if top_z < 0.0 else top_z
@@ -317,7 +322,8 @@ func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, 
 
 
 ## Generic parametric patch: fn(u, v) -> Vector3 over [0,1]^2; hints point away from `inside`.
-func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vector2.ONE, uv_fn := Callable(), uv2 := Vector2.ZERO) -> void:
+## uv2_param = true stores the (u, v) patch parameters in UV2 instead of the constant uv2.
+func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vector2.ONE, uv_fn := Callable(), uv2 := Vector2.ZERO, uv2_param := false) -> void:
 	_begin()
 	var base := _tp.size()
 	for j in rows + 1:
@@ -328,7 +334,7 @@ func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vect
 			var uv := Vector2(u * uv_scale.x, v * uv_scale.y)
 			if uv_fn.is_valid():
 				uv = uv_fn.call(u, v)
-			_push(p, (p - inside).normalized(), uv, 0.0, uv2)
+			_push(p, (p - inside).normalized(), uv, 0.0, Vector2(u, v) if uv2_param else uv2)
 	_quads(base, cols, rows)
 	_end(Transform3D.IDENTITY)
 

@@ -26,7 +26,7 @@ var carried := false
 
 var move_input := Vector2.ZERO
 var yaw := 0.0
-var pitch := -0.55
+var pitch := -0.42
 var jump_pending := false
 var _jump_buffer := 0.0
 var _coyote := 0.0
@@ -104,7 +104,7 @@ func _ready() -> void:
 		add_child(pivot)
 		pivot.global_position = global_position + Vector3(0, 1.6, 0)
 		arm = SpringArm3D.new()
-		arm.spring_length = 6.5
+		arm.spring_length = 5.0
 		arm.margin = 0.25
 		var camera_shape := SphereShape3D.new()
 		camera_shape.radius = 0.25
@@ -340,7 +340,7 @@ func _camera_fx(delta: float) -> void:
 	var shoulder := Basis(Vector3.UP, yaw) * Vector3(0.75, 0.0, 0.0) if aiming else Vector3.ZERO
 	var follow_target := global_position + Vector3(0, 1.6 if life_state != "downed" else 0.9, 0) + shoulder
 	pivot.global_position = pivot.global_position.lerp(follow_target, 1.0 - exp(-delta * 14.0))
-	var length := 3.6 if aiming else (7.2 if carrying_body or carry_point.get_child_count() > 0 else 6.5)
+	var length := 3.4 if aiming else (5.8 if carrying_body or carry_point.get_child_count() > 0 else 5.0)
 	arm.spring_length = lerpf(arm.spring_length, length, minf(1.0, delta * 6.0))
 	_shake = maxf(0.0, _shake - delta * 2.2)
 	_fov_kick = maxf(0.0, _fov_kick - delta * 20.0)
@@ -349,7 +349,7 @@ func _camera_fx(delta: float) -> void:
 	camera.h_offset = sin(t * 47.0) * 0.18 * trauma
 	camera.v_offset = cos(t * 39.0) * 0.14 * trauma
 	var running := Vector2(velocity.x, velocity.z).length() > WALK_SPEED + 0.5
-	var target_fov := (76.0 if running else 70.0) + _fov_kick
+	var target_fov := (72.0 if running else 66.0) + _fov_kick
 	if aiming:
 		target_fov = 60.0 + _fov_kick
 	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, delta * 8.0))
