@@ -709,7 +709,7 @@ def trailer():
     pad(C["lights_beat"], chord("D3", "A3", "D4", "F#4", "A4", "E5"), C["vault"] - C["lights_beat"] + 0.6,
         lambda tt: 1200.0 + 2400.0 * np.clip((tt - 0.3) / 1.2, 0, 1), gain=0.5, attack=0.3, release=0.7, voices=7)
     for i_, f in enumerate((1174.66, 1479.98, 1760.0, 2349.32)):
-        mx.add(chime(ga.timeline(1.5, sr), 0.0, f, 0.6, sr, index=0.8), C["lights"] + 0.09 * i_, pan=-0.4 + 0.27 * i_,
+        mx.add(ga.chime(ga.timeline(1.5, sr), 0.0, f, 0.6, sr, index=0.8), C["lights"] + 0.09 * i_, pan=-0.4 + 0.27 * i_,
                gain=0.06, rev=0.5, dly=0.3)
     mx.add(K[1], C["lights"], gain=0.5)
     mx.add(sub_boom(sr, 1.5, 40.0), C["lights"], gain=0.35)
@@ -940,7 +940,7 @@ def trailer():
     mx.add(brass(chord("D3", "A3", "D4", "F#4"), dur - 0.5, sr, rng, peak=2200.0, att=0.6, tau=4.0, res=0.4),
            C["end_card"], gain=0.3, rev=0.5)
     for tc, f in ((C["tagline"], hz("F#5")), (C["platforms"], hz("A5"))):
-        mx.add(chime(ga.timeline(2.0, sr), 0.0, f, 0.7, sr, index=0.7), tc, pan=0.2, gain=0.08, rev=0.5, dly=0.3)
+        mx.add(ga.chime(ga.timeline(2.0, sr), 0.0, f, 0.7, sr, index=0.7), tc, pan=0.2, gain=0.08, rev=0.5, dly=0.3)
     cue(C["tagline"], "Tagline chime")
     cue(C["platforms"], "'2-8 FRIENDS - ANDROID' chime")
     boom_t = 79.0
