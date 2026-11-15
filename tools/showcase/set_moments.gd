@@ -240,19 +240,26 @@ func shot_shuttle(out: String) -> Error:
 
 
 ## 09 Spaced: the airlock vents; frost streams out of the open hull door and a
-## red crewmate tumbles away towards the gas giant, limbs flailing.
+## red crewmate tumbles away towards the gas giant: the gameplay's weightless
+## Jolt ragdoll (CrewRagdoll), caught a moment after the blast.
 func shot_spaced(out: String) -> Error:
 	begin_shot("restored", 4109)
-	var body := crew("red", Vector3(-17.0, 1.2, 0.8), -90.0, "shocked", 0, 1)
-	body.rotation = Vector3(0.9, deg_to_rad(-70.0), 1.3)
-	pose(body, 0.8, 0.0, false, true)
-	for i in 30:
-		body.set_motion(0.0, false, false, true, STEP)
+	var dir := Vector3(-2.0, 0.4, 0.9)
+	var body := crew("red", Vector3(-15.6, 0.5, 0.2), -90.0, "shocked", 0, 1)
+	pose(body, 0.5, 0.0, false, true)
 	station.set_airlock_state("venting")
-	spot(Vector3(-15.6, 3.0, 3.4), body.position + Vector3(0, 0.8, 0), WARM, 5.0, 30.0, 8.0, false, 0.3)
-	spot(Vector3(-19.5, 2.0, -1.5), body.position + Vector3(0, 0.8, 0), Color(1.0, 0.2, 0.08), 8.0, 30.0, 6.0)
-	frame(Vector3(-16.4, 1.0, 6.3), Vector3(-18.6, 2.2, -1.0), 44.0, body.position + Vector3(0, 0.9, 0), 2.0, 0.05)
-	await wait(3)
+	var rd := CrewRagdoll.spawn(body, set_root, dir, false, 8)
+	if rd != null:
+		rd.autonomous = true
+		rd.follow_root = true
+		rd.weightless()
+		for bone in rd.parts:
+			(rd.parts[bone] as RigidBody3D).linear_velocity = dir
+		rd.spin(Vector3(0.8, 0.3, -0.6).normalized() * 3.0)
+	spot(Vector3(-15.6, 3.0, 3.4), Vector3(-17.5, 1.4, 1.0), WARM, 5.0, 34.0, 9.0, false, 0.3)
+	spot(Vector3(-20.0, 2.0, -1.5), Vector3(-17.5, 1.4, 1.0), Color(1.0, 0.2, 0.08), 8.0, 34.0, 7.0)
+	frame(Vector3(-16.4, 1.0, 6.3), Vector3(-18.6, 2.2, -1.0), 44.0, Vector3(-17.6, 1.4, 1.1), 2.5, 0.05)
 	vfx.burst("airlock_vent", Vector3(-15.2, 1.2, 0.0), Vector3(-1, 0, 0))
-	vfx.burst("spaced", body.position + Vector3(0, 0.9, 0), Vector3(-2.2, 0.4, 1.0))
+	await wait(8)
+	vfx.burst("spaced", body.global_position + Vector3(0, 1.0, 0), dir)
 	return await capture(out, "09_spaced.png", 6)
