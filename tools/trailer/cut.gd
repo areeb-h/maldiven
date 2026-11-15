@@ -586,24 +586,38 @@ func beat_console(lt: float, first: bool) -> void:
 
 
 ## Spaced: the outer door blows, frost streams out and the red crewmate tumbles
-## away into the stars past the gas giant.
+## away into the stars past the gas giant: a weightless Jolt ragdoll (the
+## gameplay CrewRagdoll), not a scripted spin.
 func beat_spaced(lt: float, first: bool) -> void:
+	var dir := Vector3(-2.2, 0.45, 1.0)
 	if first:
 		begin_shot("restored", 9013)
 		var r := actor("red", "red", Vector3(-14.4, 0.4, 0.0), -90.0, "shocked", 0, 1)
-		r.set_downed(false)
+		r.set_motion(0.0, false, false, true, dt)
 		station.set_airlock_state("venting")
 		vfx.burst("airlock_vent", Vector3(-15.2, 1.2, 0.0), Vector3(-1, 0, 0))
+		var rd := CrewRagdoll.spawn(r, set_root, dir, false, 8)
+		if rd != null:
+			rd.autonomous = true
+			rd.follow_root = true
+			rd.weightless()
+			for bone in rd.parts:
+				(rd.parts[bone] as RigidBody3D).linear_velocity = dir
+			rd.spin(Vector3(0.8, 0.3, -0.6).normalized() * 3.2)
+		_vars["rd"] = rd
 	var r := get_actor("red")
-	var t := maxf(lt - 0.15, 0.0)
-	r.position = Vector3(-14.4, 0.4, 0.0) + Vector3(-2.2, 0.45, 1.0) * t
-	r.rotation = Vector3(1.4 * t, deg_to_rad(-90.0) + 0.5 * t, 2.1 * t)
-	drive(r, 0.0, false, true, false)
+	var rd: CrewRagdoll = _vars.get("rd")
+	if rd != null and is_instance_valid(rd):
+		_driven[r] = true  # the ragdoll poses the model
+	else:
+		r.position = Vector3(-14.4, 0.4, 0.0) + dir * lt
+		drive(r, 0.0, false, true, false)
+	var pelvis := rd.pelvis_position() if rd != null and is_instance_valid(rd) else r.position + Vector3(0, 1.0, 0)
 	if crossed(lt, 0.5):
-		vfx.burst("spaced", r.position + Vector3(0, 1.0, 0), Vector3(-2.2, 0.45, 1.0))
+		vfx.burst("spaced", pelvis, dir)
 	cue(lt, 0.05, "airlock_vent", 2.0)
 	cue(lt, 1.6, "ghost_drift", -4.0)
-	cam_move(Vector3(-16.6, 1.0, 6.4), Vector3(-17.4, 1.4, 6.2), Vector3(-17.0, 1.8, -1.0), Vector3(-21.0, 3.0, -1.6), lt / 4.0, 46.0, r.position + Vector3(0, 1.0, 0), 4.0, 0.03)
+	cam_move(Vector3(-16.6, 1.0, 6.4), Vector3(-17.4, 1.4, 6.2), Vector3(-17.0, 1.8, -1.0), Vector3(-21.0, 3.0, -1.6), lt / 4.0, 46.0, pelvis, 4.0, 0.03)
 
 
 ## Climax: the infiltrator's pod countdown in Cargo against the crew's shuttle

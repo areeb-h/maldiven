@@ -759,7 +759,7 @@ def main(argv=None):
 
     def on_status(status):
         name = status.get('room_name')
-        if name and name != settings.get('room_name'):
+        if name and name != settings.get('room_name') and not options.test_mode:  # tests never touch your settings
             settings['room_name'] = name
             save_settings(settings)
 
