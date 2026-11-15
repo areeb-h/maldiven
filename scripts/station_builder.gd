@@ -995,7 +995,7 @@ static func _floor_hatch(kit: ArtMeshKit, p: Vector3, round_lid: bool) -> void:
 	kit.box("metal", p + Vector3(0, 0.004, 0), Vector3(1.05, 0.008, 1.05), GUNMETAL)
 	kit.box("painted", p + Vector3(0, 0.007, 0), Vector3(0.9, 0.008, 0.9), Color(0.26, 0.27, 0.29))
 	if round_lid:
-		kit.cylinder("metal", p + Vector3(0, 0.004, 0), p + Vector3(0, 0.014, 0), 0.32, BRUSHED, 16)
+		kit.cylinder("painted", p + Vector3(0, 0.004, 0), p + Vector3(0, 0.014, 0), 0.32, Color(0.36, 0.38, 0.4), 16)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			kit.box("hazard", p + Vector3(sx * 0.38, 0.012, sz * 0.38), Vector3(0.12, 0.004, 0.12), Color.WHITE)

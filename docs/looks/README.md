@@ -2,6 +2,24 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · items-v2
+
+Commit `3f10be4` · studio/station renders · 17 frames · [folder](2026-11-15-items-v2/)
+
+Items and sockets pass: blaster with ammo charge cells and a grip sized for the glove, power cell with an animated energy window, caged core (10% smaller so it stays under the visor), and all 7 socket types with animated floating labels and 8 states each, in emergency and restored power.
+
+| | |
+| --- | --- |
+| ![gun 0](2026-11-15-items-v2/00_gun_0.jpg)<br>gun 0 | ![gun 1](2026-11-15-items-v2/01_gun_1.jpg)<br>gun 1 |
+| ![gun ammo1](2026-11-15-items-v2/02_gun_ammo1.jpg)<br>gun ammo1 | ![cell 0](2026-11-15-items-v2/03_cell_0.jpg)<br>cell 0 |
+| ![cell 1](2026-11-15-items-v2/04_cell_1.jpg)<br>cell 1 | ![core 0](2026-11-15-items-v2/05_core_0.jpg)<br>core 0 |
+| ![core 1](2026-11-15-items-v2/06_core_1.jpg)<br>core 1 | ![held gun restored 0](2026-11-15-items-v2/07_held_gun_restored_0.jpg)<br>held gun restored 0 |
+| ![held cell restored 0](2026-11-15-items-v2/08_held_cell_restored_0.jpg)<br>held cell restored 0 | ![held core emergency 0](2026-11-15-items-v2/09_held_core_emergency_0.jpg)<br>held core emergency 0 |
+| ![sheet reactor restored](2026-11-15-items-v2/10_sheet_reactor_restored.jpg)<br>sheet reactor restored | ![sheet vault restored](2026-11-15-items-v2/11_sheet_vault_restored.jpg)<br>sheet vault restored |
+| ![sheet shuttle restored](2026-11-15-items-v2/12_sheet_shuttle_restored.jpg)<br>sheet shuttle restored | ![sheet pod emergency](2026-11-15-items-v2/13_sheet_pod_emergency.jpg)<br>sheet pod emergency |
+| ![sheet armory restored](2026-11-15-items-v2/14_sheet_armory_restored.jpg)<br>sheet armory restored | ![sheet medbay restored](2026-11-15-items-v2/15_sheet_medbay_restored.jpg)<br>sheet medbay restored |
+| ![sheet airlock console emergency](2026-11-15-items-v2/16_sheet_airlock_console_emergency.jpg)<br>sheet airlock console emergency |   |
+
 ## 2026-11-15 · ui-v2
 
 Commit `079f442` · studio/station renders · 16 frames · [folder](2026-11-15-ui-v2/)

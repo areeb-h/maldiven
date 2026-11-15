@@ -24,6 +24,8 @@ const CONTROLLER_FIRST_WAIT := 90.0  # s for the launcher to connect before we g
 const CONTROLLER_GRACE := 20.0  # s without the launcher before the server shuts down
 const SHUTDOWN_MESSAGE := "The host shut down the server."
 const KICK_MESSAGE := "You were removed from the station by the host."
+const DROP_AFTER := 3.0  # s a removed phone gets to leave by itself
+const STOP_WAIT := 3.0  # s the server waits for phones to leave when it stops
 
 var args := {}
 var max_players := 8
@@ -152,11 +154,24 @@ func kick(id: int) -> String:
 	if not Net.roster.has(id):
 		return "No player with id %d." % id
 	_kicked[id] = true
-	if Net.has_method("kick"):
-		Net.call("kick", id, KICK_MESSAGE)
-	else:
-		Net._refuse(id, KICK_MESSAGE)
+	_send_away(id, KICK_MESSAGE)
 	return ""
+
+
+## Tells a phone why it's leaving, then lets it disconnect itself: a phone that
+## gets the message leaves on its own and shows it on its home screen. Only a
+## phone that doesn't (frozen, out of range) is dropped, after DROP_AFTER, and
+## then gently: ENet sends the disconnect once the message is acknowledged. An
+## immediate disconnect can overtake the message on a slow phone, which would
+## then show the generic "The host closed the station." instead.
+func _send_away(id: int, message: String) -> void:
+	Net._refused.rpc_id(id, message)
+	get_tree().create_timer(DROP_AFTER).timeout.connect(func():
+		var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+		if enet != null and multiplayer.get_peers().has(id):
+			var peer := enet.get_peer(id)
+			if peer != null:
+				peer.peer_disconnect_later())
 
 
 func set_room_name(text: String) -> String:
@@ -178,13 +193,15 @@ func stop(exit_code := 0) -> void:
 		return
 	_stopping = true
 	status.log_line("Shutting down", "info")
-	for id in Net.roster.keys():
-		if Net.has_method("kick"):
-			Net.call("kick", id, SHUTDOWN_MESSAGE)
-		else:
-			Net._refuse(id, SHUTDOWN_MESSAGE)
+	for id in multiplayer.get_peers():  # admitted players and anyone still joining
+		Net._refused.rpc_id(id, SHUTDOWN_MESSAGE)
 	_publish()
-	await get_tree().create_timer(0.8 if not Net.roster.is_empty() else 0.1).timeout
+	# Phones leave by themselves once they have the message; wait for that (up
+	# to STOP_WAIT for a frozen one) so nobody sees a generic disconnect instead.
+	var waited := 0.0
+	while not multiplayer.get_peers().is_empty() and waited < STOP_WAIT:
+		await get_tree().create_timer(0.1).timeout
+		waited += 0.1
 	_publish()
 	print("SERVER_STOPPED")
 	if _control != null:

@@ -457,18 +457,18 @@ func beat_gun(lt: float, first: bool) -> void:
 
 ## Betrayal in Docking: green walks beside teal, who carries the core, then
 ## shoves. The core flies (a real rigid body), green scoops it up and runs out
-## past the lens. Camera at the east end, looking back along their walk.
+## past the lens. Camera at the east end; they walk towards it.
 func beat_betrayal(lt: float, first: bool) -> void:
 	if first:
 		begin_shot("restored", 9009)
-		var t := actor("teal", "teal", Vector3(23.6, 0, 1.6), -90.0, "happy", 0, 7)
+		var t := actor("teal", "teal", Vector3(19.4, 0, 1.6), 90.0, "happy", 0, 7)
 		_vars["core"] = hold(t, "core")
-		actor("green", "green", Vector3(23.8, 0, 2.55), -90.0, "neutral", 3, 4)
+		actor("green", "green", Vector3(19.2, 0, 2.55), 90.0, "neutral", 3, 4)
 	var teal := get_actor("teal")
 	var green := get_actor("green")
 	if lt < 2.0:
-		walk(teal, Vector3(23.6, 0, 1.6), Vector3(20.6, 0, 1.6), 1.5, 0.0, lt, true)
-		walk(green, Vector3(23.8, 0, 2.55), Vector3(20.8, 0, 2.55), 1.5, 0.0, lt)
+		walk(teal, Vector3(19.4, 0, 1.6), Vector3(22.4, 0, 1.6), 1.5, 0.0, lt, true)
+		walk(green, Vector3(19.2, 0, 2.55), Vector3(22.2, 0, 2.55), 1.5, 0.0, lt)
 	else:
 		if crossed(lt, 2.0):
 			face(green, teal.position)
@@ -479,7 +479,7 @@ func beat_betrayal(lt: float, first: bool) -> void:
 			teal.set_expression("hurt")
 			teal.set_held_item("")
 			vfx.burst("shove_impact", teal.position + Vector3(0, 1.3, 0.3), Vector3(0, 0, -1))
-			_vars["body"] = _launch_core(_vars["core"], Vector3(-0.6, 3.4, -2.0))
+			_vars["body"] = _launch_core(_vars["core"], Vector3(-0.8, 3.4, -2.0))
 		if lt > 2.17:
 			teal.position.z = lerpf(teal.position.z, 0.9, 0.12)
 			clear_hit_flash(teal)
@@ -506,7 +506,7 @@ func beat_betrayal(lt: float, first: bool) -> void:
 	cue(lt, 2.17, "shove", 0.0)
 	cue(lt, 2.7, "drop", -2.0)
 	cue(lt, 4.2, "pickup", -2.0)
-	cam_move(Vector3(25.0, 1.35, 2.7), Vector3(24.6, 1.3, 3.1), Vector3(21.6, 1.15, 1.9), Vector3(22.0, 1.05, 1.0), lt / 6.0, 50.0, teal.position + Vector3(0, 1.3, 0), 3.0, 0.04)
+	cam_move(Vector3(26.0, 1.35, 2.6), Vector3(25.6, 1.3, 3.0), Vector3(21.0, 1.15, 1.9), Vector3(22.0, 1.05, 1.0), lt / 6.0, 46.0, teal.position + Vector3(0, 1.3, 0), 3.0, 0.04)
 
 
 ## Turns a held core into a free rigid body with the given launch velocity.
