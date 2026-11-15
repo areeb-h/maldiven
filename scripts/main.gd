@@ -696,6 +696,8 @@ func _friendly(message: String) -> Array:
 	var lower := message.to_lower()
 	if lower.contains("could not reach"):
 		return ["Couldn't reach that station", "Check the IP, and that both devices are on the same Wi-Fi."]
+	if lower.contains("shut down the server"):
+		return ["The station server shut down", "The host stopped the server. Ask them to start it again."]
 	if lower.contains("closed the station"):
 		return ["The station closed", "The host left or closed the game."]
 	if lower.contains("round is in progress"):

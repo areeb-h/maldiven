@@ -2,6 +2,23 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · ui-v2
+
+Commit `079f442` · studio/station renders · 16 frames · [folder](2026-11-15-ui-v2/)
+
+UI and HUD fine-detail pass: colour-blind-safe palette with icon and word on every cue, icon-only role chip, cell pips, queued alerts, draining countdown rings, edge markers to the core, pod and downed crew, safe-area thumb-zone controls, hold-to-fire blackout, lobby crew cards with an IP chip, and a result timeline. 1280×720 plus a 2400×1080 phone, and frames from a real networked bot round.
+
+| | |
+| --- | --- |
+| ![720 home](2026-11-15-ui-v2/00_720_home.jpg)<br>720 home | ![720 lobby](2026-11-15-ui-v2/01_720_lobby.jpg)<br>720 lobby |
+| ![720 briefing](2026-11-15-ui-v2/02_720_briefing.jpg)<br>720 briefing | ![720 stabilise](2026-11-15-ui-v2/03_720_stabilise.jpg)<br>720 stabilise |
+| ![720 extraction](2026-11-15-ui-v2/04_720_extraction.jpg)<br>720 extraction | ![720 pod](2026-11-15-ui-v2/05_720_pod.jpg)<br>720 pod |
+| ![720 downed](2026-11-15-ui-v2/06_720_downed.jpg)<br>720 downed | ![720 ghost](2026-11-15-ui-v2/07_720_ghost.jpg)<br>720 ghost |
+| ![720 result](2026-11-15-ui-v2/08_720_result.jpg)<br>720 result | ![720 home error](2026-11-15-ui-v2/09_720_home_error.jpg)<br>720 home error |
+| ![2400x1080 lobby](2026-11-15-ui-v2/10_2400x1080_lobby.jpg)<br>2400x1080 lobby | ![2400x1080 extraction](2026-11-15-ui-v2/11_2400x1080_extraction.jpg)<br>2400x1080 extraction |
+| ![gameplay 03 spawn commons](2026-11-15-ui-v2/12_gameplay_03_spawn_commons.jpg)<br>gameplay 03 spawn commons | ![gameplay 05 carrying cell 1](2026-11-15-ui-v2/13_gameplay_05_carrying_cell_1.jpg)<br>gameplay 05 carrying cell 1 |
+| ![gameplay 08 power restored](2026-11-15-ui-v2/14_gameplay_08_power_restored.jpg)<br>gameplay 08 power restored | ![gameplay 11 after shuttle](2026-11-15-ui-v2/15_gameplay_11_after_shuttle.jpg)<br>gameplay 11 after shuttle |
+
 ## 2026-11-15 · icons-v2
 
 Commit `31b1c34` · studio/station renders · 9 frames · [folder](2026-11-15-icons-v2/)

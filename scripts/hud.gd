@@ -518,6 +518,8 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 			_reveal_role())
 	_update_timer(rules)
 	_update_objective(rules, my_id)
+	if _touch and phase == StationRules.Phase.STABILISE and rules.elapsed > StationRules.BRIEFING_SECONDS + 10.0:
+		_first_touch()  # the hint has done its job; never leave it on screen
 	_update_countdown(rules)
 	_phase = phase
 	_interact_label = action.get("label", "")
@@ -760,6 +762,7 @@ func _show_result(rules: StationRules) -> void:
 		crew.input_enabled = false
 	_briefing.hide()
 	_alerts.clear()
+	_hint.hide()
 	_center(_result, 632.0)
 	_result.show_result(rules, role, is_host)
 
@@ -1013,7 +1016,8 @@ func _notification(what: int) -> void:
 
 
 func _first_touch() -> void:
-	if _hint.text != "" and _touch:
+	if _hint.text != "" and _touch and not _hint.has_meta("fading"):
+		_hint.set_meta("fading", true)
 		var tween := _hint.create_tween()
 		tween.tween_property(_hint, "modulate:a", 0.0, 0.4)
 		tween.tween_callback(func(): _hint.text = "")
