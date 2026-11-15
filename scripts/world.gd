@@ -32,6 +32,9 @@ var _result_played := false
 var vfx: Node  # optional Vfx module (scripts/vfx.gd), called dynamically
 var _states := {}
 var _airlock_shown := "idle"
+var _highlighted: Node3D
+var _flying := {}
+var _alarm_beat := 0
 
 
 func _init(round_seed := -1) -> void:
@@ -64,6 +67,9 @@ func _ready() -> void:
 		node.name = "Item_" + item_id
 		add_child(node)
 		item_nodes[item_id] = node
+		var kind: String = StationLayout.ITEMS[item_id].kind
+		if kind in ["cell", "core"]:
+			_fx("attach_item_fx", [node, kind])
 	var ids := Net.roster.keys()
 	ids.sort()
 	for index in range(ids.size()):
@@ -75,6 +81,9 @@ func _ready() -> void:
 		avatars[id] = avatar
 		avatar.footstep.connect(func(at: Vector3):
 			sfx.play("footstep_%d" % (randi() % 3 + 1), at, -10.0 if id == my_id else -6.0))
+		avatar.landed.connect(func(at: Vector3, impact: float):
+			sfx.play("footstep_%d" % (randi() % 3 + 1), at, -2.0)
+			_fx("burst", ["footstep_dust", at]))
 		if id == my_id:
 			local = avatar
 	var layer := CanvasLayer.new()
@@ -255,6 +264,10 @@ func client_event(event: Dictionary) -> void:
 			_fx("burst", ["spaced", event.at])
 		"thrown":
 			sfx.play("throw", rules.item_position(event.item))
+			if item_nodes.has(event.item):
+				var trail_color := Color(0.28, 0.92, 1.0) if rules.items[event.item].kind == "core" else Color(1.0, 0.6, 0.14)
+				_fx("attach_trail", [item_nodes[event.item], trail_color])
+				_flying[event.item] = true
 		"fx":
 			_fx("burst", [event.kind, event.at])
 		"airlock":
@@ -326,7 +339,33 @@ func _process(delta: float) -> void:
 	_update_sockets()
 	_apply_power_state()
 	_update_audio()
-	hud.update_state(rules, rules.available_action(my_id), my_id)
+	var action := rules.available_action(my_id)
+	_update_highlight(action)
+	hud.update_state(rules, action, my_id)
+
+
+## Outline whatever the Interact button would act on.
+func _update_highlight(action: Dictionary) -> void:
+	var target: Node3D = null
+	match action.get("action", ""):
+		"pickup":
+			target = item_nodes.get(action.item)
+		"insert":
+			target = socket_nodes.get(action.socket)
+		"airlock":
+			target = socket_nodes.get("airlock_console")
+		"revive":
+			target = socket_nodes.get("medbay")
+		"drag":
+			if avatars.has(action.target):
+				target = avatars[action.target].visual
+	if target == _highlighted:
+		return
+	if _highlighted != null and is_instance_valid(_highlighted):
+		_fx("set_interact_highlight", [_highlighted, false])
+	_highlighted = target
+	if target != null:
+		_fx("set_interact_highlight", [target, true])
 
 
 func _update_audio() -> void:
@@ -345,6 +384,13 @@ func _update_audio() -> void:
 		if tick != _last_tick:
 			_last_tick = tick
 			sfx.play("countdown_tick", null, -4.0)
+			var pod := rules.pod_left >= 0.0
+			var socket_at := StationLayout.to_world(StationLayout.SOCKETS["pod" if pod else "shuttle"].pos)
+			_fx("countdown_pulse", [socket_at, Color(1.0, 0.3, 0.3) if pod else Color(0.4, 0.75, 1.0)])
+			if pod:
+				_alarm_beat += 1
+				if _alarm_beat % 2 == 0:
+					_fx("burst", ["alarm_strobe", socket_at + Vector3(0, 2.8, 0)])
 	else:
 		_last_tick = -1
 	if rules.pod_left < 0.0:
@@ -354,8 +400,12 @@ func _update_audio() -> void:
 		sfx.stop_alarm()
 		if rules.winner == StationRules.CREW:
 			sfx.play("win_crew")
+			if rules.reason.contains("shuttle"):
+				_fx("burst", ["launch", StationLayout.to_world(StationLayout.SOCKETS.shuttle.pos), Vector3.UP])
 		elif rules.winner == StationRules.INFILTRATOR:
 			sfx.play("win_infiltrator")
+			if rules.reason.contains("pod"):
+				_fx("burst", ["launch", StationLayout.to_world(StationLayout.SOCKETS.pod.pos), Vector3.UP])
 		else:
 			sfx.play("power_down")
 
@@ -385,6 +435,9 @@ func _update_items() -> void:
 		var node: Node3D = item_nodes[item_id]
 		var item: Dictionary = rules.items[item_id]
 		var holder: int = item.holder
+		if item.flight.is_empty() and _flying.has(item_id):
+			_flying.erase(item_id)
+			_fx("detach_trail", [node])
 		if not item.flight.is_empty():
 			if node.get_parent() != self:
 				node.reparent(self, false)
@@ -428,8 +481,13 @@ func _apply_power_state() -> void:
 		return
 	if _power_state == "emergency" and state == "restored":
 		sfx.play("power_up")
+		_fx("burst", ["power_wave", StationLayout.to_world(StationLayout.ROOMS.reactor.center)])
 	elif state == "blackout":
 		sfx.play("power_down")
+		if local != null:
+			var room := StationLayout.room_at(local.position)
+			var at := StationLayout.to_world(StationLayout.ROOMS[room].center) if room != "" else local.position
+			_fx("burst", ["blackout_flicker", at])
 	_power_state = state
 	StationBuilder.set_power_state(station, state)
 	sfx.set_ambience(state)

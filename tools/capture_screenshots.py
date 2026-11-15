@@ -25,14 +25,15 @@ def main():
     parser.add_argument('--seed', type=int, default=11)
     parser.add_argument('--players', type=int, default=3)
     parser.add_argument('--renderer', default='gl_compatibility')
-    parser.add_argument('--size', default='1600x900')
+    parser.add_argument('--size', default='1280x720')
+    parser.add_argument('--timeout', type=int, default=900, help='Seconds; software Vulkan is slow')
     parser.add_argument('--host-infiltrator', action='store_true', help='Host plays the infiltrator (blackout/pod shots)')
     args = parser.parse_args()
     engine, _ = validate_engine(args.godot or ensure_engine())
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     width, height = args.size.split('x')
-    common = [f'--bot-plan={args.plan}', '--bot-timeout=170']
+    common = [f'--bot-plan={args.plan}', f'--bot-timeout={args.timeout}']
     rendered = [str(engine), '--path', str(ROOT), '--rendering-method', args.renderer,
                 '--resolution', args.size, '--']
     if not os.environ.get('DISPLAY') and shutil.which('xvfb-run'):
@@ -47,7 +48,7 @@ def main():
                                  f'--bot-name={names[i]}', f'--bot-join-delay={0.4 * i}'] + common,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                for i in range(args.players - 1)]
-    host_log, _ = host.communicate(timeout=200)
+    host_log, _ = host.communicate(timeout=args.timeout + 60)
     for client in clients:
         client.communicate(timeout=30)
     shots = [l.split(' ', 1)[1] for l in host_log.splitlines() if l.startswith('BOT_SHOT')]

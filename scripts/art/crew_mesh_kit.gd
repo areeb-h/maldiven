@@ -13,6 +13,7 @@ const QUANT := 20000.0
 var positions := PackedVector3Array()
 var normals := PackedVector3Array()
 var uvs := PackedVector2Array()
+var uv2s := PackedVector2Array()  # box faces: panel half extents (m); decals: (style, aspect)
 var colors := PackedColorArray()
 var customs := PackedColorArray()
 var indices := PackedInt32Array()
@@ -29,11 +30,14 @@ var blend_width := 0.05
 var deform := Callable()
 ## Skip the local -Z face of the next boxes (plates sitting flush on the body).
 var skip_back := false
+## Softens every rounded_box bevel (capped by the box's half thickness).
+var bevel_scale := 1.0
 
 # Primitive scratch.
 var _tp := PackedVector3Array()
 var _th := PackedVector3Array()
 var _tu := PackedVector2Array()
+var _t2 := PackedVector2Array()
 var _te := PackedFloat32Array()
 var _ti := PackedInt32Array()
 
@@ -116,7 +120,10 @@ static func taper(bottom: float, top: float, half_h: float, bottom_z := -1.0, to
 ## Box with rounded edges (Minkowski box + sphere), smooth normals, planar UVs (metres).
 func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.IDENTITY, arc := 2, segs := Vector3i(1, 1, 1)) -> void:
 	var h := size * 0.5
-	var r := minf(radius, minf(h.x, minf(h.y, h.z)) * 0.98)
+	var r := radius
+	if r >= 0.0035:
+		r *= bevel_scale
+	r = minf(r, minf(h.x, minf(h.y, h.z)) * 0.98)
 	var hi := h - Vector3(r, r, r)
 	if r < 0.0035:
 		r = 0.0  # tiny trim strips: a plain box
@@ -153,7 +160,7 @@ func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.I
 						n = d.normalized()
 						p = inner + n * r
 					var edge := clampf((1.0 - maxf(absf(n.x), maxf(absf(n.y), absf(n.z)))) / 0.25, 0.0, 1.0)
-					_push(p, n, Vector2(pp[u_axis], pp[v_axis]) + Vector2(n_axis * 0.31, side * 0.17), edge)
+					_push(p, n, Vector2(pp[u_axis], pp[v_axis]), edge, Vector2(h[u_axis], h[v_axis]) if r > 0.0 else Vector2.ZERO)
 			_quads(base, su.size() - 1, sv.size() - 1)
 	_end(Transform3D(basis, center))
 
@@ -310,7 +317,7 @@ func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, 
 
 
 ## Generic parametric patch: fn(u, v) -> Vector3 over [0,1]^2; hints point away from `inside`.
-func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vector2.ONE) -> void:
+func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vector2.ONE, uv_fn := Callable(), uv2 := Vector2.ZERO) -> void:
 	_begin()
 	var base := _tp.size()
 	for j in rows + 1:
@@ -318,7 +325,10 @@ func patch(fn: Callable, cols: int, rows: int, inside: Vector3, uv_scale := Vect
 			var u := float(i) / float(cols)
 			var v := float(j) / float(rows)
 			var p: Vector3 = fn.call(u, v)
-			_push(p, (p - inside).normalized(), Vector2(u * uv_scale.x, v * uv_scale.y), 0.0)
+			var uv := Vector2(u * uv_scale.x, v * uv_scale.y)
+			if uv_fn.is_valid():
+				uv = uv_fn.call(u, v)
+			_push(p, (p - inside).normalized(), uv, 0.0, uv2)
 	_quads(base, cols, rows)
 	_end(Transform3D.IDENTITY)
 
@@ -329,14 +339,16 @@ func _begin() -> void:
 	_tp.clear()
 	_th.clear()
 	_tu.clear()
+	_t2.clear()
 	_te.clear()
 	_ti.clear()
 
 
-func _push(p: Vector3, hint: Vector3, uv: Vector2, edge: float) -> void:
+func _push(p: Vector3, hint: Vector3, uv: Vector2, edge: float, uv2 := Vector2.ZERO) -> void:
 	_tp.append(p)
 	_th.append(hint)
 	_tu.append(uv)
+	_t2.append(uv2)
 	_te.append(edge)
 
 
@@ -404,7 +416,8 @@ func _end(xf: Transform3D) -> void:
 		positions.append(world[i])
 		normals.append(nn)
 		uvs.append(_tu[i])
-		colors.append(Color(1.0, _te[i], shade, 1.0))
+		uv2s.append(_t2[i])
+		colors.append(Color(1.0, _te[i], shade, 0.0))
 		var w := 0.0
 		var other := bone
 		if blend_bone >= 0:
@@ -464,6 +477,19 @@ func bake_ao(strength := 0.85) -> void:
 		colors[i] = c
 
 
+## Soft fold creases on the undersuit near the given joints, stored in COLOR.a.
+func bake_creases(joints: Array[Vector3], radius: float, fabric_mat: int) -> void:
+	for i in positions.size():
+		if int(customs[i].a + 0.5) != fabric_mat:
+			continue
+		var m := 0.0
+		for j in joints:
+			m = maxf(m, 1.0 - smoothstep(radius * 0.35, radius, positions[i].distance_to(j)))
+		var c := colors[i]
+		c.a = m
+		colors[i] = c
+
+
 func commit() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -471,6 +497,7 @@ func commit() -> ArrayMesh:
 	for i in positions.size():
 		st.set_normal(normals[i])
 		st.set_uv(uvs[i])
+		st.set_uv2(uv2s[i])
 		st.set_color(colors[i])
 		st.set_custom(0, customs[i])
 		st.add_vertex(positions[i])

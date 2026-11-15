@@ -5,6 +5,7 @@ extends CharacterBody3D
 ## Uses the procedural CrewModel when present, else the Props fallback figure.
 
 signal footstep(at: Vector3)
+signal landed(at: Vector3, impact: float)
 
 const WALK_SPEED := 3.4
 const RUN_SPEED := 6.2
@@ -47,6 +48,11 @@ var _facing := 0.0
 var _shake := 0.0
 var _fov_kick := 0.0
 var _bob := 0.0
+var _last_look_ms := 0
+var _prev_facing := 0.0
+var _lean := 0.0
+var _was_on_floor := true
+var _fall_speed := 0.0
 
 
 func setup(id: int, local: bool, player_name: String, suit: Color, spawn_at: Vector3) -> void:
@@ -88,9 +94,12 @@ func _ready() -> void:
 	position = _spawn
 	_target_pos = _spawn
 	if is_local:
+		# The camera rig follows smoothly in world space instead of being rigidly
+		# parented: removes step jitter and gives a slight cinematic lag.
 		pivot = Node3D.new()
-		pivot.position.y = 1.6
+		pivot.top_level = true
 		add_child(pivot)
+		pivot.global_position = global_position + Vector3(0, 1.6, 0)
 		arm = SpringArm3D.new()
 		arm.spring_length = 6.5
 		arm.margin = 0.25
@@ -137,6 +146,7 @@ func _build_visual() -> void:
 
 
 func look(delta: Vector2) -> void:
+	_last_look_ms = Time.get_ticks_msec()
 	yaw -= delta.x * 0.005
 	pitch = clampf(pitch - delta.y * 0.004, -1.25, 0.15)
 
@@ -246,7 +256,12 @@ func _local_physics(delta: float) -> void:
 	var shift := Input.is_physical_key_pressed(KEY_SHIFT)
 	var running := shift or (move_input.length() > 0.8)
 	var speed := (RUN_SPEED if running else WALK_SPEED) * speed_factor
-	var accel := 6.0 if stunned else 24.0
+	# Snappy start, firm stop, limited air control; stuns slide.
+	var accel := 30.0 if axis.length() > 0.05 else 36.0
+	if not is_on_floor():
+		accel = 10.0
+	if stunned:
+		accel = 6.0
 	velocity.x = move_toward(velocity.x, direction.x * speed, accel * delta)
 	velocity.z = move_toward(velocity.z, direction.z * speed, accel * delta)
 	_coyote = 0.12 if is_on_floor() else maxf(0.0, _coyote - delta)
@@ -263,9 +278,17 @@ func _local_physics(delta: float) -> void:
 	if aiming:
 		_facing = lerp_angle(_facing, yaw + PI, minf(1.0, delta * 16.0))  # face where the camera looks
 	elif horizontal.length() > 0.2 and not stunned:
-		_facing = lerp_angle(_facing, atan2(velocity.x, velocity.z), minf(1.0, delta * 12.0))
+		var turn_rate := 15.0 if horizontal.length() > WALK_SPEED + 0.5 else 11.0
+		_facing = lerp_angle(_facing, atan2(velocity.x, velocity.z), minf(1.0, delta * turn_rate))
 	if position.y < -6.0:
 		respawn()
+	var on_floor := is_on_floor()
+	if on_floor and not _was_on_floor and _fall_speed > 4.0:
+		landed.emit(global_position, _fall_speed)
+		camera_kick(clampf((_fall_speed - 4.0) / 10.0, 0.08, 0.35))
+	_was_on_floor = on_floor
+	_fall_speed = maxf(0.0, -velocity.y)
+	_auto_recenter(delta, horizontal.length())
 
 
 func _ghost_physics(delta: float) -> void:
@@ -281,9 +304,29 @@ func _ghost_physics(delta: float) -> void:
 		_facing = lerp_angle(_facing, atan2(velocity.x, velocity.z), minf(1.0, delta * 6.0))
 
 
+## Touch players: when moving without touching the camera for a moment, ease
+## the camera back behind the character (common mobile third-person pattern).
+func _auto_recenter(delta: float, speed: float) -> void:
+	if aiming or move_input.length() < 0.2 or speed < 1.5:
+		return
+	if Time.get_ticks_msec() - _last_look_ms < 1400:
+		return
+	var target := _facing - PI
+	var difference := wrapf(target - yaw, -PI, PI)
+	if absf(difference) > 2.4:
+		return  # running towards the camera: don't spin around
+	yaw += difference * minf(1.0, delta * 1.4 * clampf(speed / RUN_SPEED, 0.3, 1.0))
+
+
 func _camera_fx(delta: float) -> void:
 	if camera == null:
 		return
+	# Smooth follow, over-the-shoulder when aiming, pulled back when carrying.
+	var shoulder := Basis(Vector3.UP, yaw) * Vector3(0.75, 0.0, 0.0) if aiming else Vector3.ZERO
+	var follow_target := global_position + Vector3(0, 1.6 if life_state != "downed" else 0.9, 0) + shoulder
+	pivot.global_position = pivot.global_position.lerp(follow_target, 1.0 - exp(-delta * 14.0))
+	var length := 3.6 if aiming else (7.2 if carrying_body or carry_point.get_child_count() > 0 else 6.5)
+	arm.spring_length = lerpf(arm.spring_length, length, minf(1.0, delta * 6.0))
 	_shake = maxf(0.0, _shake - delta * 2.2)
 	_fov_kick = maxf(0.0, _fov_kick - delta * 20.0)
 	var trauma := _shake * _shake
@@ -292,10 +335,27 @@ func _camera_fx(delta: float) -> void:
 	camera.v_offset = cos(t * 39.0) * 0.14 * trauma
 	var running := Vector2(velocity.x, velocity.z).length() > WALK_SPEED + 0.5
 	var target_fov := (76.0 if running else 70.0) + _fov_kick
+	if aiming:
+		target_fov = 60.0 + _fov_kick
 	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, delta * 8.0))
 
 
+## Lean into turns (body rolls toward the inside of the curve).
+func _apply_lean(delta: float, horizontal_speed: float) -> void:
+	var turn := wrapf(_facing - _prev_facing, -PI, PI) / maxf(delta, 0.0001)
+	_prev_facing = _facing
+	var speed_amount := clampf(horizontal_speed / RUN_SPEED, 0.0, 1.0)
+	var target := clampf(-turn * 0.055 * speed_amount, -0.24, 0.24)
+	if life_state != "ok":
+		target = 0.0
+	_lean = lerpf(_lean, target, minf(1.0, delta * 8.0))
+	var sign_fix := 1.0 if _visual_yaw_offset == 0.0 else -1.0
+	if _model_api or life_state == "ok":
+		visual.rotation.z = _lean * sign_fix
+
+
 func _animate(delta: float, horizontal_speed: float) -> void:
+	_apply_lean(delta, horizontal_speed)
 	var before := sin(_stride)
 	_stride += horizontal_speed * delta * 2.4
 	if horizontal_speed > 1.0 and life_state == "ok" and signf(before) != signf(sin(_stride)):

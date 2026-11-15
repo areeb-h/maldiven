@@ -39,7 +39,7 @@ def capture(run, out, godot, renderer):
     if godot:
         command += ['--godot', godot]
     print(f'capturing {run} view...', flush=True)
-    result = subprocess.run(command, capture_output=True, text=True, timeout=400)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=1200)
     print(result.stdout[-600:], flush=True)
     return sorted(out.glob('*.png'))
 

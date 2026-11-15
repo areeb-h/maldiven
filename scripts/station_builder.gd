@@ -438,7 +438,7 @@ static func _doorway(fx: ArtStationFX, kit: ArtMeshKit, node: Node3D, along_x: b
 			kit.cylinder("door", strip + Vector3(0, 0.2, 0), strip + Vector3(0, top - 0.25, 0), 0.04, color, 8)
 			kit.sphere("door", strip + Vector3(0, 0.2, 0), 0.04, color, 8)
 			kit.sphere("door", strip + Vector3(0, top - 0.25, 0), 0.04, color, 8)
-		kit.sphere("door", _v(along_x, post_c, top + 0.02, across), 0.15, color, 12, Vector3(1.0, 0.45, 1.0))
+		kit.sphere("door", _v(along_x, post_c, top + 0.01, across), 0.1, color, 12, Vector3(1.0, 0.4, 1.0))
 		# Hazard chevrons on the jamb base.
 		kit.bevel_box("hazard", _v(along_x, post_c, 0.25, across), _s(along_x, 0.4, 0.5, depth + 0.07), 0.06, Color.WHITE)
 	# Floor threshold: hazard plate plus lit edges.
@@ -952,8 +952,8 @@ static func _dress_docking(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 		kit.cylinder("metal", pc + Vector3(0.75, 0, 0), pc + Vector3(1.05, 0, 0), 0.34, BRUSHED, 16, 0.38)
 		kit.cylinder("trim", pc + Vector3(1.04, 0, 0), pc + Vector3(1.07, 0, 0), 0.3, Color(0.45, 0.85, 1.0), 16)
 	# Rounded tail fin and side fins.
-	kit.bevel_box("painted", Vector3(tail_x - 0.7, fc.y + r + 0.3, fc.z), Vector3(1.4, 0.9, 0.18), 0.08, white, Basis(Vector3.BACK, -0.5))
-	kit.bevel_box("painted", Vector3(tail_x - 0.62, fc.y + r + 0.42, fc.z), Vector3(0.9, 0.18, 0.2), 0.07, color, Basis(Vector3.BACK, -0.5))
+	kit.bevel_box("painted", Vector3(tail_x - 1.0, fc.y + r * 0.88 + 0.22, fc.z), Vector3(1.5, 0.75, 0.2), 0.09, white, Basis(Vector3.BACK, -0.45))
+	kit.bevel_box("painted", Vector3(tail_x - 0.85, fc.y + r * 0.88 + 0.42, fc.z), Vector3(0.8, 0.16, 0.22), 0.07, color, Basis(Vector3.BACK, -0.45))
 	for sz in [-1.0, 1.0]:
 		kit.bevel_box("painted", Vector3(fc.x + 0.6, fc.y - 0.35, fc.z + sz * (r + 0.05)), Vector3(1.8, 0.16, 0.45), 0.07, white, Basis(Vector3.RIGHT, sz * 0.3))
 		kit.sphere("nav", Vector3(fc.x + 0.6, fc.y - 0.38, fc.z + sz * (r + 0.3)), 0.07, Color(1, 0.15, 0.1) if sz < 0.0 else Color(0.2, 1, 0.3), 8)
@@ -1059,9 +1059,9 @@ static func _dress_reactor(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	var core_col := color.lerp(Color(0.85, 0.75, 1.0), 0.45)
 	# Bulbous toy reactor: rounded plinth, glowing capsule core in a glass
 	# capsule, chunky graphite rings, a domed cap and a thick friendly railing.
-	kit.cylinder("painted", c, c + Vector3(0, 0.3, 0), 1.8, GRAPHITE, 32, 1.7)
-	kit.torus("metal", c + Vector3(0, 0.3, 0), 1.45, 1.75, BRUSHED, Basis.IDENTITY, 32, 10)
-	kit.torus("hazard", c + Vector3(0, 0.01, 0), 1.95, 2.15, Color.WHITE, Basis.from_scale(Vector3(1, 0.05, 1)), 40, 4)
+	kit.cylinder("painted", c, c + Vector3(0, 0.3, 0), 1.6, GRAPHITE, 32, 1.5)
+	kit.torus("metal", c + Vector3(0, 0.3, 0), 1.25, 1.5, BRUSHED, Basis.IDENTITY, 32, 10)
+	kit.torus("hazard", c + Vector3(0, 0.01, 0), 1.7, 1.95, Color.WHITE, Basis.from_scale(Vector3(1, 0.05, 1)), 40, 4)
 	var core := CapsuleMesh.new()
 	core.radius = 0.62
 	core.height = 3.3
@@ -1085,18 +1085,19 @@ static func _dress_reactor(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 	kit.sphere("painted", c + Vector3(0, 3.95, 0), 1.15, GRAPHITE, 28, Vector3(1, 0.42, 1))
 	kit.torus("trim", c + Vector3(0, 3.85, 0), 1.1, 1.18, color, Basis.IDENTITY, 32, 6)
 	kit.sphere("reactor", c + Vector3(0, 4.45, 0), 0.32, core_col, 16)
-	_cyl_collider(body, c + Vector3(0, 2.3, 0), 1.6, 4.6)
-	# Railing: fat rounded rails on stubby posts, room-coloured.
-	var rail_r := 2.35
+	# One tall collider for column + plinth railing (kept tight so the room
+	# centre stays within reach).
+	_cyl_collider(body, c + Vector3(0, 2.3, 0), 1.58, 4.6)
+	# Railing on the plinth rim: fat rounded rails on stubby posts.
+	var rail_r := 1.45
 	for i in range(8):
 		var ang := TAU * float(i) / 8.0
 		var p := c + Vector3(cos(ang), 0, sin(ang)) * rail_r
-		kit.cylinder("painted", p, p + Vector3(0, 1.0, 0), 0.07, GRAPHITE, 10)
-		kit.sphere("painted", p + Vector3(0, 1.02, 0), 0.1, BRUSHED, 10)
-	kit.torus("painted", c + Vector3(0, 1.0, 0), rail_r - 0.07, rail_r + 0.07, color.darkened(0.1), Basis.IDENTITY, 48, 10)
-	kit.torus("painted", c + Vector3(0, 0.55, 0), rail_r - 0.045, rail_r + 0.045, GRAPHITE, Basis.IDENTITY, 48, 8)
-	_cyl_collider(body, c + Vector3(0, 0.6, 0), rail_r + 0.08, 1.2)
-	_ao_rect(kit, c, Vector2(1.7, 1.7), 0.0, 0.9)
+		kit.cylinder("painted", p + Vector3(0, 0.3, 0), p + Vector3(0, 1.15, 0), 0.065, GRAPHITE, 10)
+		kit.sphere("painted", p + Vector3(0, 1.17, 0), 0.095, BRUSHED, 10)
+	kit.torus("painted", c + Vector3(0, 1.15, 0), rail_r - 0.07, rail_r + 0.07, color.darkened(0.1), Basis.IDENTITY, 48, 10)
+	kit.torus("painted", c + Vector3(0, 0.75, 0), rail_r - 0.045, rail_r + 0.045, GRAPHITE, Basis.IDENTITY, 48, 8)
+	_ao_rect(kit, c, Vector2(1.5, 1.5), 0.0, 0.8)
 	# Energy conduits from each reactor socket to the core.
 	for socket_id in StationLayout.SOCKETS:
 		var spec: Dictionary = StationLayout.SOCKETS[socket_id]
@@ -1108,7 +1109,7 @@ static func _dress_reactor(kit: ArtMeshKit, body: StaticBody3D, color: Color) ->
 		var dist := dir.length()
 		dir = dir / dist
 		var a := s + dir * 0.7
-		var b := c - dir * 1.8
+		var b := c - dir * 1.62
 		var mid := (a + b) * 0.5
 		var yaw := atan2(dir.x, dir.z)
 		kit.box("painted", mid + Vector3(0, 0.004, 0), Vector3(0.36, 0.008, a.distance_to(b)), DARK, Basis(Vector3.UP, yaw))
