@@ -152,6 +152,114 @@ def is_private(address):
     return a == 10 or (a == 192 and b == 168) or (a == 172 and 16 <= b <= 31)
 
 
+WSL_DNS_ADDRESS = '10.255.255.254'  # WSL's DNS loopback: never reachable from a phone
+HYPERV_FIREWALL_RULE = ("Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' "
+                        "-DefaultInboundAction Allow")
+
+
+def is_wsl():
+    if os.environ.get('WSL_DISTRO_NAME'):
+        return True
+    try:
+        text = Path('/proc/version').read_text(errors='replace')
+    except OSError:
+        return False
+    return 'microsoft' in text.lower() or 'wsl' in text.lower()
+
+
+def linux_interfaces():
+    """[(interface, IPv4)] from the kernel (stdlib only), or None where unsupported."""
+    try:
+        import fcntl
+        import struct
+        names = sorted(os.listdir('/sys/class/net'))
+    except (ImportError, OSError):
+        return None
+    out = []
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        for name in names:
+            try:
+                packed = fcntl.ioctl(probe.fileno(), 0x8915, struct.pack('256s', name[:15].encode()))  # SIOCGIFADDR
+            except OSError:
+                continue  # no IPv4 address on this interface
+            out.append((name, socket.inet_ntoa(packed[20:24])))
+    return out
+
+
+def windows_lan_address():
+    """From inside WSL: the Windows host's LAN IPv4 (the one with a default gateway), or None."""
+    try:
+        out = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
+                              '(Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway}).IPv4Address.IPAddress'],
+                             capture_output=True, text=True, timeout=8, stdin=subprocess.DEVNULL).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.splitlines():
+        address = line.strip()
+        if is_private(address) and address != WSL_DNS_ADDRESS:
+            return address
+    return None
+
+
+def classify_network(interfaces, wsl, fallback=(), windows_ip=None):
+    """Decide which addresses phones can use.
+
+    interfaces: [(name, ipv4)] or None if unknown; fallback: addresses from
+    elsewhere (the Godot server) used when interfaces is None. Returns
+    {'lan': [joinable addresses, best first], 'wsl': bool, 'mode': None |
+    'nat' | 'mirrored', 'internal': [WSL-only addresses], 'windows_ip': ...}.
+    WSL 2 in NAT mode sits behind a private virtual switch (172.16-31 on eth0):
+    phones can't reach it, so nothing is joinable there.
+    """
+    if interfaces is None:
+        interfaces = [('?', address) for address in fallback]
+    private = [(name, ip) for name, ip in interfaces
+               if is_private(ip) and ip != WSL_DNS_ADDRESS and not ip.startswith('127.')]
+    lan = []
+    for _, ip in private:
+        if ip not in lan:
+            lan.append(ip)
+    result = {'lan': lan, 'wsl': bool(wsl), 'mode': None, 'internal': [], 'windows_ip': windows_ip}
+    if not wsl:
+        return result
+    home = [ip for _, ip in private if ip.startswith('192.168.') or ip.startswith('10.')]
+    nat = [ip for name, ip in private if name == 'eth0' and ip.startswith('172.') and is_private(ip)]
+    mirrored = windows_ip is not None and windows_ip in lan  # WSL sees the Windows adapters themselves
+    if not mirrored and not home and nat:
+        result.update(mode='nat', lan=[], internal=nat)
+    else:
+        result['mode'] = 'mirrored'
+        if windows_ip and windows_ip in lan:  # the Wi-Fi/Ethernet adapter Windows routes through
+            lan.remove(windows_ip)
+            lan.insert(0, windows_ip)
+    return result
+
+
+def detect_network():
+    """Once at start-up (asking Windows for its address takes a moment)."""
+    wsl = is_wsl()
+    interfaces = linux_interfaces() if platform.system() == 'Linux' else None
+    network = classify_network(interfaces, wsl, (), windows_lan_address() if wsl else None)
+    network['source'] = 'interfaces' if interfaces is not None else 'server'
+    return network
+
+
+def network_for(base, server_addresses):
+    """The joinable addresses, best first. Without an interface list (Windows,
+    macOS) the server's own list is used, led by the default-route address."""
+    if base.get('source') == 'interfaces':
+        network = dict(base, lan=list(base['lan']))
+    else:
+        network = classify_network(None, base.get('wsl', False), server_addresses or (), base.get('windows_ip'))
+        network['source'] = base.get('source')
+    best = primary_address()
+    if not network['wsl'] and best and best != WSL_DNS_ADDRESS:
+        if best in network['lan']:
+            network['lan'].remove(best)
+        network['lan'].insert(0, best)
+    return network
+
+
 def udp_port_free(port):
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -563,7 +671,7 @@ class Station:
                     'exit_code': self.exit_code,
                     'log_tail': list(self.log)[-25:] if self.state == 'crashed' else [],
                     'uptime': round(time.time() - self.started_at, 1) if self.state in ('starting', 'running') else 0,
-                    'primary_address': primary_address(),
+                    'network': network_for(self.options.network, (self.status or {}).get('addresses')),
                     'public_address': self.options.public_address,
                     'firewall': self.options.firewall,
                     'os': platform.system(),
@@ -653,33 +761,99 @@ class PanelHandler(BaseHTTPRequestHandler):
 
 # --- Main ----------------------------------------------------------------------------
 
+WSL_CONFIG_FIX = ['[wsl2]', 'networkingMode=mirrored']
+
+
+def wsl_fix_steps(windows_checkout=True):
+    """The steps that make a WSL 2 server reachable from phones (console and docs agree)."""
+    steps = [
+        ('In Windows, add these two lines to %UserProfile%\\.wslconfig (create the file if needed):', WSL_CONFIG_FIX),
+        ('In PowerShell opened with "Run as administrator", allow inbound traffic to WSL and the game ports:',
+         [HYPERV_FIREWALL_RULE, FIREWALL_RULE]),
+        ('Restart WSL from PowerShell, then start the server again:', ['wsl --shutdown']),
+    ]
+    return steps
+
+
+def print_wsl_nat_box(console, network):
+    p = console.paint
+    width = 74
+    bar = p('│', '33')
+    console.line('  ' + p('┌' + '─' * width + '┐', '33'))
+
+    def row(text='', *codes):
+        console.line('  ' + bar + ' ' + p(text.ljust(width - 2), *codes) + ' ' + bar)
+
+    row('WSL is in NAT mode, so phones can\'t reach this server.', '1', '33')
+    internal = ', '.join(network['internal']) or 'a 172.x address'
+    row(f'Its address ({internal}) exists only inside this PC. The server still runs,')
+    row('so you can test it here, but to play with phones:')
+    row()
+    number = 1
+    for text, commands in wsl_fix_steps():
+        for index, chunk in enumerate(_wrap(text, width - 6)):
+            row((f'{number}. ' if index == 0 else '   ') + chunk)
+        for command in commands:
+            for index, chunk in enumerate(_wrap(command, width - 8)):
+                row('     ' + chunk, '1')
+        number += 1
+    if network.get('windows_ip'):
+        row(f'Phones then join {network["windows_ip"]}, this PC\'s Wi-Fi address.')
+    row()
+    row('Or skip WSL: install Python for Windows, clone the project in Windows')
+    row('and run  py tools\\host_station.py  from there.')
+    console.line('  ' + p('└' + '─' * width + '┘', '33'))
+
+
+def _wrap(text, width):
+    words, lines, line = text.split(' '), [], ''
+    for word in words:
+        if line and len(line) + 1 + len(word) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = f'{line} {word}' if line else word
+    lines.append(line)
+    out = []
+    for line in lines:  # hard-split anything longer than a row (long commands)
+        while len(line) > width:
+            out.append(line[:width])
+            line = line[width:]
+        out.append(line)
+    return out
+
+
 def print_summary(console, status, options, panel_url):
-    best = primary_address()
-    addresses = list(status.get('addresses') or [])
-    if best and best in addresses:
-        addresses.remove(best)
-        addresses.insert(0, best)
-    elif best:
-        addresses.insert(0, best)
+    network = network_for(options.network, status.get('addresses'))
+    addresses = network['lan']
     p = console.paint
     console.line()
     console.line('  ' + p('DRIFT STATION', '1', '96') + p(f'  dedicated server  v{status.get("version", "?")}', '2'))
     console.line('  ' + p('─' * 58, '2'))
     console.line(f'  Station   {p(status.get("room_name", ""), "1")}')
-    console.line('  Phones on the same Wi-Fi: open Drift Station, the station is under')
-    console.line('  ' + p('Nearby stations', '1') + '. Or type this address:')
-    console.line()
-    if addresses:
-        rows = big_text(addresses[0])
-        if rows:
-            for row in rows:
-                console.line('    ' + p(row, '96'))
-        else:
-            console.line('    ' + p(addresses[0], '1', '96'))
-        if len(addresses) > 1:
-            console.line('    ' + p('also ' + ', '.join(addresses[1:]), '2'))
+    if network['mode'] == 'nat':
+        console.line()
+        print_wsl_nat_box(console, network)
     else:
-        console.warn('No Wi-Fi or LAN address found. Connect this computer to the same network as the phones.')
+        console.line('  Phones on the same Wi-Fi: open Drift Station, the station is under')
+        console.line('  ' + p('Nearby stations', '1') + '. Or type this address:')
+        console.line()
+        if addresses:
+            rows = big_text(addresses[0])
+            if rows:
+                for row in rows:
+                    console.line('    ' + p(row, '96'))
+            else:
+                console.line('    ' + p(addresses[0], '1', '96'))
+            if len(addresses) > 1:
+                console.line('    ' + p('also ' + ', '.join(addresses[1:]), '2'))
+        else:
+            console.warn('No Wi-Fi or LAN address found. Connect this computer to the same network as the phones.')
+        if network['mode'] == 'mirrored':
+            console.warn('Running in WSL (mirrored networking). If phones can\'t connect, allow inbound traffic')
+            console.line('    to WSL once, in PowerShell opened with "Run as administrator":')
+            console.line('    ' + p(HYPERV_FIREWALL_RULE, '1'))
+            console.line('    ' + p(FIREWALL_RULE, '1'))
     if options.public_address:
         console.line(f'    Internet (tunnel): {p(options.public_address, "1")}  (forward UDP {GAME_PORT})')
     console.line()
@@ -699,6 +873,17 @@ def print_summary(console, status, options, panel_url):
         console.warn(note)
     console.line()
     console.info(p('Live events:', '2'))
+
+
+def open_browser(url, wsl):
+    """WSL has no browser of its own: open the panel in Windows (WSL forwards localhost)."""
+    if wsl:
+        try:
+            subprocess.run(['cmd.exe', '/c', 'start', '', url], capture_output=True, timeout=10, stdin=subprocess.DEVNULL)
+            return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    webbrowser.open(url)
 
 
 def parse_args(argv=None):
@@ -738,7 +923,12 @@ def main(argv=None):
         console.error(str(exc))
         return 1
     options.firewall = {'os': platform.system(), 'state': 'unknown', 'command': None, 'notes': []}
-    if not options.test_mode:
+    options.network = detect_network()
+    if options.network['wsl']:
+        # Linux runs inside Windows here: the Windows (and Hyper-V) firewall is what phones meet.
+        options.firewall = {'os': 'WSL', 'state': 'unknown', 'command': FIREWALL_RULE,
+                            'hyperv_command': HYPERV_FIREWALL_RULE, 'notes': []}
+    elif not options.test_mode:
         options.firewall = firewall_check()
 
     station = Station(engine, options.project.resolve(), options, console)
@@ -769,7 +959,7 @@ def main(argv=None):
         console.info('Starting the Drift Station server...')
     station.start()
     if not options.no_browser:
-        threading.Timer(0.6, webbrowser.open, [panel_url]).start()
+        threading.Timer(0.6, open_browser, [panel_url, options.network['wsl']]).start()
 
     stopping = threading.Event()
     interrupts = []
