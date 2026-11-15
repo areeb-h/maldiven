@@ -21,7 +21,11 @@ var camera: Camera3D
 var attrs: CameraAttributesPractical
 ## Everything a shot adds goes under this node; it is freed before the next shot.
 var set_root: Node3D
+## The crew stand under a CharacterBody3D, as in gameplay (CrewMember), so the
+## VFX treat items they hold as carried rather than lying on the floor.
+var cast_root: CharacterBody3D
 var _models: Array[CrewModel] = []
+var _extras: Array[Node] = []  # shot nodes parented outside set_root (e.g. into sockets)
 var _env_defaults: Dictionary = {}
 
 
@@ -63,9 +67,18 @@ func begin_shot(power: String, seed_value: int) -> void:
 	if set_root != null and is_instance_valid(set_root):
 		set_root.free()
 	_models.clear()
+	for node in _extras:
+		if is_instance_valid(node):
+			node.free()
+	_extras.clear()
 	set_root = Node3D.new()
 	set_root.name = "Set"
 	add_child(set_root)
+	cast_root = CharacterBody3D.new()
+	cast_root.name = "Cast"
+	cast_root.collision_layer = 0
+	cast_root.collision_mask = 0
+	set_root.add_child(cast_root)
 	station.set_state(power, 0.0)
 	station.set_airlock_state("idle")
 	for key in _env_defaults:
@@ -85,7 +98,7 @@ func crew(color_key: String, pos: Vector3, yaw_deg: float, expression := "neutra
 	var m := CrewModel.build(COLORS[color_key], variant, number)
 	m.position = pos
 	m.rotation.y = deg_to_rad(yaw_deg)
-	set_root.add_child(m)
+	cast_root.add_child(m)
 	m.set_expression(expression)
 	_models.append(m)
 	return m
@@ -215,6 +228,12 @@ func fly(node: Node3D, from: Vector3, to: Vector3, arc: float, frames: int, spin
 		await get_tree().process_frame
 
 
+## Keeps the recoil pose of a play_hit() but drops its red "you were shot" rim
+## flash (for knock-backs that are not gunfire). Call after the last pose step.
+func clear_hit_flash(m: CrewModel) -> void:
+	m.set("_hit_t", -1.0)
+
+
 ## Lets faces, lamps and hit flashes settle, then freezes every model so the
 ## frame holds still while the slow software renderer catches up.
 func freeze_crew() -> void:
@@ -238,6 +257,19 @@ func hold(anchor: Node3D, kind: String) -> Node3D:
 	return node
 
 
+## Seats an item in a socket exactly as gameplay does (so its fx know it is
+## socketed, not lying on the floor). Removed again by the next begin_shot().
+func seat_item(socket_id: String, kind: String) -> Node3D:
+	var socket := sockets[socket_id] as SocketVisual
+	var node := Props.make_item(kind)
+	socket.add_child(node)
+	node.transform = socket.get_seat_transform()
+	_extras.append(node)
+	if kind == "core" or kind == "cell":
+		vfx.attach_item_fx(node, kind)
+	return node
+
+
 ## Places a loose item in the world. Cells and cores get their glow fx.
 func place_item(kind: String, xf: Transform3D, with_fx := true) -> Node3D:
 	var node := Props.make_item(kind)
@@ -251,7 +283,8 @@ func place_item(kind: String, xf: Transform3D, with_fx := true) -> Node3D:
 # --- lights -------------------------------------------------------------------------
 
 ## Spot light aimed from `pos` at `target`. Rims and fills keep shadows off.
-func spot(pos: Vector3, target: Vector3, color: Color, energy: float, angle := 30.0, reach := 12.0, shadows := false) -> SpotLight3D:
+## `specular` < 1 keeps a frontal key from washing out the glossy visor.
+func spot(pos: Vector3, target: Vector3, color: Color, energy: float, angle := 30.0, reach := 12.0, shadows := false, specular := 1.0) -> SpotLight3D:
 	var l := SpotLight3D.new()
 	set_root.add_child(l)
 	l.look_at_from_position(pos, target, Vector3.UP if absf((target - pos).normalized().y) < 0.98 else Vector3.FORWARD)
@@ -263,7 +296,7 @@ func spot(pos: Vector3, target: Vector3, color: Color, energy: float, angle := 3
 	l.spot_attenuation = 1.0
 	l.shadow_enabled = shadows
 	l.shadow_blur = 1.5
-	l.light_specular = 1.0
+	l.light_specular = specular
 	return l
 
 

@@ -2,6 +2,26 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · character-v3
+
+Commit `7f1781a` · studio/station renders · 22 frames · [folder](2026-11-15-character-v3/)
+
+Owner feedback pass (roundness, surface smoothness, limbs, suit and helmet upgrade): curved wraparound armour with two-piece sculpted thighs, domed knee and elbow caps, smoother 14–16-sided limbs, continuous engraved panel lines, a shaped torso with an off-white abdominal plate, curved hip tassets and backpack, a layered helmet with bezel glow, ear pods and a brow, and ghost legs that dissolve below the knee. About 19k triangles, 2 draw calls. Hands are still the built-in gloves; the dedicated CrewHand comes next.
+
+| | |
+| --- | --- |
+| ![faces all](2026-11-15-character-v3/00_faces_all.jpg)<br>faces all | ![quarter](2026-11-15-character-v3/01_quarter.jpg)<br>quarter |
+| ![legs](2026-11-15-character-v3/02_legs.jpg)<br>legs | ![front](2026-11-15-character-v3/03_front.jpg)<br>front |
+| ![side](2026-11-15-character-v3/04_side.jpg)<br>side | ![back](2026-11-15-character-v3/05_back.jpg)<br>back |
+| ![helmet](2026-11-15-character-v3/06_helmet.jpg)<br>helmet | ![visor](2026-11-15-character-v3/07_visor.jpg)<br>visor |
+| ![run strip](2026-11-15-character-v3/08_run_strip.jpg)<br>run strip | ![walk strip](2026-11-15-character-v3/09_walk_strip.jpg)<br>walk strip |
+| ![states](2026-11-15-character-v3/10_states.jpg)<br>states | ![carry](2026-11-15-character-v3/11_carry.jpg)<br>carry |
+| ![aim](2026-11-15-character-v3/12_aim.jpg)<br>aim | ![action](2026-11-15-character-v3/13_action.jpg)<br>action |
+| ![stunned](2026-11-15-character-v3/14_stunned.jpg)<br>stunned | ![ghost](2026-11-15-character-v3/15_ghost.jpg)<br>ghost |
+| ![macro knee](2026-11-15-character-v3/16_macro_knee.jpg)<br>macro knee | ![macro elbow](2026-11-15-character-v3/17_macro_elbow.jpg)<br>macro elbow |
+| ![joints legs](2026-11-15-character-v3/18_joints_legs.jpg)<br>joints legs | ![variants back](2026-11-15-character-v3/19_variants_back.jpg)<br>variants back |
+| ![backs lowlight](2026-11-15-character-v3/20_backs_lowlight.jpg)<br>backs lowlight | ![distance](2026-11-15-character-v3/21_distance.jpg)<br>distance |
+
 ## 2026-11-15 · gameplay-v1
 
 Commit `55eab36` · studio/station renders · 13 frames · [folder](2026-11-15-gameplay-v1/)

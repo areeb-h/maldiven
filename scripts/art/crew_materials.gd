@@ -15,6 +15,7 @@ const _SKIN := """
 uniform mat4 bones[23];
 varying flat float v_id;
 varying flat float v_bone;
+varying float v_model_y;
 
 void vertex() {
 	int a = int(CUSTOM0.x + 0.5);
@@ -26,6 +27,7 @@ void vertex() {
 	BINORMAL = normalize((m * vec4(BINORMAL, 0.0)).xyz);
 	v_id = CUSTOM0.w;
 	v_bone = CUSTOM0.x;
+	v_model_y = VERTEX.y;
 }
 """
 
@@ -320,6 +322,7 @@ void fragment() {
 
 const _GHOST_FRAGMENT := """
 uniform float ghost_alpha = 1.0;
+const vec2 GHOST_FADE = vec2(0.3, 0.78);
 
 void fragment() {
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
@@ -334,7 +337,11 @@ void fragment() {
 	ROUGHNESS = 0.4;
 	SPECULAR = 0.2;
 	EMISSION = c * (fres * 2.6 + 0.12 + scan * 0.12 + band * 0.9 + glow_part * 2.5);
-	ALPHA = clamp((0.07 + fres * 0.75 + band * 0.25 + glow_part * 0.5) * ghost_alpha, 0.0, 1.0);
+	// The legs dissolve into a glowing wisp instead of ending in solid boots.
+	float wisp = smoothstep(GHOST_FADE.x, GHOST_FADE.y, v_model_y);
+	float seam = exp(-pow((v_model_y - GHOST_FADE.x - 0.06) * 18.0, 2.0)) * (0.6 + 0.4 * sin(TIME * 4.0 + v_model_y * 40.0));
+	EMISSION = EMISSION * wisp + c * seam * 1.5;
+	ALPHA = clamp((0.07 + fres * 0.75 + band * 0.25 + glow_part * 0.5) * ghost_alpha * wisp + seam * 0.35, 0.0, 1.0);
 }
 """
 

@@ -106,17 +106,6 @@ static func shear_basis(k: float) -> Basis:
 	return Basis(Vector3(1, 0, 0), Vector3(0, 1, -k), Vector3(0, 0, 1))
 
 
-## Wraps a box (x = across, y = along the limb, z = thickness) around a vertical limb
-## axis: the box spans `span` radians, and its mid-thickness sits at
-## radius_fn(t) (t = 0 at the bottom, 1 at the top), so the shell follows the taper.
-static func limb_wrap(width: float, height: float, span: float, radius_fn: Callable) -> Callable:
-	return func(p: Vector3) -> Vector3:
-		var t := clampf(p.y / height + 0.5, 0.0, 1.0)
-		var a := p.x / (width * 0.5) * (span * 0.5)
-		var r: float = float(radius_fn.call(t)) + p.z
-		return Vector3(sin(a) * r, p.y, cos(a) * r)
-
-
 static func taper(bottom: float, top: float, half_h: float, bottom_z := -1.0, top_z := -1.0) -> Callable:
 	var bz := bottom if bottom_z < 0.0 else bottom_z
 	var tz := top if top_z < 0.0 else top_z

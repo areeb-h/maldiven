@@ -39,6 +39,8 @@ var camera: Camera3D
 var avatar: Node3D
 var flashlight: SpotLight3D
 var vfx: Node
+var exp_hide_labels := false
+var exp_shadow_mesh := false
 
 
 func _initialize() -> void:
@@ -62,6 +64,10 @@ func _run() -> void:
 			measure = true
 		elif args[i] == "--no-overview":
 			overview = false
+		elif args[i] == "--exp-hide-labels":
+			exp_hide_labels = true
+		elif args[i] == "--exp-shadow-mesh":
+			exp_shadow_mesh = true
 	DirAccess.make_dir_recursive_absolute(out)
 	root.use_debanding = true
 	world = Node3D.new()
@@ -71,6 +77,35 @@ func _run() -> void:
 	station = StationBuilder.build(world)
 	print("BUILD_MS ", Time.get_ticks_msec() - t0)
 	_place_gameplay_props()
+	if exp_hide_labels:
+		for l in station.find_children("*", "Label3D", true, false):
+			(l as Label3D).visible = false
+	if exp_shadow_mesh:
+		for mi in station.find_children("*", "MeshInstance3D", true, false):
+			var am := (mi as MeshInstance3D).mesh as ArrayMesh
+			if am == null or am.get_surface_count() < 3:
+				continue
+			var verts := PackedVector3Array()
+			for si in am.get_surface_count():
+				var mat := am.surface_get_material(si)
+				if mat is ShaderMaterial and (mat as ShaderMaterial).shader.code.find("energies") >= 0:
+					continue
+				if am.surface_get_material(si) is ShaderMaterial and (mat as ShaderMaterial).shader.code.find("blend_") >= 0:
+					continue
+				var arr := am.surface_get_arrays(si)
+				var sv: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+				var aabb := AABB(sv[0], Vector3.ZERO)
+				for v in sv:
+					aabb = aabb.expand(v)
+				if aabb.size.y < 0.4:
+					continue
+				verts.append_array(sv)
+			var sm := ArrayMesh.new()
+			var a := []
+			a.resize(Mesh.ARRAY_MAX)
+			a[Mesh.ARRAY_VERTEX] = verts
+			sm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+			am.shadow_mesh = sm
 	pivot = Node3D.new()
 	pivot.top_level = true
 	world.add_child(pivot)
