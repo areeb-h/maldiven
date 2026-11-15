@@ -14,6 +14,7 @@ Needs Python 3.11+ and nothing else. See docs/hosting.md.
 import argparse
 import collections
 import getpass
+import ipaddress
 import json
 import os
 import platform
@@ -314,6 +315,101 @@ def existing_panel(port):
         return b'"drift-station"' in data
     except OSError:
         return False
+
+
+# --- Public tunnel address (mirrors scripts/net_address.gd) ----------------------
+
+_ADDRESS_ERRORS = {
+    'empty': "Give the tunnel's address, like abc.playit.gg:12345.",
+    'bad_port': 'The port after the colon must be a number from 1 to 65535, like abc.playit.gg:12345.',
+    'bad_ipv6': 'That IPv6 address is missing its closing bracket.',
+    'bad_host': 'Use an IP like 203.0.113.7:24600, or a name with a port like abc.playit.gg:12345.',
+}
+
+
+def _port_number(text):
+    return int(text) if text.isdigit() and 1 <= int(text) <= 65535 else -1
+
+
+def _is_ip(host):
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_hostname(host):
+    if host == 'localhost':
+        return True
+    if len(host) > 253:
+        return False
+    labels = host.split('.')
+    if all(label.isdigit() for label in labels):
+        return False  # e.g. 192.168.1.300: a typo, not a name
+    if len(labels) < 2:
+        return False
+    allowed = set('abcdefghijklmnopqrstuvwxyz0123456789-')
+    return all(label and len(label) <= 63 and not label.startswith('-') and not label.endswith('-')
+               and set(label.lower()) <= allowed for label in labels)
+
+
+def parse_address(text, default_port=GAME_PORT):
+    """What a player could type into Join by IP: {ok, host, port, error} (same rules as NetAddress.parse)."""
+    clean = str(text or '').strip()
+    for prefix in ('udp://', 'enet://', 'http://', 'https://'):
+        if clean.lower().startswith(prefix):
+            clean = clean[len(prefix):]
+    clean = clean.rstrip('/').strip()
+    fail = lambda error: {'ok': False, 'host': '', 'port': 0, 'error': error}  # noqa: E731
+    if not clean:
+        return fail('empty')
+    host, port = clean, default_port
+    if clean.startswith('['):
+        close = clean.find(']')
+        if close < 0:
+            return fail('bad_ipv6')
+        host, rest = clean[1:close], clean[close + 1:]
+        if rest:
+            if not rest.startswith(':') or _port_number(rest[1:]) < 0:
+                return fail('bad_port')
+            port = _port_number(rest[1:])
+    elif clean.count(':') == 1:
+        host, raw = clean.split(':')
+        if _port_number(raw) < 0:
+            return fail('bad_port')
+        port = _port_number(raw)
+    if not host:
+        return fail('empty')
+    if _is_ip(host) or _is_hostname(host):
+        return {'ok': True, 'host': host, 'port': port, 'error': ''}
+    return fail('bad_host')
+
+
+def format_address(parsed):
+    """host:port as a player types it (IPv6 in brackets)."""
+    host = f'[{parsed["host"]}]' if ':' in parsed['host'] else parsed['host']
+    return f'{host}:{parsed["port"]}'
+
+
+def public_address_arg(text):
+    parsed = parse_address(text)
+    if not parsed['ok']:
+        raise argparse.ArgumentTypeError(_ADDRESS_ERRORS.get(parsed['error'], 'Not an address.'))
+    return format_address(parsed)
+
+
+def playit_detected():
+    """Best effort, offline: is the playit.gg agent installed or configured here?"""
+    if shutil.which('playit') or shutil.which('playit-cli') or shutil.which('playit.exe'):
+        return True
+    home = Path.home()
+    candidates = [home / '.config' / 'playit_gg' / 'playit.toml', home / '.config' / 'playit' / 'playit.toml',
+                  Path('/etc/playit/playit.toml'), home / 'Library' / 'Application Support' / 'playit_gg' / 'playit.toml']
+    for variable in ('LOCALAPPDATA', 'APPDATA', 'ProgramData'):
+        if os.environ.get(variable):
+            candidates.append(Path(os.environ[variable]) / 'playit_gg' / 'playit.toml')
+    return any(path.is_file() for path in candidates)
 
 
 # --- Firewall ------------------------------------------------------------------
@@ -701,6 +797,8 @@ class Station:
                     'uptime': round(time.time() - self.started_at, 1) if self.state in ('starting', 'running') else 0,
                     'network': network_for(self.options.network, (self.status or {}).get('addresses')),
                     'public_address': self.options.public_address,
+                    'public_label': self.options.public_label,
+                    'playit_detected': self.options.playit_detected,
                     'firewall': self.options.firewall,
                     'os': platform.system(),
                 },
@@ -819,11 +917,11 @@ def print_wsl_nat_box(console, network):
     width = 72
     console.line('  ' + p('┌' + '─' * width + '┐', '33'))
 
-    def row(text='', *codes, indent=''):
-        for index, chunk in enumerate(_wrap(text, width - 2 - len(indent)) if text else ['']):
-            line = (indent if index else '') + chunk if indent else chunk
-            if index and indent:
-                line = ' ' * len(indent) + chunk
+    def row(text='', *codes, hang=0, lead=0):
+        """One boxed paragraph: every line indents by `lead`, continuation lines by `hang` more."""
+        chunks = _wrap(text, width - 2 - hang - lead) if text else ['']
+        for index, chunk in enumerate(chunks):
+            line = ' ' * lead + (' ' * hang if index else '') + chunk
             console.line('  ' + p('│', '33') + ' ' + p(line.ljust(width - 2), *codes) + ' ' + p('│', '33'))
 
     tailnet = network.get('tailscale') or []
@@ -834,15 +932,19 @@ def print_wsl_nat_box(console, network):
     row()
     number = 1
     if tailnet:
-        row(f'{number}. Tailscale (shown above): phones with Tailscale on the same account join by IP.', indent='   ')
+        row(f'{number}. Tailscale (shown above): phones with Tailscale on the same account join by IP.', hang=3)
         number += 1
-    row(f'{number}. Run the server on Windows itself: install Python for Windows, get the project in '
-        f'a Windows folder and run  {WINDOWS_RUN}  there. Allow the game ports once (command below); '
-        'Nearby stations then works too.', indent='   ')
+    if network.get('public_address'):
+        row(f'{number}. The internet tunnel (shown above): anyone joins by IP with that address.', hang=3)
+        number += 1
+    row(f'{number}. Run the server on Windows itself: install Python for Windows, get the project in a '
+        'Windows folder and run there:', hang=3)
+    row(WINDOWS_RUN, '1', lead=6)
+    row('Allow the game ports once (command below). Nearby stations then works too.', lead=3)
     number += 1
-    row(f'{number}. Or let a phone host: open Drift Station on a phone and tap Host.', indent='   ')
+    row(f'{number}. Or let a phone host: open Drift Station on a phone and tap Host.', hang=3)
     number += 1
-    row(f'{number}. Advanced: WSL mirrored networking (steps below). It {MIRRORED_WARNING}.', indent='   ')
+    row(f'{number}. Advanced: WSL mirrored networking (steps below). It {MIRRORED_WARNING}.', hang=3)
     console.line('  ' + p('└' + '─' * width + '┘', '33'))
     console.line()
     console.line('  Windows firewall rule for a Windows-native server (PowerShell as administrator):')
@@ -882,6 +984,27 @@ def _wrap(text, width):
     return out
 
 
+PUBLIC_NOTE = 'anyone, no app needed'
+
+
+def public_lines(options):
+    """The internet join option (or the playit hint) for the console."""
+    if getattr(options, 'public_address', None):
+        label = getattr(options, 'public_label', None) or 'Internet'
+        return [f'{label} ({PUBLIC_NOTE}): {options.public_address}',
+                'Friends type it into Join by IP. It goes through the tunnel, so expect a little extra lag.']
+    if getattr(options, 'playit_detected', False):
+        return ["playit agent detected: add --public-address with your tunnel's address (see docs/hosting.md)."]
+    return []
+
+
+def print_public(console, options):
+    lines = public_lines(options)
+    for index, line in enumerate(lines):
+        console.line('    ' + (console.paint(line, '1') if index == 0 and options.public_address else
+                               console.paint(line, '2') if index else line))
+
+
 def print_summary(console, status, options, panel_url):
     network = network_for(options.network, status.get('addresses'))
     addresses = network['lan']
@@ -900,7 +1023,10 @@ def print_summary(console, status, options, panel_url):
             console.line(f'    Tailscale: {tailscale[0]}  ({TAILSCALE_NOTE})')
             console.line('    ' + p('Nearby stations doesn\'t work over Tailscale: use Join by IP.', '2'))
             console.line()
-        print_wsl_nat_box(console, network)
+        if public_lines(options):
+            print_public(console, options)
+            console.line()
+        print_wsl_nat_box(console, dict(network, public_address=options.public_address))
     else:
         if addresses:
             console.line('  Phones on the same Wi-Fi: open Drift Station, the station is under')
@@ -919,13 +1045,12 @@ def print_summary(console, status, options, panel_url):
             console.line(f'    Tailscale: {p(address, "1")}  ({TAILSCALE_NOTE})')
         if tailscale:
             console.line('    ' + p('Nearby stations doesn\'t work over Tailscale: use Join by IP.', '2'))
+        print_public(console, options)
         if network['mode'] == 'mirrored':
             console.warn('Running in WSL (mirrored networking). If phones can\'t connect, allow inbound traffic')
             console.line('    to WSL once, in PowerShell opened with "Run as administrator":')
             console.line('    ' + p(HYPERV_FIREWALL_RULE, '1'))
             console.line('    ' + p(FIREWALL_RULE, '1'))
-    if options.public_address:
-        console.line(f'    Internet (tunnel): {p(options.public_address, "1")}  (forward UDP {GAME_PORT})')
     console.line()
     console.line(f'  Control panel  {p(panel_url, "4", "96")}')
     console.line(f'  Game ports     UDP {GAME_PORT} (play), UDP {DISCOVERY_PORT} (Nearby stations)')
@@ -963,7 +1088,10 @@ def parse_args(argv=None):
     parser.add_argument('--auto-lobby', type=float, default=45, metavar='SECONDS',
                         help='Return everyone to the lobby this long after a round ends (0 = only from the panel; default 45)')
     parser.add_argument('--http-port', type=int, default=PANEL_PORT, help=f'Control panel port on 127.0.0.1 (default {PANEL_PORT})')
-    parser.add_argument('--public-address', help='Address shown for internet play through a UDP tunnel (display only)')
+    parser.add_argument('--public-address', type=public_address_arg, metavar='HOST:PORT',
+                        help="A public UDP tunnel's address (e.g. playit.gg: abc.playit.gg:12345), shown as a join option")
+    parser.add_argument('--public-label', default='Internet', metavar='TEXT',
+                        help='Name for that join option (default "Internet")')
     parser.add_argument('--no-browser', action='store_true', help="Don't open the control panel in a browser")
     parser.add_argument('--godot', help='Use this Godot 4.7.2 executable instead of the pinned download')
     parser.add_argument('--project', type=Path, default=ROOT, help=argparse.SUPPRESS)
@@ -994,6 +1122,7 @@ def main(argv=None):
         return 1
     options.firewall = {'os': platform.system(), 'state': 'unknown', 'command': None, 'notes': []}
     options.network = detect_network()
+    options.playit_detected = not options.public_address and not options.test_mode and playit_detected()
     if options.network['wsl']:
         # Linux runs inside Windows here: the Windows (and Hyper-V) firewall is what phones meet.
         options.firewall = {'os': 'WSL', 'state': 'unknown', 'command': FIREWALL_RULE,

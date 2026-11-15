@@ -14,7 +14,7 @@
   const $ = (id) => document.getElementById(id);
   const ui = {
     name: $("room-name"), version: $("version"), pill: $("status-pill"), pillText: $("status-text"),
-    address: $("address"), addressMore: $("address-more"), publicAddress: $("public-address"),
+    address: $("address"), addressMore: $("address-more"), 
     qr: $("qr"), qrFigure: $("qr-figure"), copyAddress: $("copy-address"),
     roundTitle: $("round-title"), roundEyebrow: $("round-eyebrow"), clock: $("round-clock"), clockValue: $("round-time"),
     phases: $("phases"), lobby: $("round-lobby"), live: $("round-live"), result: $("round-result"),
@@ -291,29 +291,91 @@
 
   /** The address is the hero: as large as fits on one line (34 px down to 20 px). */
   function fitAddress() {
-    const node = ui.address;
+    fitText(ui.address);
+    fitText($("tailnet-address"));
+    fitText($("public-address"));
+  }
+
+  function fitText(node) {
+    if (!node || node.offsetParent === null) return;
     node.style.fontSize = "";
+    node.classList.remove("is-wrapped");
     let size = parseFloat(getComputedStyle(node).fontSize);
-    while (node.scrollWidth > node.clientWidth + 1 && size > 20) {
+    while (node.scrollWidth > node.clientWidth + 1 && size > 17) {
       size -= 1;
       node.style.fontSize = size + "px";
     }
+    // Never cut a join address short: wrap a long tunnel name instead.
+    if (node.scrollWidth > node.clientWidth + 1) node.classList.add("is-wrapped");
+  }
+
+
+  let shownTailnet = null;
+  /** Tailscale: its own address, copy button and QR. `primary` when it is the way to join. */
+  function renderTailnet(address, primary) {
+    const box = $("tailnet");
+    box.hidden = !address;
+    if (!address) return;
+    box.classList.toggle("is-primary", primary);
+    $("tailnet-eyebrow").textContent = primary ? "Phones with Tailscale on the same account → Join by IP" : "Tailscale · home or away";
+    $("tailnet-note").textContent = primary
+      ? "Works at home or away. Nearby stations doesn't work over Tailscale, so phones use Join by IP."
+      : "Phones with Tailscale on the same account: Join by IP. Nearby stations doesn't work over Tailscale.";
+    if (address === shownTailnet) return;
+    shownTailnet = address;
+    $("tailnet-address").textContent = address;
+    drawQr($("tailnet-qr"), address);
+    requestAnimationFrame(fitAddress);
+  }
+
+  let shownPublic = null;
+  /** A public tunnel (playit.gg or similar): its own labelled card, copy button and QR. */
+  function renderPublic(launcher) {
+    const address = launcher.public_address || null;
+    $("public").hidden = !address;
+    $("playit-hint").hidden = Boolean(address) || !launcher.playit_detected;
+    if (!address) return;
+    $("public-eyebrow").textContent = `${launcher.public_label || "Internet"} · anyone, no app needed`;
+    if (address === shownPublic) return;
+    shownPublic = address;
+    $("public-address").textContent = address;
+    drawQr($("public-qr"), address);
+    requestAnimationFrame(fitAddress);
+  }
+
+  function drawQr(svg, text) {
+    if (!window.DriftQR) return;
+    const code = window.DriftQR.encode(text);
+    svg.setAttribute("viewBox", `0 0 ${code.size} ${code.size}`);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", window.DriftQR.toSvgPath(code));
+    svg.replaceChildren(path);
+    svg.setAttribute("aria-label", "QR code of " + text);
   }
 
   function renderJoin(server, launcher) {
-    // The launcher decides what phones can reach (it knows about WSL); fall back
-    // to the server's list without WSL's DNS loopback.
+    // The launcher decides what phones can reach (it knows about WSL and
+    // Tailscale); fall back to the server's list without WSL's DNS loopback.
     const network = launcher.network || {};
     const addresses = network.lan ? [...network.lan] : (server.addresses || []).filter((a) => a !== "10.255.255.254");
+    const tailscale = network.tailscale || [];
     const nat = network.mode === "nat";
+    const address = nat ? null : addresses[0] || null;
     ui.wslWarning.hidden = !nat;
-    ui.joinAddress.hidden = nat;
     ui.wslNote.hidden = network.mode !== "mirrored";
     ui.tipWsl.hidden = !network.wsl;
+    $("wsl-internal").textContent = (network.internal || []).join(", ") || "172.x";
+    $("wsl-title").textContent = tailscale.length
+      ? "WSL is in NAT mode, so phones on your Wi-Fi can't reach this server"
+      : "WSL is in NAT mode, so phones can't reach this server";
+    $("wsl-opt-tailscale").hidden = !tailscale.length;
     ui.wslAfter.hidden = !(nat && network.windows_ip);
     ui.wslAfter.textContent = nat && network.windows_ip ? `Afterwards phones join ${network.windows_ip}, this PC's Wi-Fi address.` : "";
-    document.querySelector(".join-steps").hidden = nat;
-    const address = nat ? null : addresses[0] || null;
+    // With no LAN address the LAN block goes; Tailscale (if any) becomes the join card.
+    const lanCard = Boolean(address) || (!nat && !tailscale.length);
+    ui.joinAddress.hidden = !lanCard;
+    document.querySelector(".join-steps").hidden = !lanCard;
+    renderTailnet(tailscale[0] || null, !address);
     if (ui.address.textContent !== (address || "No Wi-Fi address")) {
       ui.address.textContent = address || "No Wi-Fi address";
       ui.address.classList.toggle("is-none", !address);
@@ -321,24 +383,15 @@
     }
     ui.copyAddress.hidden = !address;
     ui.qrFigure.hidden = !address;
-    ui.helpAddress.textContent = address || "this computer's IP address";
+    ui.helpAddress.textContent = address || tailscale[0] || "this computer's IP address";
     const more = addresses.slice(1, 4);
     ui.addressMore.hidden = !more.length;
     ui.addressMore.textContent = more.length ? "Other networks: " + more.join(", ") : "";
-    ui.publicAddress.hidden = !launcher.public_address;
-    ui.publicAddress.textContent = launcher.public_address ? `Internet (tunnel): ${launcher.public_address}` : "";
+    renderPublic(launcher);
+    $("wsl-opt-public").hidden = !launcher.public_address;
     if (address !== shownAddress) {
       shownAddress = address;
-      if (address && window.DriftQR) {
-        const code = window.DriftQR.encode(address);
-        const quiet = 0;
-        ui.qr.setAttribute("viewBox", `${-quiet} ${-quiet} ${code.size + quiet * 2} ${code.size + quiet * 2}`);
-        ui.qr.replaceChildren();
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", window.DriftQR.toSvgPath(code));
-        ui.qr.appendChild(path);
-        ui.qr.setAttribute("aria-label", "QR code of " + address);
-      }
+      if (address) drawQr(ui.qr, address);
     }
   }
 

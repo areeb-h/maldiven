@@ -69,12 +69,12 @@ func shot_shove(out: String) -> Error:
 	await wait(3)
 	# The cell spins up and away behind the victim; the impact fires mid-flight.
 	var from := cell.position
-	var to := Vector3(40.75, 1.85, -0.35)
+	var to := Vector3(40.5, 2.0, 1.25)
 	for i in 6:
 		var k := float(i + 1) / 6.0
 		cell.position = from.lerp(to, k) + Vector3(0, 0.3 * 4.0 * k * (1.0 - k), 0)
 		cell.rotation = Vector3(3.2, 5.0, 1.6) * k
-		if i == 4:
+		if i == 5:
 			vfx.burst("shove_impact", Vector3(39.2, 1.3, 0.55), Vector3(1, 0, 0))
 		await get_tree().process_frame
 	return await capture(out, "02_shove.png", 1)
@@ -156,7 +156,7 @@ func shot_airlock(out: String) -> Error:
 	spot(Vector3(-3.8, 2.8, 0.6), Vector3(-5.8, 1.5, 2.35), Color(1.0, 0.55, 0.2), 4.0, 25.0, 5.0)
 	spot(Vector3(-11.2, 2.6, -2.3), Vector3(-12.6, 1.3, -1.45), Color(1.0, 0.12, 0.05), 6.0, 35.0, 4.0)
 	spot(cam + Vector3(0.2, 0.6, 0.4), Vector3(-12.6, 1.5, -1.45), Color(1.0, 0.75, 0.6), 1.2, 30.0, 4.0, false, 0.2)
-	frame(cam, Vector3(-8.6, 1.4, 0.75), 40.0, Vector3(-5.8, 1.65, 2.35), 2.5, 0.08)
+	frame(cam, Vector3(-7.4, 1.45, 1.35), 30.0, Vector3(-5.8, 1.65, 2.35), 2.5, 0.08)
 	station.set_airlock_state("warning")
 	await wait(4)
 	station.set_airlock_state("warning")
@@ -199,15 +199,15 @@ func shot_blackout(out: String) -> Error:
 	begin_shot("blackout", 1010)
 	station.env.fog_density = 0.006
 	var cast := [
-		["white", Vector3(39.7, 0, 0.2), 20.0, "suspicious", 3, 8, Vector3(41.2, 0.0, 3.6)],
-		["blue", Vector3(41.0, 0, -1.3), 8.0, "shocked", 2, 2, Vector3(41.9, 0.0, 2.4)],
-		["orange", Vector3(42.4, 0, -2.9), 32.0, "neutral", 2, 6, Vector3(44.8, 0.3, 0.2)],
+		["white", Vector3(39.4, 0, 0.4), 20.0, "suspicious", 3, 8, Vector3(40.8, 0.0, 3.8)],
+		["blue", Vector3(41.6, 0, -0.6), 12.0, "shocked", 2, 2, Vector3(42.6, 0.0, 3.0)],
+		["orange", Vector3(40.2, 0, -2.4), 28.0, "neutral", 2, 6, Vector3(42.4, 0.3, 0.6)],
 	]
 	for c in cast:
 		var m := crew(c[0], c[1], c[2], c[3], c[4], c[5])
 		pose_stride(m, 1.1, 0.05 + 0.3 * float(_models.size()), false)
 		flashlight(m, c[6], 0.07)
-	frame(Vector3(37.4, 1.05, 2.6), Vector3(40.9, 1.3, -1.2), 44.0, Vector3(39.75, 1.6, 0.2), 2.2, 0.1)
+	frame(Vector3(37.4, 1.05, 2.6), Vector3(40.4, 1.3, -1.0), 46.0, Vector3(39.4, 1.6, 0.4), 2.6, 0.1)
 	return await capture(out, "07_blackout.png", 5)
 
 
@@ -217,11 +217,11 @@ func shot_blackout(out: String) -> Error:
 func shot_shuttle(out: String) -> Error:
 	begin_shot("restored", 1111)
 	attrs.exposure_multiplier = 0.9
-	var cam := Vector3(15.7, 0.42, 4.1)
+	var cam := Vector3(17.0, 0.55, 4.6)
 	var loader := crew("yellow", Vector3(20.0, 0, -0.62), 180.0, "happy", 1, 3)
 	hold(loader, "core")
 	pose(loader, 1.4, 0.0, true)
-	var guard_a := crew("blue", Vector3(17.4, 0, 1.7), 0.0, "happy", 2, 2)
+	var guard_a := crew("blue", Vector3(17.2, 0, 1.0), 0.0, "happy", 2, 2)
 	var guard_b := crew("green", Vector3(21.8, 0, 1.15), 0.0, "angry", 3, 4)
 	face(guard_a, Vector3(cam.x + 1.0, 0, cam.z))
 	face(guard_b, Vector3(25.5, 0, 4.5))

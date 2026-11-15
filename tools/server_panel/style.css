@@ -353,6 +353,26 @@ code { font-family: var(--mono); font-size: 0.86em; background: rgba(95, 212, 25
 .wsl__steps .code { margin-top: 8px; }
 .wsl__alt { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
 .wsl .code code, .tip .code code { white-space: pre-wrap; }
+.tailnet, .public { margin-top: 14px; }
+.address.is-wrapped { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.tailnet:not(.is-primary) .qr__code, .public .qr__code { width: 104px; height: 104px; padding: 7px; }
+.public .address { font-size: 26px; }
+.playit-hint { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; color: var(--muted); }
+.playit-hint .icon { color: var(--accent); width: 18px; height: 18px; margin-top: 1px; }
+.tip__more { margin-top: 10px !important; }
+.tailnet .address { font-size: 28px; }
+.tailnet.is-primary { margin-top: 0; margin-bottom: 14px; border-color: rgba(95, 212, 255, 0.35); background: linear-gradient(160deg, rgba(95, 212, 255, 0.1), var(--inset) 60%); }
+.tailnet.is-primary .address { font-size: 34px; }
+.advanced { border-top: 1px solid rgba(255, 225, 77, 0.2); padding-top: 10px; }
+.advanced summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.advanced summary::-webkit-details-marker { display: none; }
+.advanced summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--amber); border-bottom: 2px solid var(--amber); transform: rotate(-45deg); transition: transform 0.25s var(--ease); }
+.advanced[open] summary::before { transform: rotate(45deg); }
+.advanced > span { display: block; margin-top: 10px; }
+.advanced__warn { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; padding: 10px 12px; border-radius: 9px; background: rgba(255, 77, 94, 0.08); border: 1px solid rgba(255, 77, 94, 0.35); color: #ffd5da; font-size: 15px; }
+.advanced__warn .icon { color: var(--danger); width: 18px; height: 18px; margin-top: 1px; }
+.wsl__steps > li > span { display: block; }
+.wsl__steps > li > span + .code, .wsl__steps .code + span { margin-top: 8px; }
 .wsl-note { margin: 10px 0 0; color: #fff3b8; }
 .link { padding: 0; border: 0; background: none; color: var(--amber); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .btn.has-alert::after { content: ""; position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }

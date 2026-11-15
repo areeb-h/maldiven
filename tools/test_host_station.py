@@ -308,25 +308,77 @@ def unit_tests():
                  dict(hs.classify_network([('lo', '10.255.255.254'), ('eth0', '192.168.3.4')], True), source='interfaces')]:
         got = hs.network_for(base, ['10.255.255.254', '192.168.3.4'])
         check('10.255.255.254' not in got['lan'] and got['lan'][:1] == ['192.168.3.4'], f'network_for: {got}')
-    # The console: NAT mode warns and prints no join address; mirrored shows the LAN IP and the Hyper-V hint.
-    options = argparse.Namespace(public_address=None, firewall={'state': 'unknown', 'notes': []})
-    status = {'version': '0', 'room_name': 'T', 'addresses': ['172.21.39.63', '10.255.255.254']}
-    for interfaces, windows_ip, expect, refuse in [
-            ([('lo', '10.255.255.254'), ('eth0', '172.21.39.63')], '192.168.1.42',
-             ["WSL is in NAT mode, so phones can't reach this server", 'networkingMode=mirrored', 'wsl --shutdown',
-              'Set-NetFirewallHyperVVMSetting', 'localport=24600-24601', 'join 192.168.1.42'], ['█', 'also ']),
-            ([('lo', '10.255.255.254'), ('eth1', '192.168.1.42'), ('eth0', '172.30.1.2')], '192.168.1.42',
-             ['Set-NetFirewallHyperVVMSetting', 'mirrored networking'], ['NAT mode', '10.255.255.254', '172.30.1.2'])]:
-        options.network = dict(hs.classify_network(interfaces, True, (), windows_ip), source='interfaces')
+    # The owner's WSL: NAT plus Tailscale. Tailscale becomes the primary join address.
+    owner = [('lo', '127.0.0.1'), ('lo', '10.255.255.254'), ('eth0', '172.21.39.63'), ('tailscale0', '100.92.33.25')]
+    got = hs.classify_network(owner, True, (), None)
+    check(got['mode'] == 'nat' and got['lan'] == [] and got['tailscale'] == ['100.92.33.25']
+          and got['primary'] == '100.92.33.25', f'NAT + Tailscale: {got}')
+    got = hs.classify_network([('eth0', '192.168.0.10'), ('ts', '100.100.1.2')], False)
+    check(got['lan'] == ['192.168.0.10'] and got['tailscale'] == ['100.100.1.2'] and got['primary'] == '192.168.0.10',
+          f'LAN + Tailscale (CGNAT range, any interface name): {got}')
+    check(hs.classify_network([('eth0', '100.128.0.1')], False)['tailscale'] == [], '100.128/10 is not Tailscale')
+
+    def console(network, **extra):
+        options = argparse.Namespace(public_address=None, public_label='Internet', playit_detected=False,
+                                     firewall={'state': 'unknown', 'notes': []}, network=dict(network, source='interfaces'))
+        vars(options).update(extra)
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             hs.print_summary(hs.Console(machine=True), status, options, 'http://127.0.0.1:24680')
-        text = out.getvalue()
-        for needle in expect:
-            check(needle in text, f'console lacks {needle!r}:\n{text}')
-        for needle in refuse:
-            check(needle not in text, f'console shows {needle!r}:\n{text}')
-    print('  address classification (WSL NAT / mirrored / LAN) ok', flush=True)
+        return out.getvalue()
+
+    def in_order(text, *needles):
+        places = [text.find(needle) for needle in needles]
+        check(all(place >= 0 for place in places) and places == sorted(places),
+              f'console order {needles} -> {places}:\n{text}')
+
+    status = {'version': '0', 'room_name': 'T', 'addresses': ['172.21.39.63', '10.255.255.254']}
+    nat = hs.classify_network([('lo', '10.255.255.254'), ('eth0', '172.21.39.63')], True, (), '192.168.1.42')
+    text = console(nat)
+    check("WSL is in NAT mode, so phones can't reach this server" in text, 'NAT warning missing:\n' + text)
+    for refuse in ('█', 'also ', 'Tailscale:'):
+        check(refuse not in text, f'NAT console shows {refuse!r}:\n{text}')
+    in_order(text, r'py -3 tools\host_station.py', 'let a phone host', 'Advanced: WSL mirrored networking',
+             "Docker Desktop's WSL integration", 'networkingMode=mirrored', 'Set-NetFirewallHyperVVMSetting', 'wsl --shutdown')
+    text = console(hs.classify_network(owner, True, (), None))
+    check('█' in text, 'Tailscale address not shown big in NAT mode')
+    in_order(text, 'Phones with Tailscale', 'Tailscale: 100.92.33.25', "phones on your Wi-Fi can't reach",
+             r'py -3 tools\host_station.py', 'let a phone host', 'networkingMode=mirrored')
+    text = console(hs.classify_network([('lo', '10.255.255.254'), ('eth1', '192.168.1.42'), ('eth0', '172.30.1.2')],
+                                       True, (), '192.168.1.42'))
+    for needle in ('Set-NetFirewallHyperVVMSetting', 'mirrored networking'):
+        check(needle in text, f'mirrored console lacks {needle!r}:\n{text}')
+    for refuse in ('NAT mode', '10.255.255.254', '172.30.1.2'):
+        check(refuse not in text, f'mirrored console shows {refuse!r}:\n{text}')
+
+    # --public-address: same rules as NetAddress.parse; shown as a labelled join option.
+    for raw, shown in [('abc.playit.gg:12345', 'abc.playit.gg:12345'), (' udp://abc.playit.gg:12345/ ', 'abc.playit.gg:12345'),
+                       ('203.0.113.7', '203.0.113.7:24600'), ('[fd7a::1]:24600', '[fd7a::1]:24600'),
+                       ('fd7a:115c::1', '[fd7a:115c::1]:24600'), ('my-pc.tail1234.ts.net:24600', 'my-pc.tail1234.ts.net:24600')]:
+        check(hs.public_address_arg(raw) == shown, f'public address {raw!r} -> {hs.public_address_arg(raw)!r}')
+    for raw, error in [('abc.playit.gg:0', 'bad_port'), ('abc.playit.gg:65536', 'bad_port'), ('abc.playit.gg:x', 'bad_port'),
+                       ('192.168.1.300', 'bad_host'), ('nodots', 'bad_host'), ('', 'empty'), ('[fd7a::1', 'bad_ipv6'),
+                       ('bad_name.example:1', 'bad_host')]:
+        check(hs.parse_address(raw)['error'] == error, f'parse_address({raw!r}) -> {hs.parse_address(raw)}')
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            hs.parse_args(['--public-address', 'abc.playit.gg:99999'])
+            check(False, 'a bad --public-address was accepted')
+        except SystemExit:
+            pass
+    parsed = hs.parse_args(['--public-address', 'abc.playit.gg:12345', '--public-label', 'playit'])
+    check((parsed.public_address, parsed.public_label) == ('abc.playit.gg:12345', 'playit'), f'args: {parsed}')
+    lan = hs.classify_network([('eth0', '192.168.0.10')], False)
+    text = console(lan, public_address='abc.playit.gg:12345')
+    check('Internet (anyone, no app needed): abc.playit.gg:12345' in text, 'public join option missing:\n' + text)
+    check('playit (anyone, no app needed)' in console(lan, public_address='a.playit.gg:1', public_label='playit'),
+          '--public-label not used')
+    in_order(console(hs.classify_network(owner, True, (), None), public_address='abc.playit.gg:12345'),
+             'Tailscale: 100.92.33.25', 'Internet (anyone, no app needed)', "can't reach", 'The internet tunnel')
+    check('playit agent detected' in console(lan, playit_detected=True), 'playit hint missing')
+    check('playit agent detected' not in console(lan, playit_detected=True, public_address='a.playit.gg:1'),
+          'playit hint shown although the address is set')
+    print('  address classification (WSL NAT / mirrored / Tailscale / LAN) and --public-address ok', flush=True)
 
 
 def main():

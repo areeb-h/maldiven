@@ -57,28 +57,6 @@
         <li><span class="join-steps__n">1</span><span>Connect the phones to the <strong>same Wi-Fi</strong> as this computer.</span></li>
         <li><span class="join-steps__n">2</span><span>Open <strong>Drift Station</strong>. Your station appears under <strong>Nearby stations</strong>: tap it.</span></li>
       </ol>
-      <div class="wsl" id="wsl-warning" role="alert" hidden>
-        <p class="wsl__title"><svg class="icon" aria-hidden="true"><use href="#i-warning"/></svg><span>WSL is in NAT mode, so phones can't reach this server</span></p>
-        <p class="wsl__text" id="wsl-text">This server runs inside WSL behind a private virtual network. It still works for testing on this PC; to play with phones, switch WSL to mirrored networking once:</p>
-        <ol class="wsl__steps">
-          <li>
-            <span>In Windows, add these lines to <code>%UserProfile%\.wslconfig</code> (create the file if needed):</span>
-            <div class="code"><code id="wsl-config">[wsl2]
-networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="wsl-config" aria-label="Copy the .wslconfig lines"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-          </li>
-          <li>
-            <span>In PowerShell opened with <strong>Run as administrator</strong>, let phones through to WSL and the game ports:</span>
-            <div class="code"><code id="wsl-hyperv">Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code><button class="icon-btn" type="button" data-copy="wsl-hyperv" aria-label="Copy the Hyper-V firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-            <div class="code"><code id="wsl-netsh">netsh advfirewall firewall add rule name="Drift Station server" dir=in action=allow protocol=UDP localport=24600-24601 profile=private</code><button class="icon-btn" type="button" data-copy="wsl-netsh" aria-label="Copy the firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-          </li>
-          <li>
-            <span>Restart WSL, then start the server again:</span>
-            <div class="code"><code id="wsl-restart">wsl --shutdown</code><button class="icon-btn" type="button" data-copy="wsl-restart" aria-label="Copy the restart command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-          </li>
-        </ol>
-        <p class="wsl__alt" id="wsl-after"></p>
-        <p class="wsl__alt">Or skip WSL: install Python for Windows, put the project in a Windows folder and run <code>py tools\host_station.py</code> there.</p>
-      </div>
       <div class="join-address" id="join-address">
         <div class="join-address__text">
           <span class="eyebrow">Not listed? Join by IP</span>
@@ -89,13 +67,70 @@ networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="
             </button>
           </div>
           <p id="address-more" class="muted small" hidden></p>
-          <p id="public-address" class="muted small" hidden></p>
           <p id="wsl-note" class="wsl-note small" hidden>Running in WSL. If phones can't connect, allow WSL through the firewall: see <button type="button" class="link" id="wsl-note-help">Troubleshooting</button>.</p>
         </div>
         <figure class="qr" id="qr-figure">
           <svg id="qr" class="qr__code" role="img" aria-label="QR code of the address"></svg>
           <figcaption class="muted small">Scan to copy</figcaption>
         </figure>
+      </div>
+      <div class="join-address tailnet" id="tailnet" hidden>
+        <div class="join-address__text">
+          <span class="eyebrow" id="tailnet-eyebrow">Tailscale</span>
+          <div class="address-row">
+            <output id="tailnet-address" class="address">–</output>
+            <button class="icon-btn" type="button" data-copy="tailnet-address" aria-label="Copy the Tailscale address"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+          </div>
+          <p class="muted small" id="tailnet-note">Phones with Tailscale on the same account: tap <strong>Join by IP</strong>. Works away from home too; Nearby stations doesn't work over Tailscale.</p>
+        </div>
+        <figure class="qr">
+          <svg id="tailnet-qr" class="qr__code" role="img" aria-label="QR code of the Tailscale address"></svg>
+          <figcaption class="muted small">Scan to copy</figcaption>
+        </figure>
+      </div>
+      <div class="join-address public" id="public" hidden>
+        <div class="join-address__text">
+          <span class="eyebrow" id="public-eyebrow">Internet · anyone, no app needed</span>
+          <div class="address-row">
+            <output id="public-address" class="address">–</output>
+            <button class="icon-btn" type="button" data-copy="public-address" aria-label="Copy the internet address"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+          </div>
+          <p class="muted small">Friends anywhere type it into <strong>Join by IP</strong>. It goes through the tunnel, so expect a little extra lag.</p>
+        </div>
+        <figure class="qr">
+          <svg id="public-qr" class="qr__code" role="img" aria-label="QR code of the internet address"></svg>
+          <figcaption class="muted small">Scan to copy</figcaption>
+        </figure>
+      </div>
+      <p class="playit-hint small" id="playit-hint" hidden><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span>playit agent detected: start the server with <code>--public-address</code> and your tunnel's address to show it here.</span></p>
+      <div class="wsl" id="wsl-warning" role="alert" hidden>
+        <p class="wsl__title"><svg class="icon" aria-hidden="true"><use href="#i-warning"/></svg><span id="wsl-title">WSL is in NAT mode, so phones can't reach this server</span></p>
+        <p class="wsl__text">This server runs inside WSL behind a private virtual network (<span id="wsl-internal">172.x</span>), so phones on your Wi-Fi can't see it. It still works for testing on this PC. To play with phones:</p>
+        <ol class="wsl__steps">
+          <li id="wsl-opt-tailscale" hidden><strong>Tailscale</strong> (above): phones with Tailscale on the same account join by IP, at home or away.</li>
+          <li id="wsl-opt-public" hidden><strong>Internet tunnel</strong> (above): anyone joins by IP with that address.</li>
+          <li>
+            <span><strong>Run the server on Windows itself.</strong> Install Python for Windows, put the project in a Windows folder and run there:</span>
+            <div class="code"><code id="wsl-windows-run">py -3 tools\host_station.py</code><button class="icon-btn" type="button" data-copy="wsl-windows-run" aria-label="Copy the command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+            <span>Allow the game ports once, in PowerShell opened with <strong>Run as administrator</strong>. Nearby stations then works too.</span>
+            <div class="code"><code id="wsl-netsh">netsh advfirewall firewall add rule name="Drift Station server" dir=in action=allow protocol=UDP localport=24600-24601 profile=private</code><button class="icon-btn" type="button" data-copy="wsl-netsh" aria-label="Copy the firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+          </li>
+          <li><strong>Or let a phone host:</strong> open Drift Station on a phone and tap <strong>Host</strong>.</li>
+          <li>
+            <details class="advanced">
+              <summary><strong>Advanced:</strong> WSL mirrored networking</summary>
+              <p class="advanced__warn"><svg class="icon" aria-hidden="true"><use href="#i-warning"/></svg><span>Mirrored networking can break Docker Desktop's WSL integration and some VPNs. Check before enabling.</span></p>
+              <span>Add to <code>%UserProfile%\.wslconfig</code> in Windows:</span>
+              <div class="code"><code id="wsl-config">[wsl2]
+networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="wsl-config" aria-label="Copy the .wslconfig lines"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+              <span>In PowerShell as administrator:</span>
+              <div class="code"><code id="wsl-hyperv">Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code><button class="icon-btn" type="button" data-copy="wsl-hyperv" aria-label="Copy the Hyper-V firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+              <span>Then the firewall rule above, and restart WSL:</span>
+              <div class="code"><code id="wsl-restart">wsl --shutdown</code><button class="icon-btn" type="button" data-copy="wsl-restart" aria-label="Copy the restart command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+              <p class="wsl__alt" id="wsl-after"></p>
+            </details>
+          </li>
+        </ol>
       </div>
     </section>
 
@@ -224,7 +259,7 @@ networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="
       </section>
       <section class="tip" id="tip-wsl" hidden>
         <h3><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>Running in WSL</h3>
-        <p id="wsl-tip-text">WSL needs mirrored networking (<code>networkingMode=mirrored</code> under <code>[wsl2]</code> in <code>%UserProfile%\.wslconfig</code>, then <code>wsl --shutdown</code>), and Windows' Hyper-V firewall must let phones in. Run once in PowerShell as administrator:</p>
+        <p id="wsl-tip-text">In WSL's default NAT networking, phones on your Wi-Fi can't reach the server. Best options: <strong>Tailscale</strong> (phones on the same account join by IP), running the server from <strong>Windows</strong> with <code>py -3 tools\host_station.py</code>, or letting a <strong>phone host</strong>. WSL's mirrored networking also works but can break Docker Desktop's WSL integration and some VPNs. With mirrored networking, Windows' Hyper-V firewall must let phones in (PowerShell as administrator):</p>
         <div class="code"><code id="tip-hyperv">Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code><button class="icon-btn" type="button" data-copy="tip-hyperv" aria-label="Copy the Hyper-V firewall command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
       </section>
       <section class="tip">
@@ -241,7 +276,9 @@ networkingMode=mirrored</code><button class="icon-btn" type="button" data-copy="
       </section>
       <section class="tip">
         <h3><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>Friends elsewhere</h3>
-        <p>Over the internet you need a UDP tunnel or port forward to UDP 24600 on this computer. Start the server with <code>--public-address</code> to show that address here. Nearby stations only works on the local network.</p>
+        <p><strong>Tailscale</strong> (private, fastest): install it on this computer and the phones, same account, then <strong>Join by IP</strong> with the Tailscale address. <strong>Public tunnel</strong> (anyone, no install), e.g. playit.gg's free tier: run the playit agent (inside WSL too), create a <strong>UDP</strong> tunnel to local port <strong>24600</strong>, then restart the server with:</p>
+        <div class="code"><code id="tip-public">python3 tools/host_station.py --public-address abc.playit.gg:12345</code><button class="icon-btn" type="button" data-copy="tip-public" aria-label="Copy the command"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+        <p class="tip__more">Use your tunnel's own address and port. Friends type it into Join by IP. The address is public, so anyone who has it can join while the station is open; the relay adds a little lag. Nearby stations only works on the local network.</p>
       </section>
       <section class="tip">
         <h3><svg class="icon" aria-hidden="true"><use href="#i-power"/></svg>Stopping</h3>
