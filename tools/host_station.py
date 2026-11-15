@@ -795,7 +795,10 @@ def main(argv=None):
     console.info('Closing the station: telling the phones, then shutting down...')
     station.stop()
     httpd.shutdown()
-    console.info('Done. See you next time.' if not options.test_mode else 'HOST_STATION_STOPPED')
+    if options.test_mode:
+        console.line('HOST_STATION_STOPPED')
+    else:
+        console.info('Done. See you next time.')
     return 0
 
 

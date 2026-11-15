@@ -2,6 +2,24 @@
 
 How Drift Station looks over time, newest first. Gameplay entries come from `python tools/record_looks.py --label <slug> --note "..."`, which plays real bot rounds on a rendered client with the Mobile renderer; `--from-dir` archives studio renders.
 
+## 2026-11-15 · station-v2
+
+Commit `84bb235` · studio/station renders · 18 frames · [folder](2026-11-15-station-v2/)
+
+Station layout and detail pass: a new Observation lounge splits the 48 m service corridor, raised decks with ramps in Cargo and Observation, cover pillars, wall screens, vents and conduits, room plaques and floor arrows, story props per room, small animated details, and 107 props with fitted colliders. Text is merged into mesh geometry and shadows come from the simple collision shapes: Commons gameplay view drops from 45 to 34 draw calls. 'pair_' frames are before/after.
+
+| | |
+| --- | --- |
+| ![overview2 restored](2026-11-15-station-v2/00_overview2_restored.jpg)<br>overview2 restored | ![observation restored](2026-11-15-station-v2/01_observation_restored.jpg)<br>observation restored |
+| ![observation back emergency](2026-11-15-station-v2/02_observation_back_emergency.jpg)<br>observation back emergency | ![commons east restored](2026-11-15-station-v2/03_commons_east_restored.jpg)<br>commons east restored |
+| ![commons west emergency](2026-11-15-station-v2/04_commons_west_emergency.jpg)<br>commons west emergency | ![command restored](2026-11-15-station-v2/05_command_restored.jpg)<br>command restored |
+| ![command side blackout](2026-11-15-station-v2/06_command_side_blackout.jpg)<br>command side blackout | ![cargo north restored](2026-11-15-station-v2/07_cargo_north_restored.jpg)<br>cargo north restored |
+| ![docking restored](2026-11-15-station-v2/08_docking_restored.jpg)<br>docking restored | ![engineering emergency](2026-11-15-station-v2/09_engineering_emergency.jpg)<br>engineering emergency |
+| ![medical west restored](2026-11-15-station-v2/10_medical_west_restored.jpg)<br>medical west restored | ![corridor service blackout](2026-11-15-station-v2/11_corridor_service_blackout.jpg)<br>corridor service blackout |
+| ![airlock emergency](2026-11-15-station-v2/12_airlock_emergency.jpg)<br>airlock emergency | ![pair airlock emergency](2026-11-15-station-v2/13_pair_airlock_emergency.jpg)<br>pair airlock emergency |
+| ![pair cargo north restored](2026-11-15-station-v2/14_pair_cargo_north_restored.jpg)<br>pair cargo north restored | ![pair commons east restored](2026-11-15-station-v2/15_pair_commons_east_restored.jpg)<br>pair commons east restored |
+| ![pair commons west emergency](2026-11-15-station-v2/16_pair_commons_west_emergency.jpg)<br>pair commons west emergency | ![pair corridor service restored](2026-11-15-station-v2/17_pair_corridor_service_restored.jpg)<br>pair corridor service restored |
+
 ## 2026-11-15 · physics-v1
 
 Commit `00319a0` · studio/station renders · 6 frames · [folder](2026-11-15-physics-v1/)

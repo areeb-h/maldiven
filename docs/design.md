@@ -37,7 +37,7 @@ At 7–8 players we'll try two infiltrators (week 4).
 
 ## The map
 
-One deck, about 84 × 52 m, eight rooms in two loops plus an airlock. The layout lives in `scripts/station_layout.gd`; geometry, rules and tests all read from it.
+One deck, about 84 × 52 m, nine rooms in two loops plus an airlock. Cargo and Observation have raised decks with ramps. The layout lives in `scripts/station_layout.gd`; geometry, rules and tests all read from it.
 
 | Room | What's there |
 | --- | --- |
@@ -50,9 +50,10 @@ One deck, about 84 × 52 m, eight rooms in two loops plus an airlock. The layout
 | Engineering | Power cell |
 | Reactor | Three cell sockets |
 | Medical | Power cell, the medbay (instant revive) |
+| Observation | Lounge on the service loop between Medical and Reactor: a viewing deck under a panoramic window, a bar, pillars and a screened alcove for private chats |
 
 - **Public loop:** Docking – Commons – Command – Security – Cargo – Docking.
-- **Service loop:** Cargo – Engineering – Reactor – Medical – Commons. Long, quiet corridors: good for a private chat or an ambush.
+- **Service loop:** Cargo – Engineering – Reactor – Observation – Medical – Commons. Quieter corridors and the Observation lounge: good for a private chat or an ambush.
 
 The core's two exits (shuttle and pod) sit one corridor apart, in Docking and Cargo. That's deliberate: every extraction is contested.
 
