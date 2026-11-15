@@ -32,6 +32,9 @@ var deform := Callable()
 var skip_back := false
 ## Softens every rounded_box bevel (capped by the box's half thickness).
 var bevel_scale := 1.0
+## Rounds the outline corners of boxes (in the plane of their two largest axes) with
+## a consistent radius, so plates read as rounded rectangles rather than slabs.
+var round_outline := false
 
 # Primitive scratch.
 var _tp := PackedVector3Array()
@@ -90,15 +93,6 @@ static func shell(wrap_r: float, curve_r := 0.0, taper_bottom := 1.0, half_h := 
 		return q
 
 
-## Bend a part whose length runs along X over a circle in the XY plane (y = thickness):
-## the ends droop down. Used for shoulder pads and caps.
-static func arc_x(radius: float) -> Callable:
-	return func(p: Vector3) -> Vector3:
-		var a := p.x / radius
-		var rr := radius + p.y
-		return Vector3(sin(a) * rr, cos(a) * rr - radius, p.z)
-
-
 ## Bend a part whose length runs along Z over a circle in the YZ plane (crests).
 static func arc_z(radius: float) -> Callable:
 	return func(p: Vector3) -> Vector3:
@@ -110,6 +104,17 @@ static func arc_z(radius: float) -> Callable:
 ## Basis that shears local Z by local Y (z' = z - k * y): sweeps a part backward with height.
 static func shear_basis(k: float) -> Basis:
 	return Basis(Vector3(1, 0, 0), Vector3(0, 1, -k), Vector3(0, 0, 1))
+
+
+## Wraps a box (x = across, y = along the limb, z = thickness) around a vertical limb
+## axis: the box spans `span` radians, and its mid-thickness sits at
+## radius_fn(t) (t = 0 at the bottom, 1 at the top), so the shell follows the taper.
+static func limb_wrap(width: float, height: float, span: float, radius_fn: Callable) -> Callable:
+	return func(p: Vector3) -> Vector3:
+		var t := clampf(p.y / height + 0.5, 0.0, 1.0)
+		var a := p.x / (width * 0.5) * (span * 0.5)
+		var r: float = float(radius_fn.call(t)) + p.z
+		return Vector3(sin(a) * r, p.y, cos(a) * r)
 
 
 static func taper(bottom: float, top: float, half_h: float, bottom_z := -1.0, top_z := -1.0) -> Callable:
@@ -138,6 +143,13 @@ func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.I
 	var samples: Array[PackedFloat32Array] = []
 	for axis in 3:
 		samples.append(_box_samples(h[axis], hi[axis], r, arc, segs[axis]))
+	# Outline rounding happens in the plane of the two largest axes.
+	var thin := 0 if h.x <= h.y and h.x <= h.z else (1 if h.y <= h.z else 2)
+	var oa := (thin + 1) % 3
+	var ob := (thin + 2) % 3
+	var outline_r := 0.0
+	if round_outline and r > 0.0:
+		outline_r = minf(maxf(outline_radius(h[oa], h[ob]), r), minf(h[oa], h[ob]) * 0.95)
 	_begin()
 	var faces := [[0, 1, 2], [1, 2, 0], [2, 0, 1]]
 	for f in faces:
@@ -165,9 +177,32 @@ func rounded_box(center: Vector3, size: Vector3, radius: float, basis := Basis.I
 						n = d.normalized()
 						p = inner + n * r
 					var edge := clampf((1.0 - maxf(absf(n.x), maxf(absf(n.y), absf(n.z)))) / 0.25, 0.0, 1.0)
+					if outline_r > 0.0:
+						p = _round_corner(p, h, oa, ob, outline_r)
 					_push(p, n, Vector2(pp[u_axis], pp[v_axis]), edge, Vector2(h[u_axis], h[v_axis]) if r > 0.0 else Vector2.ZERO)
 			_quads(base, su.size() - 1, sv.size() - 1)
 	_end(Transform3D(basis, center))
+
+
+## Outline corner radius used for a plate of half extents (a, b); the shader's panel
+## line uses the same rule so it stays concentric with the plate edge.
+static func outline_radius(a: float, b: float) -> float:
+	return clampf(minf(a, b) * 0.4, 0.008, 0.035)
+
+
+## Maps the square corner zones of the (a, b) plane onto quarter discs of radius rc.
+static func _round_corner(p: Vector3, h: Vector3, a: int, b: int, rc: float) -> Vector3:
+	var ca := h[a] - rc
+	var cb := h[b] - rc
+	var da := absf(p[a]) - ca
+	var db := absf(p[b]) - cb
+	if da <= 0.0 or db <= 0.0:
+		return p
+	var f := maxf(da, db) / sqrt(da * da + db * db)
+	var q := p
+	q[a] = signf(p[a]) * (ca + da * f)
+	q[b] = signf(p[b]) * (cb + db * f)
+	return q
 
 
 func _box_samples(h: float, hi: float, r: float, arc: int, seg: int) -> PackedFloat32Array:
@@ -284,7 +319,8 @@ func ring(center: Vector3, major: float, minor: float, basis := Basis.IDENTITY, 
 
 
 ## Swept tube along a Catmull-Rom path through `points`. Optional ribs (hoses).
-func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, rib_freq := 0.0, rib_depth := 0.0, closed := false) -> void:
+## radius_fn(t) (t = 0..1 along the path) scales the radius when given (tapered ends).
+func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, rib_freq := 0.0, rib_depth := 0.0, closed := false, radius_fn := Callable()) -> void:
 	var path := PackedVector3Array()
 	var ctrl := points
 	if closed:
@@ -311,6 +347,8 @@ func tube(points: PackedVector3Array, radius: float, sides := 8, samples := 16, 
 		if s > 0:
 			along += path[s].distance_to(path[s - 1])
 		var rr := radius
+		if radius_fn.is_valid():
+			rr *= float(radius_fn.call(float(s) / float(path.size() - 1)))
 		if rib_freq > 0.0:
 			rr = radius * (1.0 - rib_depth * (0.5 + 0.5 * cos(along * rib_freq * TAU)))
 		for i in sides + 1:

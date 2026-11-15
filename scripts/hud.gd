@@ -2,8 +2,9 @@ class_name StationHud
 extends Control
 ## In-round HUD: multi-touch controls (raw touch indices so stick, camera and
 ## buttons work together), role card, objective, alerts, countdowns, results.
+## Actions emitted: interact, shove (throws when carrying), shoot, sabotage.
 
-signal action_pressed(action: String)  # interact / shove / sabotage
+signal action_pressed(action: String)  # interact / shove / shoot / sabotage
 signal leave_pressed
 signal lobby_pressed
 
@@ -71,7 +72,7 @@ func _ready() -> void:
 	UiStyle.style_button(menu_button)
 	menu_button.add_theme_font_override("font", UiStyle.font("head"))
 	menu_button.add_theme_font_size_override("font_size", 22)
-	menu_button.pressed.connect(func(): _menu.visible = not _menu.visible)
+	menu_button.pressed.connect(func(): _set_menu(not _menu.visible))
 	add_child(menu_button)
 	_anchor(menu_button, 1.0, 0.0, Rect2(-104, 18, 80, 56))
 	_hint = UiStyle.outlined(UiStyle.label("", "body", 20, Color(1, 1, 1, 0.55)), 6)
@@ -210,11 +211,12 @@ func _build_menu() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 16)
 	_menu.add_child(box)
-	box.add_child(UiStyle.label("PAUSED", "head", 26, UiStyle.ACCENT))
+	# Multiplayer can't pause: the round keeps running behind this menu.
+	box.add_child(UiStyle.label("MENU", "head", 26, UiStyle.ACCENT))
 	var resume := Button.new()
 	resume.text = "RESUME"
 	UiStyle.style_button(resume, true)
-	resume.pressed.connect(func(): _menu.hide())
+	resume.pressed.connect(func(): _set_menu(false))
 	box.add_child(resume)
 	var leave := Button.new()
 	leave.text = "LEAVE STATION"
@@ -377,8 +379,18 @@ func mark_shove_used(rules: StationRules, my_id: int) -> void:
 		rules.players[my_id].shove_ready = rules.elapsed + StationRules.SHOVE_COOLDOWN
 
 
+func _set_menu(open: bool) -> void:
+	_menu.visible = open
+	reset_pointers()
+	if crew != null:
+		crew.input_enabled = not open
+
+
 func _show_result(rules: StationRules) -> void:
-	_menu.hide()
+	_set_menu(false)
+	reset_pointers()
+	if crew != null:
+		crew.input_enabled = false
 	_briefing.hide()
 	var title := "STATION LOST"
 	var color := UiStyle.MUTED
@@ -499,14 +511,13 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if crew == null or _result.visible or _menu.visible:
-		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-			_menu.visible = not _menu.visible and not _result.visible
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not _result.visible:
+			_set_menu(not _menu.visible)
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_ESCAPE:
-				_menu.visible = true
-				reset_pointers()
+				_set_menu(true)
 			KEY_SPACE:
 				crew.jump_pending = true
 			KEY_E:
@@ -519,9 +530,7 @@ func _input(event: InputEvent) -> void:
 			KEY_R:
 				if _has_gun:
 					action_pressed.emit("shoot")
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
-			and not _touch and _has_gun:
-		action_pressed.emit("shoot")
+
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		crew.look(event.relative)
 	if event is InputEventScreenTouch:
@@ -557,6 +566,15 @@ func _input(event: InputEvent) -> void:
 		elif event.index == _look_finger:
 			crew.look(event.relative * 1.2)
 	queue_redraw()
+
+
+## Desktop shooting: a left click that no HUD button consumed.
+func _unhandled_input(event: InputEvent) -> void:
+	if crew == null or _result.visible or _menu.visible or _touch or not _has_gun:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		action_pressed.emit("shoot")
+		get_viewport().set_input_as_handled()
 
 
 func _draw() -> void:

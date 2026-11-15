@@ -38,6 +38,12 @@ func _shot(label: String) -> void:
 	print("BOT_SHOT ", path)
 
 
+## Bots press buttons through the same path as the HUD (pose rides along).
+func _act(action: String) -> void:
+	var world: StationWorld = main.current_world()
+	world._on_action(action)
+
+
 func _say(text: String) -> void:
 	print("BOT[%s] %s" % [args.get("bot-name", "?"), text])
 
@@ -105,23 +111,23 @@ func _run() -> void:
 			world.local.yaw = PI
 			await _wait(0.5)
 			await _shot("aiming")
-			Net.request("shoot")
+			_act("shoot")
 			var hit: bool = await _until(func(): return world.rules.state_of(1) == StationRules.DOWNED)
 			print("BOT_SHOT_HIT ", hit)
 			await _shot("target_down")
-			Net.request("interact")  # drop the gun
+			_act("interact")  # drop the gun
 			await _until(func(): return not world.rules.holds_gun(Net.my_id()))
 			await _teleport(world, Vector3(0, 0, -1.4), PI)
-			Net.request("interact")  # drag
+			_act("interact")  # drag
 			var dragging: bool = await _until(func(): return world.rules.players[Net.my_id()].body == 1)
 			print("BOT_DRAG ", dragging)
 			await _teleport(world, StationLayout.to_world(StationLayout.ROOMS.airlock.center), -PI / 2)
 			await _wait(0.4)
 			await _shot("dragging_to_airlock")
-			Net.request("interact")  # drop body
+			_act("interact")  # drop body
 			await _until(func(): return world.rules.players[Net.my_id()].body == 0)
 			await _teleport(world, _approach("airlock_console"), StationLayout.SOCKETS.airlock_console.facing)
-			Net.request("interact")  # cycle
+			_act("interact")  # cycle
 			await _wait(1.5)
 			await _shot("airlock_warning")
 	elif plan == "infiltrator":
@@ -130,7 +136,7 @@ func _run() -> void:
 				while world.rules.sabotage_cooldown() > 0.0:
 					await _wait(0.2)
 				await _teleport(world, StationLayout.to_world(StationLayout.ROOMS.command.center), PI)
-				Net.request("sabotage")
+				_act("sabotage")
 				await _until(func(): return world.rules.is_blackout())
 				await _wait(1.6)
 				await _shot("blackout")
@@ -208,7 +214,7 @@ func _pickup_floor(world: StationWorld, item_id: String) -> void:
 		look = atan2(away.x, away.y) + PI if away.length() > 0.1 else 0.0
 	await _teleport(world, at, look)
 	await _shot("near_" + item_id)
-	Net.request("interact")
+	_act("interact")
 	var ok: bool = await _until(func(): return world.rules.items[item_id].holder == Net.my_id())
 	_say("picked %s: %s" % [item_id, ok])
 	await _shot("carrying_" + item_id)
@@ -217,7 +223,7 @@ func _pickup_floor(world: StationWorld, item_id: String) -> void:
 func _pick_from_socket(world: StationWorld, item_id: String, socket_id: String) -> void:
 	await _teleport(world, _approach(socket_id), StationLayout.SOCKETS[socket_id].facing)
 	await _shot("at_" + socket_id)
-	Net.request("interact")
+	_act("interact")
 	var ok: bool = await _until(func(): return world.rules.items[item_id].holder == Net.my_id())
 	_say("took %s from %s: %s" % [item_id, socket_id, ok])
 
@@ -225,7 +231,7 @@ func _pick_from_socket(world: StationWorld, item_id: String, socket_id: String) 
 func _insert(world: StationWorld, item_id: String, socket_id: String) -> void:
 	await _teleport(world, _approach(socket_id), StationLayout.SOCKETS[socket_id].facing)
 	await _shot("before_" + socket_id)
-	Net.request("interact")
+	_act("interact")
 	var ok: bool = await _until(func(): return world.rules.items[item_id].socket == socket_id)
 	_say("inserted %s into %s: %s" % [item_id, socket_id, ok])
 	await _wait(1.5)
@@ -248,6 +254,6 @@ func _shove_core_carrier(world: StationWorld) -> void:
 	world.local._facing = -PI / 2  # face -x, towards the carrier
 	await _wait(0.45)
 	world.local._facing = -PI / 2
-	Net.request("shove")
+	_act("shove")
 	var ok: bool = await _until(func(): return world.rules.items.core.holder == 0)
 	print("BOT_SHOVE ", "ok" if ok else "missed")

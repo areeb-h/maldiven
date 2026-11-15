@@ -31,10 +31,10 @@ var _last_tick := -1
 var _result_played := false
 var vfx: Node  # optional Vfx module (scripts/vfx.gd), called dynamically
 var _states := {}
-var _airlock_shown := "idle"
 var _highlighted: Node3D
 var _flying := {}
 var _alarm_beat := 0
+var _alarm_on := false
 
 
 func _init(round_seed := -1) -> void:
@@ -124,9 +124,9 @@ func _exit_tree() -> void:
 
 
 func _on_action(action: String) -> void:
-	if action == "shove":
-		hud.mark_shove_used(rules, my_id)
-	Net.request(action)
+	if action == "shove" and not Net.is_host():
+		hud.mark_shove_used(rules, my_id)  # optimistic; the next snapshot corrects it
+	Net.request(action, local.position, local.facing_yaw())
 
 
 ## Call an optional Vfx method if the module provides it.
@@ -157,7 +157,8 @@ func host_pose(id: int, pos: Vector3, yaw: float, moving: float) -> void:
 	_moving[id] = moving
 
 
-func host_request(id: int, action: String) -> void:
+func host_request(id: int, action: String, pos: Vector3, yaw: float) -> void:
+	rules.set_pose(id, pos, yaw)
 	match action:
 		"interact":
 			_dirty = rules.request_interact(id) or _dirty
@@ -180,8 +181,8 @@ func host_player_left(id: int) -> void:
 
 func _flush_events() -> void:
 	for event in rules.drain_events():
+		_dirty = true
 		if event.type == "result":
-			_dirty = true
 			continue
 		Net.broadcast_event(event)
 		client_event(event)
@@ -225,10 +226,7 @@ func client_event(event: Dictionary) -> void:
 		"alert":
 			hud.flash_alert(event.text, event.kind)
 			match event.kind:
-				"pod":
-					sfx.start_alarm()
 				"abort":
-					sfx.stop_alarm()
 					sfx.play("abort")
 				"shuttle":
 					sfx.play("shuttle_launch_start")
@@ -263,6 +261,9 @@ func client_event(event: Dictionary) -> void:
 			sfx.play("downed", event.at)
 			_fx("burst", ["downed", event.at])
 		"revived":
+			if int(event.target) == my_id and local != null:
+				local.position = event.at
+				local.velocity = Vector3.ZERO
 			sfx.play("revive", event.at)
 			_fx("burst", ["revive", event.at])
 		"spaced":
@@ -275,14 +276,14 @@ func client_event(event: Dictionary) -> void:
 				_flying[event.item] = true
 		"fx":
 			_fx("burst", [event.kind, event.at])
+			if event.kind == "drop":
+				sfx.play("drop", event.at)
 		"airlock":
 			_builder("set_airlock_state", [station, event.state])
 			match event.state:
 				"warning":
-					sfx.start_alarm()
 					sfx.play("airlock_warning")
 				"venting":
-					sfx.stop_alarm()
 					sfx.play("airlock_vent")
 					var room: Dictionary = StationLayout.ROOMS.airlock
 					_fx("burst", ["airlock_vent", StationLayout.to_world(room.center, 1.0), Vector3.LEFT])
@@ -295,7 +296,7 @@ func _remove_avatar(id: int) -> void:
 		var avatar: CrewMember = avatars[id]
 		for item_id in item_nodes:
 			var node: Node3D = item_nodes[item_id]
-			if node.get_parent() == avatar.carry_point:
+			if avatar.is_ancestor_of(node):
 				node.reparent(self)
 		avatar.queue_free()
 		avatars.erase(id)
@@ -380,7 +381,7 @@ func _update_audio() -> void:
 		if holder != before:
 			if holder != 0:
 				sfx.play("pickup", rules.item_position(item_id))
-			elif rules.items[item_id].socket == "":
+			elif rules.items[item_id].socket == "" and rules.items[item_id].flight.is_empty():
 				sfx.play("drop", rules.items[item_id].pos)
 			_holders[item_id] = holder
 	var left := rules.pod_left if rules.pod_left >= 0.0 else rules.shuttle_left
@@ -398,11 +399,17 @@ func _update_audio() -> void:
 					_fx("burst", ["alarm_strobe", socket_at + Vector3(0, 2.8, 0)])
 	else:
 		_last_tick = -1
-	if rules.pod_left < 0.0:
-		sfx.stop_alarm()
+	var alarm_wanted := rules.phase != StationRules.Phase.RESULT \
+		and (rules.pod_left >= 0.0 or rules.airlock_state == "warning")
+	if alarm_wanted != _alarm_on:
+		_alarm_on = alarm_wanted
+		if alarm_wanted:
+			sfx.start_alarm()
+		else:
+			sfx.stop_alarm()
 	if rules.phase == StationRules.Phase.RESULT and not _result_played:
 		_result_played = true
-		sfx.stop_alarm()
+		_builder("set_airlock_state", [station, "idle"])
 		if rules.winner == StationRules.CREW:
 			sfx.play("win_crew")
 			if rules.reason.contains("shuttle"):

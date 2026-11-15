@@ -26,7 +26,6 @@ var _beacon: PacketPeerUDP
 var _listener: PacketPeerUDP
 var _beacon_timer := 0.0
 var _local_name := ""
-var _leaving := false
 
 
 func _ready() -> void:
@@ -55,7 +54,7 @@ func my_id() -> int:
 func host(player_name: String) -> Error:
 	leave()
 	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_server(PORT, MAX_PLAYERS - 1)
+	var error := peer.create_server(PORT, MAX_PLAYERS)
 	if error != OK:
 		return error
 	multiplayer.multiplayer_peer = peer
@@ -84,10 +83,8 @@ func join(address: String, player_name: String) -> Error:
 func leave() -> void:
 	_stop_beacon()
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
-		_leaving = true
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-		_leaving = false
 	roster = {}
 	in_round = false
 	room_name = ""
@@ -138,8 +135,16 @@ func _on_peer_disconnected(id: int) -> void:
 	roster.erase(id)
 	if world != null and in_round:
 		world.host_player_left(id)
-	_roster.rpc(roster)
+	_send_to_roster("_roster", [roster])
 	roster_changed.emit()
+
+
+## Host only: send an RPC to every registered client (never to peers that are
+## connected but not yet admitted, or were refused).
+func _send_to_roster(method: StringName, args: Array) -> void:
+	for id in roster:
+		if id != 1:
+			callv("rpc_id", [id, method] + args)
 
 
 @rpc("any_peer", "reliable")
@@ -150,7 +155,8 @@ func _register(player_name: String, protocol: int) -> void:
 	if protocol != PROTOCOL:
 		_refuse(id, "Version mismatch: update the app on every phone.")
 		return
-	if in_round:
+	var round_over: bool = world != null and world.rules.phase == StationRules.Phase.RESULT
+	if in_round and not round_over:
 		_refuse(id, "A round is in progress. Try again when it ends.")
 		return
 	if roster.size() >= MAX_PLAYERS:
@@ -175,7 +181,7 @@ func _register(player_name: String, protocol: int) -> void:
 		suffix += 1
 	roster[id] = {"name": unique, "color": color}
 	_welcome.rpc_id(id, room_name)
-	_roster.rpc(roster)
+	_send_to_roster("_roster", [roster])
 	roster_changed.emit()
 
 
@@ -207,10 +213,11 @@ func _roster(next: Dictionary) -> void:
 
 func start_round() -> void:
 	if is_host() and not in_round:
-		_begin_round.rpc()
+		_send_to_roster("_begin_round", [])
+		_begin_round()
 
 
-@rpc("authority", "reliable", "call_local")
+@rpc("authority", "reliable")
 func _begin_round() -> void:
 	in_round = true
 	round_began.emit()
@@ -218,10 +225,11 @@ func _begin_round() -> void:
 
 func back_to_lobby() -> void:
 	if is_host():
-		_back_to_lobby.rpc()
+		_send_to_roster("_back_to_lobby", [])
+		_back_to_lobby()
 
 
-@rpc("authority", "reliable", "call_local")
+@rpc("authority", "reliable")
 func _back_to_lobby() -> void:
 	in_round = false
 	returned_to_lobby.emit()
@@ -241,7 +249,7 @@ func _role(role: String) -> void:
 
 
 func broadcast_snapshot(snapshot: Dictionary) -> void:
-	_snapshot.rpc(snapshot)
+	_send_to_roster("_snapshot", [snapshot])
 
 
 @rpc("authority", "reliable")
@@ -251,7 +259,7 @@ func _snapshot(snapshot: Dictionary) -> void:
 
 
 func broadcast_event(event: Dictionary) -> void:
-	_event.rpc(event)
+	_send_to_roster("_event", [event])
 
 
 @rpc("authority", "reliable")
@@ -277,7 +285,7 @@ func _pose(pos: Vector3, yaw: float, moving: float) -> void:
 
 ## Host -> everyone: all poses in one packet.
 func broadcast_poses(poses: Dictionary) -> void:
-	_poses.rpc(poses)
+	_send_to_roster("_poses", [poses])
 
 
 @rpc("authority", "unreliable_ordered")
@@ -286,19 +294,21 @@ func _poses(poses: Dictionary) -> void:
 		world.client_poses(poses)
 
 
-## Client -> host: "interact", "shove" or "sabotage".
-func request(action: String) -> void:
+## Client -> host: "interact", "shove", "shoot" or "sabotage". The sender's
+## current pose rides along so the host judges the action where the player
+## actually is, not where the last (unreliable, 20 Hz) pose update put them.
+func request(action: String, pos: Vector3, yaw: float) -> void:
 	if is_host():
 		if world != null:
-			world.host_request(1, action)
+			world.host_request(1, action, pos, yaw)
 	else:
-		_request.rpc_id(1, action)
+		_request.rpc_id(1, action, pos, yaw)
 
 
 @rpc("any_peer", "reliable")
-func _request(action: String) -> void:
+func _request(action: String, pos: Vector3, yaw: float) -> void:
 	if multiplayer.is_server() and world != null and action in ["interact", "shove", "sabotage", "shoot"]:
-		world.host_request(multiplayer.get_remote_sender_id(), action)
+		world.host_request(multiplayer.get_remote_sender_id(), action, pos, yaw)
 
 
 # --- LAN discovery -----------------------------------------------------------

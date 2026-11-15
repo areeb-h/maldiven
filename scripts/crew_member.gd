@@ -23,6 +23,7 @@ var life_state := "ok"
 var number := 0  # 1..8, shown on the suit
 var variant := 0  # cosmetic helmet/backpack style
 var carried := false
+var input_enabled := true  # false while a menu covers the screen
 
 var move_input := Vector2.ZERO
 var yaw := 0.0
@@ -211,8 +212,9 @@ func set_life_state(state: String) -> void:
 	if not _model_api:
 		visual.rotation.x = -PI / 2.0 if state == "downed" else 0.0
 		visual.position.y = 0.25 if state == "downed" else 0.0
-	collision_layer = 0 if ghost else (4 if is_local else 2)
-	collision_mask = 0 if ghost else (1 | 2)
+	var standing := state == "ok"
+	collision_layer = (4 if is_local else 2) if standing else 0
+	collision_mask = 0 if ghost else (1 | 2 if standing else 1)
 	name_tag.modulate.a = 0.5 if ghost else 1.0
 	if ghost and is_local:
 		velocity = Vector3.ZERO
@@ -256,6 +258,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _input_axis() -> Vector2:
+	if not input_enabled:
+		return Vector2.ZERO
 	var keyboard := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
 		float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
@@ -268,7 +272,7 @@ func _local_physics(delta: float) -> void:
 	if stunned:
 		axis = Vector2.ZERO
 	var direction := Basis(Vector3.UP, yaw) * Vector3(axis.x, 0, axis.y)
-	var shift := Input.is_physical_key_pressed(KEY_SHIFT)
+	var shift := input_enabled and Input.is_physical_key_pressed(KEY_SHIFT)
 	var running := shift or (move_input.length() > 0.8)
 	var speed := (RUN_SPEED if running else WALK_SPEED) * speed_factor
 	# Snappy start, firm stop, limited air control; stuns slide.

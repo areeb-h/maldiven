@@ -60,11 +60,21 @@ var infiltrator_name := ""
 var timeline: Array = []
 ## Drained by the network layer: public alerts and effects.
 var events: Array = []
-var is_mirror := false
 
 
 func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
 	players.clear()
+	timeline.clear()
+	events.clear()
+	winner = ""
+	reason = ""
+	shuttle_left = -1.0
+	pod_left = -1.0
+	blackout_until = -1.0
+	blackout_ready = BLACKOUT_FIRST_DELAY
+	airlock_state = "idle"
+	airlock_left = 0.0
+	gun_ready = 0.0
 	var ids := roster.keys()
 	ids.sort()
 	# A solo walkaround has no infiltrator.
@@ -180,6 +190,13 @@ func set_pose(id: int, pos: Vector3, yaw: float) -> void:
 		players[player.body].pos = pos + _forward(yaw) * 0.7
 
 
+## Names stay hidden during a blackout, in prompts and alerts as well as tags.
+func _visible_name(id: int) -> String:
+	if is_blackout() or not players.has(id):
+		return "someone"
+	return str(players[id].name)
+
+
 func _forward(yaw: float) -> Vector3:
 	return Vector3(sin(yaw), 0, cos(yaw))
 
@@ -239,7 +256,7 @@ func available_action(id: int) -> Dictionary:
 	var player: Dictionary = players[id]
 	var pos: Vector3 = player.pos
 	if player.body != 0:
-		var body_name: String = players[player.body].name if players.has(player.body) else "them"
+		var body_name: String = _visible_name(player.body)
 		if _flat_distance(pos, _socket_pos("medbay")) < INTERACT_RANGE:
 			return {"action": "revive", "target": player.body, "label": "Revive " + body_name}
 		return {"action": "drop_body", "target": player.body, "label": "Drop " + body_name}
@@ -286,7 +303,7 @@ func available_action(id: int) -> Dictionary:
 		var distance := _flat_distance(pos, other.pos)
 		if distance < best_distance:
 			best_distance = distance
-			best = {"action": "drag", "target": other_id, "label": "Drag " + str(other.name)}
+			best = {"action": "drag", "target": other_id, "label": "Drag " + _visible_name(other_id)}
 	if airlock_ready():
 		var distance := _flat_distance(pos, _socket_pos("airlock_console"))
 		if distance < best_distance:
@@ -518,7 +535,7 @@ func _tick_flights() -> void:
 			var other: Dictionary = players[other_id]
 			if other_id == flight.by or other.state != OK:
 				continue
-			if _flat_distance(at, other.pos) < THROW_HIT_RADIUS and at.y < 2.2:
+			if _flat_distance(at, other.pos) < THROW_HIT_RADIUS:
 				other.stunned_until = elapsed + THROW_STUN
 				if other.holding != "":
 					_drop(other_id)
@@ -600,7 +617,7 @@ func _down(id: int) -> void:
 	player.state = DOWNED
 	player.down_until = elapsed + DOWN_SECONDS
 	player.pos = Vector3(player.pos.x, 0.0, player.pos.z)
-	_alert("%s is down" % player.name, "down")
+	_alert("Someone is down" if is_blackout() else "%s is down" % player.name, "down")
 	events.append({"type": "downed", "target": id, "at": player.pos})
 
 
@@ -709,6 +726,8 @@ func remove_player(id: int) -> void:
 		_finish("none", "The infiltrator disconnected — round interrupted.")
 	elif players.size() < 2 and infiltrator_id() != 0:
 		_finish("none", "Not enough crew left — round interrupted.")
+	else:
+		_check_survivors()
 
 
 func tick(delta: float) -> void:
@@ -780,6 +799,7 @@ func public_snapshot() -> Dictionary:
 		public_players[id] = {"name": p.name, "color": p.color, "holding": p.holding,
 			"stunned": maxf(0.0, p.stunned_until - elapsed), "state": p.state,
 			"down_left": maxf(0.0, p.down_until - elapsed), "body": p.body, "carried_by": p.carried_by,
+			"shove_in": maxf(0.0, p.shove_ready - elapsed),
 			"pos": p.pos}
 	var public_items := {}
 	for item_id in items:
@@ -809,7 +829,6 @@ func public_snapshot() -> Dictionary:
 ## Client mirror: rebuild from a host snapshot. Keeps locally known poses for
 ## standing players; downed bodies take the host position.
 func apply_snapshot(snap: Dictionary, own_id: int, own_role: String) -> void:
-	is_mirror = true
 	phase = snap.phase
 	elapsed = snap.elapsed
 	shuttle_left = snap.shuttle_left
@@ -831,7 +850,7 @@ func apply_snapshot(snap: Dictionary, own_id: int, own_role: String) -> void:
 		entry.down_until = elapsed + float(p.down_left)
 		entry.body = int(p.body)
 		entry.carried_by = int(p.carried_by)
-		entry.shove_ready = previous.get("shove_ready", 0.0)
+		entry.shove_ready = elapsed + float(p.get("shove_in", 0.0))
 		entry.stunned_until = elapsed + float(p.stunned)
 		if p.state == DOWNED or not previous.has("pos"):
 			entry.pos = p.pos

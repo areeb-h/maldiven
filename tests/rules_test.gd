@@ -14,10 +14,12 @@ func _initialize() -> void:
 		"test_drag_and_medbay_revive", "test_downed_recovers", "test_airlock_spaces_infiltrator",
 		"test_airlock_spaces_last_crew", "test_airlock_respawns_items", "test_throw_hits_and_stuns",
 		"test_throw_respects_walls", "test_shove_drops_body", "test_mirror_flight_and_downed",
+		"test_last_crew_leaving_ends_round", "test_blackout_hides_names", "test_setup_resets_state",
+		"test_shove_cooldown_in_snapshot",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (25 tests)")
+		print("PASS: rules (29 tests)")
 	quit(1 if failures else 0)
 
 
@@ -419,3 +421,46 @@ func test_mirror_flight_and_downed() -> void:
 	check(mirror.state_of(ids[1]) == StationRules.DOWNED, "mirror sees downed")
 	check(mirror.gun_ammo() == StationRules.GUN_AMMO - 1, "mirror sees ammo")
 	check(not var_to_str(rules.public_snapshot()).contains("infiltrator"), "still no role leak")
+
+
+func test_last_crew_leaving_ends_round() -> void:
+	var rules := make_round(4)
+	var bad := rules.infiltrator_id()
+	var crew := crew_ids(rules)
+	put_in_airlock(rules, crew[0])
+	put_in_airlock(rules, crew[1])
+	cycle_airlock(rules, bad)
+	check(rules.phase != StationRules.Phase.RESULT, "one crew still aboard")
+	rules.remove_player(crew[2])
+	check(rules.winner == StationRules.INFILTRATOR, "last living crew leaving ends the round")
+
+
+func test_blackout_hides_names() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	power_and_gun(rules, ids[0])
+	rules.set_pose(ids[1], Vector3(0, 0, 6), 0.0)
+	face(rules, ids[0], Vector3.ZERO, Vector3(0, 0, 6))
+	rules.blackout_until = rules.elapsed + 10.0
+	rules.request_shoot(ids[0])
+	var alerts := rules.drain_events().filter(func(e): return e.type == "alert" and e.kind == "down")
+	check(alerts.size() == 1 and not str(alerts[0].text).contains(rules.players[ids[1]].name), "down alert anonymous in blackout")
+	rules.set_pose(ids[2], Vector3(0, 0, 5), 0.0)
+	check(rules.available_action(ids[2]).get("label") == "Drag someone", "drag prompt anonymous in blackout")
+
+
+func test_setup_resets_state() -> void:
+	var rules := make_round()
+	rules.tick(StationRules.ROUND_SECONDS)
+	var rng := RandomNumberGenerator.new()
+	rules.setup({1: {"name": "A"}, 2: {"name": "B"}}, rng)
+	check(rules.winner == "" and rules.timeline.size() == 1 and rules.airlock_state == "idle", "rematch starts clean")
+
+
+func test_shove_cooldown_in_snapshot() -> void:
+	var rules := make_round()
+	var ids := crew_ids(rules)
+	rules.request_shove(ids[0])
+	var mirror := StationRules.new()
+	mirror.apply_snapshot(rules.public_snapshot(), ids[0], StationRules.CREW)
+	check(mirror.players[ids[0]].shove_ready > mirror.elapsed, "client sees the host's shove cooldown")
