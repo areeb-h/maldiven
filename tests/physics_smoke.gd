@@ -191,8 +191,8 @@ func test_item_sync() -> void:
 	var settled := false
 	for i in range(360):
 		await _steps(1)
-		if i % 30 == 0:
-			print("  debug rest %d: %s v %s w %s" % [i, body.global_position, body.linear_velocity, body.angular_velocity])
+		if i % 40 == 0:
+			print("  debug rest %d: %s v %s w %s sl %s" % [i, body.global_position, body.linear_velocity, body.angular_velocity, body.sleeping])
 		if body.sleeping:
 			settled = true
 			break

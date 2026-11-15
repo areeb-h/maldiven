@@ -150,9 +150,9 @@ const GLYPHS := {
 	## Downed: a tipped-over helmet with X eyes and a dizzy orbit.
 	"downed": ("<g transform='rotate(-14 24 30) translate(5.3 11) scale(.78)'><path d='%s' {p steel}/><path d='%s' {k}/><path d='%s' {x graphite}/><path d='%s' {s visor}/>" % [HELMET, VISOR_CUT, VISOR_CUT, VISOR]
 		+ "<path d='M16 21.4L22 27.4M22 21.4L16 27.4M26 21.4L32 27.4M32 21.4L26 27.4' {P amber w3.6}/></g>"
-		+ "<ellipse cx='24' cy='9' rx='14' ry='4' transform='rotate(-9 24 9)' {S amber w2.4 d}/>"
-		+ "<path d='M10.5 5.6Q11.2 9.3 14.9 10Q11.2 10.7 10.5 14.4Q9.8 10.7 6.1 10Q9.8 9.3 10.5 5.6Z' {p amber}/>"
-		+ "<path d='M36.5 2.6Q37.1 5.4 39.9 6Q37.1 6.6 36.5 9.4Q35.9 6.6 33.1 6Q35.9 5.4 36.5 2.6Z' {p amber}/>"),
+		+ "<path d='M9 4.2Q9.8 8.6 14.2 9.4Q9.8 10.2 9 14.6Q8.2 10.2 3.8 9.4Q8.2 8.6 9 4.2Z' {p amber}/>"
+		+ "<path d='M22.5 1.6Q23 4.3 25.7 4.8Q23 5.3 22.5 8Q22 5.3 19.3 4.8Q22 4.3 22.5 1.6Z' {p amber d}/>"
+		+ "<path d='M39 3.4Q39.7 7.3 43.6 8Q39.7 8.7 39 12.6Q38.3 8.7 34.4 8Q38.3 7.3 39 3.4Z' {p amber}/>"),
 	## Ghost: a helmet dome with hollow ring eyes trailing into a wispy tail.
 	"ghost": ("<path d='M6.5 35.5C3.6 37.4 3.4 41 6.6 42.4' {S violet w2.6 d}/><path d='M42 30.5C44.6 32 45 35 43 36.6' {S violet w2.6 d}/>"
 		+ "<path d='M24 4C33.4 4 41 11 41 20.5V27C41 32.4 38.6 36.4 35 39.4C32.8 41.2 32.8 43.6 35.8 44.8C30.6 46.4 26 45 24.2 42C22.2 44.2 18.4 45 15 43.6C17.4 42.4 17.8 40.6 16.2 39C11 35.4 7 31.6 7 26V20.5C7 11 14.6 4 24 4Z' {p violet}/>"
@@ -164,7 +164,7 @@ const GLYPHS := {
 	## One player: a crew bust.
 	"user": ("<path d='%s' {p crew}/><path d='%s' {k}/><path d='%s' {x graphite}/><path d='%s' {s visor}/>" % [BUST_HEAD, BUST_VISOR_CUT, BUST_VISOR_CUT, BUST_VISOR]
 		+ "<rect x='19.6' y='13.6' width='3' height='5.6' rx='1.5' {p led d}/><rect x='25.4' y='13.6' width='3' height='5.6' rx='1.5' {p led d}/>"
-		+ "<path d='%s' {p crew}/><rect x='21' y='36' width='6' height='4' rx='1.5' {k d}/><rect x='21' y='36' width='6' height='4' rx='1.5' {x cyan d}/>" % BUST_BODY),
+		+ "<path d='%s' {p crew}/><rect x='21' y='36' width='6' height='4' rx='1.5' {x cyan d}/>" % BUST_BODY),
 	## The lobby: three crew busts, one in front.
 	"users": ("<g transform='translate(-1.9 12.4) scale(.6)'><path d='%s' {s crew_dk}/><path d='%s' {s crew_dk}/></g>" % [BUST_HEAD, BUST_BODY]
 		+ "<g transform='translate(21.1 12.4) scale(.6)'><path d='%s' {s crew_dk}/><path d='%s' {s crew_dk}/></g>" % [BUST_HEAD, BUST_BODY]
@@ -183,8 +183,7 @@ const GLYPHS := {
 	"hand": GLOVE,
 	## Shove: the glove pushing right into an impact burst.
 	"shove": ("<g transform='translate(19 24) scale(.8) rotate(90) translate(-24 -24)'>%s</g>" % GLOVE
-		+ "<path d='M39.8 14.5L44 10.8M41.2 24H46M39.8 33.5L44 37.2' {P amber w3.6}/>"
-		+ "<path d='M3 39H10M6 43.5H13' {S steel w2.8 d}/>"),
+		+ "<path d='M39.8 14.5L44 10.8M41.2 24H46M39.8 33.5L44 37.2' {P amber w3.6}/>"),
 	## Throw: a power cell flying along a dotted arc.
 	"throw": ("<circle cx='6' cy='43' r='1.8' {s cyan}/><circle cx='8.6' cy='36.4' r='2.2' {s cyan}/><circle cx='12.6' cy='30.4' r='2.6' {p cyan}/>"
 		+ "<g transform='translate(31 17.5) rotate(32)'><rect x='-7' y='-9' width='14' height='20' rx='3.5' {k w5}/><rect x='-4' y='-13' width='8' height='4.4' rx='1.5' {k w5}/>"
@@ -195,7 +194,7 @@ const GLYPHS := {
 		+ "<path d='M24 2.5V13M24 35V45.5M2.5 24H13M35 24H45.5' {P orange w4.6}/><circle cx='24' cy='24' r='3.3' {p red}/>"),
 	## Jump: rising chevrons over a launch pad.
 	"jump": ("<path d='M13 31.5L24 21L35 31.5' {S cyan w5.4}/><path d='M13 21L24 10.5L35 21' {P cyan w5.4}/>"
-		+ "<rect x='9' y='38.5' width='30' height='5.5' rx='2.75' {p graphite}/><rect x='14' y='38.5' width='20' height='2' rx='1' {x cyan d}/>"),
+		+ "<rect x='9' y='38.5' width='30' height='5.5' rx='2.75' {p steel}/><rect x='14' y='38.5' width='20' height='2' rx='1' {x cyan d}/>"),
 	## Drop: an arrow down onto the floor and its landing shadow.
 	"drop": ("<ellipse cx='24' cy='36.5' rx='10' ry='2.8' {s shade}/><path d='M24 4.5V25M14.5 17L24 26.5L33.5 17' {P cyan w5.4}/>"
 		+ "<path d='M6.5 42.5H41.5' {P steel w4}/>"),
@@ -217,10 +216,11 @@ const GLYPHS := {
 		+ "<rect x='19.5' y='26' width='9' height='11.7' rx='1.8' {p amber m}/>"),
 	## The core: a glowing orb in a ribbed cage on a cradle.
 	"core": ("<rect x='20' y='1.8' width='8' height='4.2' rx='1.5' {p steel}/>"
-		+ "<circle cx='24' cy='21' r='12.5' {s glow_cyan}/><circle cx='24' cy='21' r='8.6' {s orb}/><circle cx='22.6' cy='19.6' r='6.4' {p orb}/>"
-		+ "<ellipse cx='24' cy='21' rx='6.2' ry='15' {K w6.6 d}/><ellipse cx='24' cy='21' rx='6.2' ry='15' {P steel w2.8 d}/>"
-		+ "<path d='M9 21A15 4.6 0 0 0 39 21' {K w6.6 d}/><path d='M9 21A15 4.6 0 0 0 39 21' {P steel w2.8 d}/>"
-		+ "<circle cx='24' cy='21' r='15' {P steel w3}/>"
+		+ "<circle cx='24' cy='21' r='13' {s glow_cyan}/><circle cx='24' cy='21' r='10' {s orb}/><circle cx='22.4' cy='19.4' r='7.6' {p orb}/>"
+		+ "<path d='M19.6 14.6C20.6 13.8 21.8 13.3 23 13.2' {K w1.8 d}/>"
+		+ "<path d='M9.2 23A15 4.4 0 0 0 38.8 23' {K w6.6}/><path d='M9.2 23A15 4.4 0 0 0 38.8 23' {P steel w2.8}/>"
+		+ "<circle cx='24' cy='21' r='15.2' {P steel w3}/>"
+		+ "<path d='M24 3.4V7.6M24 34.4V38.6' {P steel w4.4 d}/>"
 		+ "<path d='M14.5 45H33.5C34.6 45 35.3 43.9 34.9 42.9L32.5 37.6H15.5L13.1 42.9C12.7 43.9 13.4 45 14.5 45Z' {p graphite}/><rect x='16' y='37.6' width='16' height='2' {x cyan d}/>"),
 	## Ammo: three energy rounds.
 	"ammo": ("<path d='M7.5 19C7.5 13.5 9.5 10 11.5 7.5C13.5 10 15.5 13.5 15.5 19Z' {p cyan}/><rect x='7.5' y='21' width='8' height='21' rx='2' {p orange}/>"
@@ -240,12 +240,13 @@ const GLYPHS := {
 	## Crew escape: the shuttle in side view, nose right.
 	"shuttle": ("<path d='M4.5 20H2.5C1.7 20 1 20.7 1 21.5V27.5C1 28.3 1.7 29 2.5 29H4.5Z' {s graphite}/><ellipse cx='1.5' cy='24.5' rx='3' ry='5' {x glow_cyan d}/>"
 		+ "<path d='M14 33L11.5 40M33 33L35.5 40' {S graphite w2.6}/><path d='M8.5 40.5H14.5M32.5 40.5H38.5' {P graphite w2.6}/>"
-		+ "<path d='M8 17L11 7.5C11.3 6.6 12.2 6 13.2 6H16.5C17.6 6 18.3 7.1 17.9 8.1L15 17Z' {p teal}/>"
-		+ "<path d='M9 16H30C38 16 44.5 20 45 24.5C44.5 29 38 33 30 33H9C6.2 33 4 30.8 4 28V21C4 18.2 6.2 16 9 16Z' {p shell}/>"
+		+ "<path d='M5.5 17.5L3.6 9.6C3.3 8.4 4.2 7.2 5.5 7.2H7.6C8.5 7.2 9.3 7.7 9.7 8.5L14.5 17.5Z' {p teal}/>"
+		+ "<path d='M8.5 16H28C36.5 16 43 19.6 45.6 24.5C43 29.4 36.5 33 28 33H8.5C6 33 4 31 4 28.5V20.5C4 18 6 16 8.5 16Z' {p shell}/>"
+		+ "<path d='M33.5 19.2C37.6 19.6 40.6 21 42.6 23H33.5Z' {k r1}/><path d='M33.5 19.2C37.6 19.6 40.6 21 42.6 23H33.5Z' {s cyan r1}/>"
 		+ "<rect x='19' y='15' width='4' height='19' {k}/><rect x='19' y='15.5' width='4' height='17' {s teal}/>"
-		+ "<circle cx='27.5' cy='24.5' r='2.4' {k}/><circle cx='33' cy='24.5' r='2.4' {k}/><circle cx='38.5' cy='24.5' r='2.4' {k}/>"
-		+ "<circle cx='27.5' cy='24.5' r='2.4' {s amber}/><circle cx='33' cy='24.5' r='2.4' {s amber}/><circle cx='38.5' cy='24.5' r='2.4' {s amber}/>"
-		+ "<rect x='9.5' y='19.5' width='6' height='10' rx='1.5' {K w1.4 d}/>"),
+		+ "<circle cx='26.5' cy='26' r='2.3' {k}/><circle cx='32' cy='26' r='2.3' {k}/><circle cx='37.5' cy='26' r='2.3' {k d}/>"
+		+ "<circle cx='26.5' cy='26' r='2.3' {s amber}/><circle cx='32' cy='26' r='2.3' {s amber}/><circle cx='37.5' cy='26' r='2.3' {s amber d}/>"
+),
 	## Infiltrator escape: the cargo pod in its frame on a hazard pad.
 	"pod": ("<rect x='3.5' y='40.5' width='41' height='5' rx='2' {u graphite d}/>"
 		+ "<path d='M6.5 42V10C6.5 8 8 6.5 10 6.5H38C40 6.5 41.5 8 41.5 10V42' {S graphite w3.4}/>"
@@ -289,9 +290,9 @@ const GLYPHS := {
 	"reactor": ("<circle cx='24' cy='27.5' r='19.5' {S graphite w2.6}/>"
 		+ "<rect x='19.5' y='5.5' width='9' height='14' rx='3' {k w5}/><rect x='19.5' y='5.5' width='9' height='14' rx='3' {k w5}/>"
 		+ "<g transform='rotate(120 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {k w5}/></g><g transform='rotate(240 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {k w5}/></g>"
-		+ "<rect x='19.5' y='5.5' width='9' height='14' rx='3' {p amber}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/>"
-		+ "<g transform='rotate(120 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {p amber}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/></g>"
-		+ "<g transform='rotate(240 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {p amber}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/></g>"
+		+ "<rect x='19.5' y='5.5' width='9' height='14' rx='3' {p shell}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {s amber d}/>"
+		+ "<g transform='rotate(120 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {p shell}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {s amber d}/></g>"
+		+ "<g transform='rotate(240 24 27.5)'><rect x='19.5' y='5.5' width='9' height='14' rx='3' {p shell}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {k d}/><rect x='22' y='8.5' width='4' height='7.5' rx='1.5' {s amber d}/></g>"
 		+ "<circle cx='24' cy='27.5' r='9' {x glow_cyan}/><circle cx='24' cy='27.5' r='6.6' {P cyan w3}/><circle cx='24' cy='27.5' r='2.6' {p cyan}/>"),
 	# --- Status and UI -------------------------------------------------------------------
 	## Power: a bolt with a toy extrusion.
@@ -300,8 +301,9 @@ const GLYPHS := {
 	"warning": ("<path d='M20.4 8.1C22 5.3 26 5.3 27.6 8.1L44.2 37.1C45.8 39.9 43.8 43.5 40.6 43.5H7.4C4.2 43.5 2.2 39.9 3.8 37.1Z' {p amber}/>"
 		+ "<path d='M24 15L38 39H10Z' {k r2}/><path d='M24 15L38 39H10Z' {s graphite r2}/>"
 		+ "<path d='M21.8 19.8H26.2L25.4 30.2H22.6Z' {p amber r2.2}/><circle cx='24' cy='34.6' r='2.4' {p amber}/>"),
-	"info": ("<circle cx='24' cy='24' r='20.5' {p cyan}/><circle cx='24' cy='24' r='16.2' {k}/><circle cx='24' cy='24' r='16.2' {s cyan_dk}/>"
-		+ "<circle cx='24' cy='15.5' r='2.9' {p led}/><rect x='21.5' y='21' width='5' height='13.5' rx='2.5' {p led}/>"),
+	"info": ("<circle cx='24' cy='24' r='20.5' {p cyan}/><path d='M10.4 17.5C12.6 11.6 18 7.6 24.2 7.6' {X gloss w2.4 d}/>"
+		+ "<circle cx='24' cy='14.6' r='3.3' {k}/><rect x='21' y='20.5' width='6' height='15' rx='3' {k}/>"
+		+ "<circle cx='24' cy='14.6' r='3.3' {x led}/><rect x='21' y='20.5' width='6' height='15' rx='3' {x led}/>"),
 	## Abort / nobody wins: a prohibition sign.
 	"abort": ("<circle cx='24' cy='24' r='15.6' {s red_dk}/><path d='M13.4 13.4L34.6 34.6' {K w10}/>"
 		+ "<circle cx='24' cy='24' r='18' {P red w5}/><path d='M13.4 13.4L34.6 34.6' {P red w5}/>"),

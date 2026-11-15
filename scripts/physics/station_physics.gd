@@ -343,6 +343,7 @@ func _tick_bodies(delta: float) -> void:
 					body.apply_central_force(airlock_dir(pos) * body.mass * AIRLOCK_PULL * pull * falloff + Vector3.UP * body.mass * 1.2 * pull * falloff)
 			if _check_lost(body, delta):
 				continue  # teleported home: its old pose must not overwrite the rules
+			_rolling_resistance(body, delta)
 			if body.is_prop:
 				_check_bump(body)
 				if keep_clear:
@@ -405,6 +406,28 @@ static func _centre_of(body: NetBody) -> Vector3:
 			sum += (child as CollisionShape3D).position
 			n += 1
 	return sum / maxf(1.0, float(n))
+
+
+## Jolt has no rolling resistance: a slow roll (a cell or barrel on its side)
+## would creep for many seconds. Below walking pace, bleed it off quickly so
+## bodies come to rest and sleep like real ones.
+func _rolling_resistance(body: NetBody, delta: float) -> void:
+	if body.sleeping or body.clearing != Vector3.ZERO:
+		return
+	var speed := body.linear_velocity.length()
+	if speed > 0.7 or body.linear_velocity.y > 0.5:
+		return
+	var spin := body.angular_velocity.length()
+	if speed < 0.05 and spin < 0.2 and body.idle_time <= 0.0:
+		# A creep (a cylinder rocking on its side): stop it dead once and let
+		# Jolt put it to sleep. Writing velocities every tick would keep it awake.
+		if speed > 0.0005 or spin > 0.001:
+			body.linear_velocity = Vector3(0.0, minf(body.linear_velocity.y, 0.0), 0.0)
+			body.angular_velocity = Vector3.ZERO
+		return
+	var k := exp(-delta * lerpf(4.0, 1.0, speed / 0.7))
+	body.angular_velocity *= k
+	body.linear_velocity = Vector3(body.linear_velocity.x * k, body.linear_velocity.y, body.linear_velocity.z * k)
 
 
 ## A player walking into a resting item nudges it along instead of launching it.

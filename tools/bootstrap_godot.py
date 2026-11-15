@@ -42,7 +42,7 @@ def _pins():
 
 
 def _download(pin, package):
-    print(f'Downloading Godot {pin["name"]} ({pin["size"] / 1e6:.0f} MB, one time only)...', file=sys.stderr, flush=True)
+    print(f'Downloading {pin["name"]} ({pin["size"] / 1e6:.0f} MB, one time only)...', file=sys.stderr, flush=True)
     partial = package.with_suffix('.part')
     try:
         with urllib.request.urlopen(pin['url'], timeout=30) as response, partial.open('wb') as target:

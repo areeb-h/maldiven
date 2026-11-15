@@ -132,9 +132,9 @@ func pose_overlay(m: CrewModel, t: float, speed := 0.0, carrying := false) -> vo
 		m.set_motion(speed, true, carrying, false, STEP)
 
 
-## Pose override (no CrewModel API for it yet): arms raised in surrender, palms
-## open. Bones are in chest space; the arm rests along -Y and its forearm hinges
-## on local X, so the upper arm is turned to make the elbow bend point up.
+## Pose override (no CrewModel API for it yet): arms raised in surrender with
+## open gloves. Bones are in chest space; the arm rests along -Y and its forearm
+## hinges on local X, so the upper arm is turned to make the elbow bend point up.
 ## Call after the last pose()/set_motion step.
 func hands_up(m: CrewModel) -> void:
 	for side in 2:
@@ -144,10 +144,17 @@ func hands_up(m: CrewModel) -> void:
 		m.bones[up].basis = Basis(Vector3.UP, -s * 0.45) * Basis(Vector3.BACK, s * 0.32) * raise
 		m.bones[up + 1].basis = Basis(Vector3.RIGHT, -1.75)
 		m.bones[up + 2].basis = Basis(Vector3.RIGHT, -0.15)
-		var fingers := CrewBody.L_FINGERS if side == 0 else CrewBody.R_FINGERS
-		m.bones[fingers].basis = Basis(Vector3.BACK, s * 0.05)
-		m.bones[fingers + 1].basis = Basis.from_euler(Vector3(0.0, 0.0, -s * 0.2))
 	m._upload()
+	glove(m, 0, "open")
+	glove(m, 1, "open")
+
+
+## Pose override: snaps one glove (0 left, 1 right) to a CrewHand pose such as
+## "open", "point", "thumbs_up", "wave" or "fist". Call after the last pose step.
+func glove(m: CrewModel, side: int, pose_name: String) -> void:
+	var hand: CrewHand = m.hands[side]
+	hand.set_pose(pose_name, 0.0)
+	hand.set_motion(0.0, 0.016)
 
 
 ## Pose override: turns the head (on top of the current pose) by yaw/pitch degrees.
@@ -248,10 +255,13 @@ func freeze_crew() -> void:
 		m.process_mode = Node.PROCESS_MODE_DISABLED
 
 
-## Parents an item to a crew anchor (carry_anchor / hand_anchor) like gameplay does.
-func hold(anchor: Node3D, kind: String) -> Node3D:
+## Gives `m` an item the way gameplay does: cells and cores ride on carry_anchor,
+## the gun sits in the right glove at hand_anchor. Also tells the model what it
+## holds, which picks the glove grips, so call it BEFORE posing.
+func hold(m: CrewModel, kind: String) -> Node3D:
 	var node := Props.make_item(kind)
-	anchor.add_child(node)
+	(m.hand_anchor if kind == "gun" else m.carry_anchor).add_child(node)
+	m.set_held_item(kind)
 	if kind == "core" or kind == "cell":
 		vfx.attach_item_fx(node, kind)
 	return node

@@ -54,6 +54,9 @@ var _status := ""
 
 
 func set_state(p_filled: bool, p_locked: bool, p_active: bool) -> void:
+	# world.gd calls this every frame: nothing to do unless the state changed.
+	if not _snap and is_inside_tree() and p_filled == filled and p_locked == locked and p_active == active:
+		return
 	filled = p_filled
 	locked = p_locked
 	active = p_active
