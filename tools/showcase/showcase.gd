@@ -83,9 +83,11 @@ func _run() -> void:
 
 
 ## Desktop-grade settings for stills: MSAA, big shadow atlas, soft shadows,
-## high-quality circular bokeh and no mesh LOD. `preview` keeps it cheap.
-static func configure_quality(vp: Viewport, preview: bool) -> void:
-	vp.msaa_3d = Viewport.MSAA_DISABLED if preview else Viewport.MSAA_4X
+## high-quality circular bokeh and no mesh LOD. `preview` keeps it cheap;
+## `msaa` is the sample count for full quality (the trailer uses 2).
+static func configure_quality(vp: Viewport, preview: bool, msaa := 4) -> void:
+	var full_msaa := Viewport.MSAA_2X if msaa == 2 else Viewport.MSAA_4X
+	vp.msaa_3d = Viewport.MSAA_DISABLED if preview else full_msaa
 	vp.mesh_lod_threshold = 1.0 if preview else 0.0
 	vp.positional_shadow_atlas_size = 2048 if preview else 8192
 	vp.use_debanding = true

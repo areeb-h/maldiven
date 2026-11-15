@@ -299,12 +299,12 @@ func beat_title_sting(lt: float, first: bool) -> void:
 ## doorways, gather in a ring, one waves, one taps their helmet.
 func beat_assemble(lt: float, first: bool) -> void:
 	var paths := {
-		"yellow": [Vector3(0.0, 0, 9.5), Vector3(0.1, 0, 2.3), 0.0, "happy", 1, 3],
-		"blue": [Vector3(10.5, 0, 0.3), Vector3(2.1, 0, 1.1), 0.4, "happy", 2, 2],
-		"red": [Vector3(10.5, 0, -0.7), Vector3(2.0, 0, -1.0), 0.9, "neutral", 0, 1],
-		"green": [Vector3(0.0, 0, -9.5), Vector3(-0.3, 0, -2.0), 0.2, "happy", 3, 4],
-		"purple": [Vector3(-7.5, 0, 0.6), Vector3(-2.2, 0, 0.3), 1.2, "suspicious", 1, 5],
-		"orange": [Vector3(0.9, 0, 9.5), Vector3(-1.5, 0, 2.0), 0.7, "happy", 2, 6],
+		"yellow": [Vector3(0.0, 0, 6.6), Vector3(0.1, 0, 2.3), 0.0, "happy", 1, 3],
+		"blue": [Vector3(7.6, 0, 0.3), Vector3(2.1, 0, 1.1), 0.3, "happy", 2, 2],
+		"red": [Vector3(7.6, 0, -0.7), Vector3(2.0, 0, -1.0), 0.7, "neutral", 0, 1],
+		"green": [Vector3(0.0, 0, -6.6), Vector3(-0.3, 0, -2.0), 0.15, "happy", 3, 4],
+		"purple": [Vector3(-6.8, 0, 0.6), Vector3(-2.2, 0, 0.3), 1.0, "suspicious", 1, 5],
+		"orange": [Vector3(0.9, 0, 6.6), Vector3(-1.5, 0, 2.0), 0.5, "happy", 2, 6],
 	}
 	if first:
 		begin_shot("emergency", 9003)
@@ -326,7 +326,7 @@ func beat_assemble(lt: float, first: bool) -> void:
 	cue(lt, 0.0, "ambience_emergency", -14.0)
 	cue(lt, 5.2, "ui_click", -8.0)
 	var ang := deg_to_rad(lerpf(205.0, 250.0, smooth(lt / 7.5)))
-	var cam := Vector3(sin(ang), 0, cos(ang)) * -6.2 + Vector3(0, lerpf(1.9, 1.35, smooth(lt / 7.5)), 0.3)
+	var cam := Vector3(sin(ang), 0, cos(ang)) * -5.0 + Vector3(0, lerpf(1.9, 1.35, smooth(lt / 7.5)), 0.3)
 	frame(cam, Vector3(0, 1.15, 0.3), 46.0, Vector3(0, 1.4, 0.3), 3.0, 0.05)
 
 
@@ -369,7 +369,7 @@ func beat_lights_on(lt: float, first: bool) -> void:
 		var i := 0
 		for key: String in ring:
 			var m := actor(key, key, ring[key], 0.0, "neutral", i % 4, i + 1)
-			face(m, Vector3(0, 0, 0.3))
+			face(m, Vector3(0.3, 0, 7.0))
 			i += 1
 		vfx.burst("power_wave", Vfx.REACTOR_CORE)
 	if crossed(lt, 0.3):
@@ -440,7 +440,7 @@ func beat_gun(lt: float, first: bool) -> void:
 		_vars["gun"] = hold(o, "gun")
 		o.set_expression("angry")
 	if lt > 1.2:
-		var d := Vector3(39.9, 0, -18.3) - o.position
+		var d := Vector3(38.9, 0, -19.7) - o.position
 		o.rotation.y = lerp_angle(o.rotation.y, atan2(d.x, d.z), 0.12)
 	if crossed(lt, 1.7):
 		o.set_aiming(true)
@@ -452,22 +452,23 @@ func beat_gun(lt: float, first: bool) -> void:
 	drive(o, 0.0)
 	cue(lt, 0.8, "pickup", 0.0)
 	cue(lt, 3.7, "gunshot", 2.0)
-	cam_move(Vector3(39.6, 0.65, -18.7), Vector3(39.2, 0.75, -19.4), Vector3(37.0, 1.45, -22.6), Vector3(37.2, 1.5, -22.4), lt / 5.0, 44.0, Vector3(37.0, 1.6, -22.6), 1.6, 0.08)
+	cam_move(Vector3(38.2, 0.85, -20.3), Vector3(38.05, 0.9, -20.7), Vector3(37.0, 1.45, -22.6), Vector3(37.1, 1.5, -22.5), lt / 5.0, 46.0, Vector3(37.0, 1.6, -22.6), 1.6, 0.08)
 
 
 ## Betrayal in Docking: green walks beside teal, who carries the core, then
-## shoves. The core flies (a real rigid body), green scoops it up and runs.
+## shoves. The core flies (a real rigid body), green scoops it up and runs out
+## past the lens. Camera at the east end, looking back along their walk.
 func beat_betrayal(lt: float, first: bool) -> void:
 	if first:
 		begin_shot("restored", 9009)
-		var t := actor("teal", "teal", Vector3(15.4, 0, 2.0), 90.0, "happy", 0, 7)
+		var t := actor("teal", "teal", Vector3(23.6, 0, 1.6), -90.0, "happy", 0, 7)
 		_vars["core"] = hold(t, "core")
-		actor("green", "green", Vector3(15.0, 0, 2.95), 90.0, "neutral", 3, 4)
+		actor("green", "green", Vector3(23.8, 0, 2.55), -90.0, "neutral", 3, 4)
 	var teal := get_actor("teal")
 	var green := get_actor("green")
 	if lt < 2.0:
-		walk(teal, Vector3(15.4, 0, 2.0), Vector3(18.4, 0, 2.0), 1.5, 0.0, lt, true)
-		walk(green, Vector3(15.0, 0, 2.95), Vector3(18.0, 0, 2.95), 1.5, 0.0, lt)
+		walk(teal, Vector3(23.6, 0, 1.6), Vector3(20.6, 0, 1.6), 1.5, 0.0, lt, true)
+		walk(green, Vector3(23.8, 0, 2.55), Vector3(20.8, 0, 2.55), 1.5, 0.0, lt)
 	else:
 		if crossed(lt, 2.0):
 			face(green, teal.position)
@@ -478,36 +479,34 @@ func beat_betrayal(lt: float, first: bool) -> void:
 			teal.set_expression("hurt")
 			teal.set_held_item("")
 			vfx.burst("shove_impact", teal.position + Vector3(0, 1.3, 0.3), Vector3(0, 0, -1))
-			_vars["body"] = _launch_core(_vars["core"], Vector3(1.6, 3.4, -2.2))
-		var stunned := lt > 2.17 and lt < 3.9
+			_vars["body"] = _launch_core(_vars["core"], Vector3(-0.6, 3.4, -2.0))
 		if lt > 2.17:
-			teal.position.z = lerpf(teal.position.z, 1.3, 0.12)
+			teal.position.z = lerpf(teal.position.z, 0.9, 0.12)
 			clear_hit_flash(teal)
-		drive(teal, 0.0, false, stunned)
-		if crossed(lt, 3.4):
+		drive(teal, 0.0, false, lt > 2.17 and lt < 3.9)
+		if crossed(lt, 3.3):
 			var body: RigidBody3D = _vars["body"]
 			_vars["g0"] = green.position
-			_vars["g_to"] = Vector3(body.global_position.x, 0, body.global_position.z + 0.55)
-		if lt < 3.4:
+			_vars["g_to"] = Vector3(body.global_position.x + 0.5, 0, body.global_position.z + 0.3)
+		if lt < 3.3:
 			drive(green, 0.0)
-		elif lt < 4.4:
-			walk(green, _vars["g0"], _vars["g_to"], 4.0, 3.4, lt)
+		elif lt < 4.2:
+			walk(green, _vars["g0"], _vars["g_to"], 4.0, 3.3, lt)
 		else:
-			if crossed(lt, 4.4):
+			if crossed(lt, 4.2):
 				var core: Node3D = _vars["core"]
 				core.reparent(green.carry_anchor, false)
 				core.transform = Transform3D.IDENTITY
 				(_vars["body"] as Node).queue_free()
 				green.set_held_item("core")
 				_vars["g1"] = green.position
-			walk(green, _vars["g1"], _vars["g1"] + Vector3(6.0, 0, -2.0), 5.4, 4.4, lt, true)
+			walk(green, _vars["g1"], Vector3(27.5, 0, 0.3), 5.4, 4.2, lt, true)
 		if crossed(lt, 3.9):
 			teal.set_expression("angry")
 	cue(lt, 2.17, "shove", 0.0)
 	cue(lt, 2.7, "drop", -2.0)
-	cue(lt, 4.4, "pickup", -2.0)
-	var k := lt / 6.0
-	cam_move(Vector3(16.0, 1.25, 6.4), Vector3(19.4, 1.35, 5.7), Vector3(17.0, 1.1, 2.0), Vector3(20.5, 1.0, 1.5), k, 48.0, Vector3(lerpf(16.5, 19.5, k), 1.2, 2.2), 3.0, 0.04)
+	cue(lt, 4.2, "pickup", -2.0)
+	cam_move(Vector3(25.0, 1.35, 2.7), Vector3(24.6, 1.3, 3.1), Vector3(21.6, 1.15, 1.9), Vector3(22.0, 1.05, 1.0), lt / 6.0, 50.0, teal.position + Vector3(0, 1.3, 0), 3.0, 0.04)
 
 
 ## Turns a held core into a free rigid body with the given launch velocity.
@@ -537,14 +536,14 @@ func beat_chase(lt: float, first: bool) -> void:
 		begin_shot("emergency", 9010)
 		var g := actor("green", "green", Vector3(30.5, 0, -19.6), -90.0, "angry", 3, 4)
 		hold(g, "core")
-		actor("teal", "teal", Vector3(33.2, 0, -20.3), -92.0, "angry", 0, 7)
+		actor("teal", "teal", Vector3(33.4, 0, -20.3), -92.0, "angry", 0, 7)
 		station.env.glow_intensity = 0.7
 	var g := get_actor("green")
 	var t := get_actor("teal")
 	g.position.x = 30.5 - 5.4 * lt
-	t.position.x = 33.2 - 5.9 * lt
+	t.position.x = 33.4 - 5.6 * lt
 	drive(g, 5.4, true)
-	drive(t, 6.2)
+	drive(t, 5.6)
 	if int(lt * 3.6) != int(_prev_lt * 3.6):
 		cue(lt, lt, "footstep_%d" % (int(lt * 3.6) % 3 + 1), -8.0)
 	var cam := Vector3(g.position.x - 3.4 + 0.4 * lt, 1.35, -20.6)
@@ -597,11 +596,11 @@ func beat_spaced(lt: float, first: bool) -> void:
 		vfx.burst("airlock_vent", Vector3(-15.2, 1.2, 0.0), Vector3(-1, 0, 0))
 	var r := get_actor("red")
 	var t := maxf(lt - 0.15, 0.0)
-	r.position = Vector3(-14.4, 0.4, 0.0) + Vector3(-3.0, 0.55, 0.85) * t
+	r.position = Vector3(-14.4, 0.4, 0.0) + Vector3(-2.2, 0.45, 1.0) * t
 	r.rotation = Vector3(1.4 * t, deg_to_rad(-90.0) + 0.5 * t, 2.1 * t)
 	drive(r, 0.0, false, true, false)
 	if crossed(lt, 0.5):
-		vfx.burst("spaced", r.position + Vector3(0, 1.0, 0), Vector3(-3.0, 0.55, 0.85))
+		vfx.burst("spaced", r.position + Vector3(0, 1.0, 0), Vector3(-2.2, 0.45, 1.0))
 	cue(lt, 0.05, "airlock_vent", 2.0)
 	cue(lt, 1.6, "ghost_drift", -4.0)
 	cam_move(Vector3(-16.6, 1.0, 6.4), Vector3(-17.4, 1.4, 6.2), Vector3(-17.0, 1.8, -1.0), Vector3(-21.0, 3.0, -1.6), lt / 4.0, 46.0, r.position + Vector3(0, 1.0, 0), 4.0, 0.03)
@@ -656,11 +655,11 @@ func beat_launch(lt: float, first: bool) -> void:
 	var ship: Node3D = _vars["ship"]
 	var dir := Vector3(-0.32, 0.42, -0.85).normalized()
 	var s := 3.0 * lt + 2.6 * lt * lt
-	ship.position = Vector3(20.0, 2.0, -6.0) + dir * s
+	ship.position = Vector3(20.0, 4.2, -4.2) + dir * s
 	ship.basis = Basis.looking_at(dir, Vector3.UP)
 	cue(lt, 0.0, "win_crew", -2.0)
-	var cam := Vector3(24.0, 2.2, 9.0)
-	frame(cam, ship.position.lerp(Vector3(-280, 170, -990), clampf(lt / 5.5, 0.0, 0.25)), 52.0, ship.position, 30.0, 0.0)
+	var cam := Vector3(22.0, 8.5, 13.0)
+	frame(cam, ship.position.lerp(Vector3(-280, 170, -990), clampf(lt / 5.5, 0.0, 0.2)), 50.0, ship.position, 30.0, 0.0)
 	card(clampf((lt - 4.7) / 0.8, 0.0, 1.0))
 
 
