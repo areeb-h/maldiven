@@ -17,7 +17,7 @@ with the real crew, items and VFX, plus a 15 s vertical teaser.
 | 0-7 | Cold open in the Cargo blackout: flashlights sweep, three crew edge forward, a red visor wakes with an angry face and blinks. |
 | 7-9.5 | Title sting: DRIFT STATION / TRUST NO ONE. |
 | 9.5-17 | The crew walks into Commons under emergency light and gathers; a wave, a helmet tap. |
-| 17-23.5 | The last cell slots into the Reactor, the power wave rolls out and the lights come up on the crew. |
+| 17-23.5 | The last cell slots into the Reactor; on the power hit (18.5) a soft white cut to Commons, where the wave rolls through and the lights come up on the crew (20.8). |
 | 23.5-28 | The vault field drops; the core glows. |
 | 28-33.5 | "ONE OF YOU IS LYING", then snap close-ups of suspicious faces, landing on purple. |
 | 33.5-38.5 | Orange takes the gun from the armory, turns and fires past the lens. |

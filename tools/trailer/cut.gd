@@ -10,8 +10,8 @@ const BEATS: Array = [
 	["beat_cold_open", 7.0],
 	["beat_title_sting", 2.5],
 	["beat_assemble", 7.5],
-	["beat_reactor", 3.5],
-	["beat_lights_on", 3.0],
+	["beat_reactor", 1.52],
+	["beat_lights_on", 4.98],
 	["beat_vault", 4.5],
 	["beat_lying", 5.5],
 	["beat_gun", 5.0],
@@ -376,21 +376,18 @@ func beat_reactor(lt: float, first: bool) -> void:
 	if crossed(lt, 1.5):
 		vfx.burst("power_wave", Vfx.REACTOR_CORE)
 		restore_power_soft()
-	# The wave's bright wall sweeps through the lens ~0.15 s after the burst
-	# (it expands from the core); dip exposure under it and ride a soft flash
-	# instead, so no frame goes full white.
-	var pass_t := 1.5 + Vfx.POWER_WAVE_TIME * pow(camera.global_position.distance_to(Vfx.REACTOR_CORE) / Vfx.POWER_WAVE_RADIUS, 1.0 / 1.15)
-	var dip := smooth(1.0 - absf(lt - pass_t) / 0.16)
-	attrs.exposure_multiplier = 0.85 * (1.0 - 0.7 * dip)
-	flash(0.28 * smooth(1.0 - absf(lt - pass_t - 0.02) / 0.22))
+	# The beat cuts on the power hit, before the wave's bright wall sweeps
+	# through the lens; a soft white ramp carries the hit across the cut.
+	flash(0.3 * smooth((lt - 1.38) / 0.14))
 	drive(w, 0.0, lt < 1.0)
 	cue(lt, 1.0, "insert_cell", 0.0)
 	cue(lt, 1.5, "power_up", 0.0)
 	cam_move(Vector3(56.2, 0.7, 18.6), Vector3(56.6, 0.55, 17.6), Vector3(59.5, 1.3, 22.5), Vector3(61.0, 2.2, 20.5), lt / 3.5, 50.0, Vector3(58.0, 1.2, 22.4), 3.0, 0.05)
 
 
-## Power restored, part 2: the wave rolls through Commons and the lights come
-## up on the crew; faces brighten.
+## Power restored, part 2 (cut on the power hit): the white of the hit fades,
+## the wave rolls through Commons in emergency red, then the lights come up on
+## the crew (20.8 s, on the score's bloom) and faces brighten.
 func beat_lights_on(lt: float, first: bool) -> void:
 	var ring := {"yellow": Vector3(0.1, 0, 2.3), "blue": Vector3(2.1, 0, 1.1), "red": Vector3(2.0, 0, -1.0),
 		"green": Vector3(-0.3, 0, -2.0), "purple": Vector3(-2.2, 0, 0.3), "orange": Vector3(-1.5, 0, 2.0)}
@@ -402,13 +399,14 @@ func beat_lights_on(lt: float, first: bool) -> void:
 			face(m, Vector3(0.3, 0, 7.0))
 			i += 1
 		vfx.burst("power_wave", Vfx.REACTOR_CORE)
-	if crossed(lt, 0.3):
+	flash(0.3 * (1.0 - smooth(lt / 0.35)))
+	if crossed(lt, 2.28):
 		restore_power_soft()
-	if crossed(lt, 1.3):
+	if crossed(lt, 3.1):
 		for key: String in ring:
 			if key != "purple":
 				get_actor(key).set_expression("happy")
-	cam_move(Vector3(0.4, 0.45, 7.0), Vector3(0.3, 0.55, 6.2), Vector3(-0.3, 1.9, -1.0), Vector3(-0.3, 2.1, -1.0), lt / 3.0, 50.0, Vector3(0, 1.4, 1.0), 3.0, 0.04)
+	cam_move(Vector3(0.4, 0.45, 7.2), Vector3(0.3, 0.55, 6.0), Vector3(-0.3, 1.9, -1.0), Vector3(-0.3, 2.1, -1.0), lt / 4.98, 50.0, Vector3(0, 1.4, 1.0), 3.0, 0.04)
 
 
 ## The vault unlocks: its field drops and the core glows in its cage; camera
