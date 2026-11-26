@@ -3,7 +3,9 @@ extends SceneTree
 ## overlay, and checks the triangle / draw-call budgets.
 ## Run: godot --headless --path . --script tests/crew_model_smoke.gd
 
-const MAX_TRIS := 20000
+## v4: +~560 triangles (rounder hoses, lamps, beacon, helmet and ear pods for hero
+## close-ups; the owner flagged faceting). Still one skinned draw call per suit.
+const MAX_TRIS := 21000
 const MAX_DRAW_CALLS := 12
 const COLORS: Array[Color] = [
 	Color(0.95, 0.35, 0.1), Color(0.15, 0.55, 0.95), Color(0.2, 0.85, 0.35), Color(0.95, 0.85, 0.15),
@@ -74,7 +76,7 @@ func _initialize() -> void:
 	first.set_expression("shocked", 0.2)
 	for f in 20:
 		first._process(dt)
-	_check(first.get_expression() == "ghost", "held expression returns to the base face")
+	_check(first.get_expression() == CrewMaterials.EXPRESSIONS[-1], "held expression returns to the base face")
 	first.set_expression("neutral")
 	for k in 3:
 		first.play_fidget(k)

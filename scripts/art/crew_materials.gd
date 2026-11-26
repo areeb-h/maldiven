@@ -11,7 +11,7 @@ enum { PRIMARY, SECONDARY, FABRIC, METAL, ACCENT, RUBBER, STATUS, LAMP, TRIM, DE
 const BONE_COUNT := 19
 ## LED faces (index = shader id; new names are only ever appended).
 const EXPRESSIONS: Array[String] = ["neutral", "happy", "shocked", "angry", "suspicious", "hurt", "downed", "ghost",
-	"scared", "sad", "sly"]
+	"scared", "sad", "smug", "pleading"]
 ## Per face: LED tint, tint amount (0 = the player's own eye colour), brightness gain
 ## and glass wash (the whole visor glows faintly in the LED colour). Colour and wash
 ## carry the mood at 4-8 m, where the eye shapes are only a few pixels.
@@ -26,7 +26,8 @@ const EXPRESSION_STYLE := {
 	"ghost": [Color(1.0, 1.0, 1.0), 0.0, 1.0, 0.0],
 	"scared": [Color(0.8, 0.95, 1.0), 0.55, 1.15, 0.07],
 	"sad": [Color(0.35, 0.55, 1.0), 0.8, 0.8, 0.08],
-	"sly": [Color(0.92, 0.28, 1.0), 0.85, 1.05, 0.11],
+	"smug": [Color(0.92, 0.28, 1.0), 0.75, 1.05, 0.1],
+	"pleading": [Color(0.72, 0.88, 1.0), 0.55, 1.15, 0.08],
 }
 
 const _SKIN := """
@@ -370,11 +371,16 @@ void fragment() {
 	float scan = 0.5 + 0.5 * sin(wpos.y * 38.0 - TIME * 5.0);
 	float band = smoothstep(0.92, 1.0, sin(wpos.y * 3.0 - TIME * 2.2));
 	float glow_part = (id > 3.5 && id < 4.5) || (id > 5.5 && id < 6.5) || id > 9.5 ? 1.0 : 0.0;
-	vec3 c = mix(accent, vec3(0.85, 0.95, 1.0), 0.25);
+	// Ghost blue keeping the suit's hue (so a purple ghost still reads as purple).
+	vec3 c = mix(vec3(0.55, 0.8, 1.0), accent, 0.45);
+	// Near the lens the interior lines calm down and only the rim stays bright.
+	float near = smoothstep(1.4, 3.0, length(VERTEX));
+	scan *= near;
+	band *= near;
 	ALBEDO = c * 0.08;
 	ROUGHNESS = 0.4;
 	SPECULAR = 0.2;
-	EMISSION = c * (fres * 2.6 + 0.12 + scan * 0.12 + band * 0.9 + glow_part * 2.5);
+	EMISSION = c * (fres * 2.6 + 0.12 * (0.4 + 0.6 * near) + scan * 0.12 + band * 0.9 + glow_part * mix(1.2, 2.5, near));
 	// The legs dissolve into a glowing wisp instead of ending in solid boots.
 	float wisp = smoothstep(GHOST_FADE.x, GHOST_FADE.y, v_model_y);
 	float seam = exp(-pow((v_model_y - GHOST_FADE.x - 0.06) * 18.0, 2.0)) * (0.6 + 0.4 * sin(TIME * 4.0 + v_model_y * 40.0));
@@ -408,6 +414,16 @@ uniform float wash = 0.0;
 uniform float glint = -1.0;
 uniform float tremble = 0.0;
 uniform float env_strength = 0.6;
+// Per-character dimmer for the LED face, bezel line and mood wash (CrewModel.set_lights).
+uniform float visor_light = 1.0;
+// Two analytic reflections of off-screen lights (CrewModel.set_visor_glint):
+// glint_pos[i] = world position + size, glint_col[i] = colour + strength.
+uniform vec4 glint_pos[2];
+uniform vec4 glint_col[2];
+// Frost creeping in from the rim, 0..1 (vented out of the airlock).
+uniform float frost = 0.0;
+// Soft cap on the visor's emission so close-ups never blow to white.
+uniform float lum_cap = 1.5;
 const float FACE_SCALE = 1.2;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -427,13 +443,17 @@ float eye_sd(vec2 p, int e, float side, float bl) {
 	} else if (e == 2) {
 		return abs(length(p) - 0.019) - 0.0058;
 	} else if (e == 3) {
-		float d = sd_seg(p, vec2(0.0, -0.013), vec2(0.0, 0.01), 0.013);
-		return max(d, dot(p - vec2(0.0, 0.001), normalize(vec2(inw * 0.8, 1.0))));
+		// Angry: two slit bars, inner ends low, meeting in a V (the infiltrator icon).
+		vec2 q3 = p - vec2(inw * 0.011, 0.0);
+		vec2 dv = vec2(cos(0.37), sin(0.37)) * 0.027;
+		return sd_seg(q3, vec2(inw * dv.x, -dv.y), vec2(-inw * dv.x, dv.y), 0.0068);
 	} else if (e == 4) {
+		// Suspicious: the left eye squeezed to a flat bar, the right a three-quarter
+		// circle (look pushes both hard to one side; the asymmetry is the read).
 		if (side > 0.0) {
-			return sd_seg(p, vec2(-0.016, 0.001), vec2(0.016, -0.001), 0.0048);
+			return sd_seg(p, vec2(-0.017, 0.0), vec2(0.017, 0.0), 0.0052);
 		}
-		return max(sd_seg(p, vec2(0.0, -0.012), vec2(0.0, 0.008), 0.013), p.y - 0.004);
+		return max(length(p) - 0.0155, p.y - 0.0078);
 	} else if (e == 5) {
 		vec2 tip = vec2(inw * 0.012, 0.0);
 		return min(sd_seg(p, vec2(-inw * 0.012, 0.016), tip, 0.0055), sd_seg(p, tip, vec2(-inw * 0.012, -0.016), 0.0055));
@@ -449,9 +469,13 @@ float eye_sd(vec2 p, int e, float side, float bl) {
 		float d9 = sd_seg(p, vec2(0.0, -0.011), vec2(0.0, 0.005), 0.0118);
 		return max(d9, dot(p - vec2(0.0, 0.0), normalize(vec2(-inw * 0.6, 1.0))));
 	} else if (e == 10) {
-		// Sly: heavy flat upper lid over a smug crescent.
-		float d10 = length(p * vec2(0.85, 1.25)) - 0.0148;
-		return max(d10, p.y - 0.0012 - p.x * inw * 0.1);
+		// Smug: half-lidded (flat, slightly sloped lid over a half disc).
+		float d10 = length(p * vec2(0.9, 1.1)) - 0.015;
+		return max(d10, p.y - 0.0015 - p.x * inw * 0.12);
+	} else if (e == 11) {
+		// Pleading: tall ovals leaning in at the top.
+		vec2 q11 = vec2(p.x - p.y * inw * 0.22, p.y);
+		return length(q11 * vec2(1.0, 0.56)) - 0.0115;
 	}
 	float h = 0.014 * (1.0 - bl);
 	return sd_seg(p, vec2(0.0, -h), vec2(0.0, h), 0.0128 * (1.0 - bl * 0.4));
@@ -462,32 +486,38 @@ float brow_sd(vec2 p, int e, float side) {
 	float inw = -side;
 	if (e == 2) {
 		return min(sd_seg(p, vec2(-0.017, 0.035), vec2(0.0, 0.041), 0.0034), sd_seg(p, vec2(0.0, 0.041), vec2(0.017, 0.035), 0.0034));
-	} else if (e == 3) {
-		return sd_seg(p, vec2(inw * 0.006, 0.019), vec2(-inw * 0.022, 0.033), 0.0044);
 	} else if (e == 4) {
 		if (side > 0.0) {
-			return sd_seg(p, vec2(-0.02, 0.015), vec2(0.02, 0.0115), 0.0042);
+			return sd_seg(p, vec2(inw * 0.02, 0.013), vec2(-inw * 0.02, 0.022), 0.0042);
 		}
-		return min(sd_seg(p, vec2(inw * 0.017, 0.029), vec2(0.0, 0.039), 0.0036), sd_seg(p, vec2(0.0, 0.039), vec2(-inw * 0.017, 0.035), 0.0036));
+		return 1e3;
 	} else if (e == 8) {
 		return sd_seg(p, vec2(inw * 0.005, 0.035), vec2(-inw * 0.018, 0.025), 0.0034);
 	} else if (e == 9) {
 		return sd_seg(p, vec2(inw * 0.008, 0.026), vec2(-inw * 0.02, 0.017), 0.0036);
-	} else if (e == 10) {
-		if (side > 0.0) {
-			return sd_seg(p, vec2(inw * 0.008, 0.02), vec2(-inw * 0.02, 0.025), 0.0038);
-		}
-		return sd_seg(p, vec2(inw * 0.014, 0.028), vec2(-inw * 0.018, 0.036), 0.0036);
+	} else if (e == 11) {
+		return sd_seg(p, vec2(inw * 0.004, 0.04), vec2(-inw * 0.018, 0.03), 0.0034);
 	}
 	return 1e3;
 }
 
-float face(vec2 uv, int e, float bl) {
+// `grow` scales the glyphs (not their spacing) for distance; `bold` thickens strokes.
+float face(vec2 uv, int e, float bl, float grow, float bold) {
 	vec2 q = (uv - look) / FACE_SCALE;
+	if (e == 11) {
+		q.y += 0.0022 * sin(TIME * 8.0 * 6.2832);  // pleading: small vertical tremble
+	}
 	vec2 c = vec2(0.057, 0.006);
-	float d = min(eye_sd(q - c, e, 1.0, bl), eye_sd(q + vec2(c.x, -c.y), e, -1.0, bl));
-	d = min(d, min(brow_sd(q - c, e, 1.0), brow_sd(q + vec2(c.x, -c.y), e, -1.0)));
-	return d * FACE_SCALE;
+	vec2 pr = (q - c) / grow;
+	vec2 pl = (q + vec2(c.x, -c.y)) / grow;
+	float d = min(eye_sd(pr, e, 1.0, bl), eye_sd(pl, e, -1.0, bl));
+	d = min(d, min(brow_sd(pr, e, 1.0), brow_sd(pl, e, -1.0)));
+	if (e == 10) {
+		// Smug: one off-centre upturned curve below the eyes.
+		vec2 m = q / grow;
+		d = min(d, min(sd_seg(m, vec2(-0.046, -0.036), vec2(-0.022, -0.046), 0.0036), sd_seg(m, vec2(-0.022, -0.046), vec2(0.004, -0.033), 0.0036)));
+	}
+	return d * FACE_SCALE * grow - bold;
 }
 
 void fragment() {
@@ -506,6 +536,25 @@ void fragment() {
 	float az = atan(r.x, r.z);
 	env += vec3(0.45, 0.6, 0.85) * smoothstep(0.55, 0.85, sin(az * 7.0)) * smoothstep(0.0, 0.05, r.y) * (1.0 - smoothstep(0.18, 0.26, r.y)) * 0.35;
 	env = mix(vec3(dot(env, vec3(0.3, 0.59, 0.11))), env, 0.55) * env_strength;
+	// Faint sky gradient and a warm streak where the gas giant hangs (north, -Z), so
+	// every visor reads as curved glass.
+	env += vec3(0.05, 0.07, 0.11) * smoothstep(-0.1, 0.9, r.y);
+	env += vec3(1.0, 0.6, 0.32) * 0.22 * exp(-pow((r.y - 0.16) * 8.0, 2.0)) * smoothstep(0.1, 0.9, -r.z);
+	// Analytic glints: soft, vertically stretched highlights where each light would
+	// reflect on the curved glass.
+	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 glints = vec3(0.0);
+	for (int i = 0; i < 2; i++) {
+		if (glint_col[i].a > 0.0) {
+			vec3 to_l = normalize(glint_pos[i].xyz - wp);
+			float cs = dot(r, to_l);
+			float sz = max(glint_pos[i].w, 0.01);
+			vec3 side = normalize(cross(to_l, vec3(0.0, 1.0, 0.0)) + vec3(1e-4));
+			float across = dot(r - to_l * cs, side);
+			float spot = exp(-(1.0 - cs) / (sz * sz)) * exp(-across * across / (sz * sz * 0.35));
+			glints += glint_col[i].rgb * glint_col[i].a * spot;
+		}
+	}
 	// LED face behind the glass (parallax so it sits inside the helmet).
 	vec2 vt = vec2(dot(VIEW, TANGENT), dot(VIEW, BINORMAL));
 	vec2 puv = UV - vt / max(dot(VIEW, n), 0.35) * eye_depth;
@@ -513,8 +562,15 @@ void fragment() {
 	puv.x += gl * 0.012;
 	puv += vec2(sin(TIME * 47.0), cos(TIME * 39.0)) * 0.0009 * tremble;
 	float aa = max(max(fwidth(puv.x), fwidth(puv.y)), 0.0003) * 1.1;
-	float da = face(puv, expr_a, blink);
-	float db = face(puv, expr_b, blink);
+	// Distance LOD: close up the glass stays dark and the LED strokes thin; from ~2 m
+	// out the strokes thicken and the mood wash fills the glass, so faces still read
+	// across a room (4-8 m) where they are only a few pixels tall.
+	float dist = length(VERTEX);
+	float far = smoothstep(1.6, 6.0, dist);
+	float range = smoothstep(4.0, 8.0, dist);
+	float grow = 1.0 + 0.3 * range;
+	float da = face(puv, expr_a, blink, grow, 0.0012 * far);
+	float db = face(puv, expr_b, blink, grow, 0.0012 * far);
 	float core = mix(1.0 - smoothstep(-aa, aa, da), 1.0 - smoothstep(-aa, aa, db), expr_mix);
 	float halo = mix(exp(-max(da, 0.0) * 140.0), exp(-max(db, 0.0) * 140.0), expr_mix);
 	float scan = 0.88 + 0.12 * sin(puv.y * 900.0);
@@ -526,10 +582,15 @@ void fragment() {
 	// wash fills the whole glass so the colour reads from across a room.
 	vec2 qn = UV / vec2(0.17, 0.09);
 	float rimg = smoothstep(0.6, 1.05, max(abs(qn.x), abs(qn.y)));
-	vec3 inner = led * (0.012 + 0.05 * rimg + wash * (0.55 + 0.45 * exp(-dot(qn, qn) * 1.5))) * flick;
+	vec3 inner = led * (0.012 + 0.05 * rimg + wash * (0.15 + far * 1.1) * (0.3 + 0.7 * exp(-dot(qn, qn) * 2.2))) * flick;
 	// Thin emissive line just inside the bezel (UV2 = visor patch parameters).
 	float edge = max(abs(UV2.x * 2.0 - 1.0), abs(UV2.y * 2.0 - 1.0));
 	inner += led_base * smoothstep(0.88, 0.94, edge) * (1.0 - smoothstep(0.97, 1.0, edge)) * 0.9;
+	inner *= visor_light;
+	eyes *= visor_light * (1.0 + 0.25 * range);
+	// Frost: crystalline white creeping in from the rim.
+	float fr_n = hash(floor(UV * 420.0)) * 0.5 + hash(floor(UV * 90.0)) * 0.5;
+	float frost_m = frost > 0.0 ? smoothstep(1.0 - frost * 0.75, 1.0 - frost * 0.75 + 0.18, edge + (fr_n - 0.5) * 0.25) : 0.0;
 	// Glint: a bright diagonal streak (and a thin echo) sweeps across the glass.
 	vec3 glint_e = vec3(0.0);
 	if (glint >= 0.0) {
@@ -544,11 +605,15 @@ void fragment() {
 """
 
 const _VISOR_OPAQUE := """
-	ALBEDO = tint;
+	ALBEDO = mix(tint, vec3(0.62, 0.72, 0.8), frost_m);
 	METALLIC = 0.0;
-	ROUGHNESS = 0.05;
+	ROUGHNESS = mix(0.05, 0.6, frost_m);
 	SPECULAR = 1.0;
-	EMISSION = env * fres * reflect_strength * 2.4 + led * eyes * eye_energy * eye_gain + inner + glint_e;
+	vec3 e = (env * fres * reflect_strength * 2.4 + glints * (0.35 + 0.65 * fres)) * (1.0 - frost_m * 0.8)
+		+ (led * eyes * eye_energy * eye_gain + inner) * (1.0 - frost_m * 0.6) + glint_e + vec3(0.25, 0.32, 0.4) * frost_m * fres;
+	float m = max(max(e.r, e.g), e.b);
+	float cap = lum_cap * (1.0 + 0.4 * range);
+	EMISSION = m > 0.0 ? e * (cap * (1.0 - exp(-m / cap)) / m) : e;
 """
 
 ## Smoked glass: almost no diffuse, a tight glint per light plus a broad sheen that
@@ -561,7 +626,7 @@ void light() {
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float graze = pow(1.0 - ndv, 3.0);
 	float sharp = pow(ndh, 1200.0) * 40.0 + pow(ndh, 160.0) * 2.5;
-	float sheen = pow(ndh, 12.0) * (0.25 + 1.6 * graze);
+	float sheen = pow(ndh, 28.0) * (0.06 + 0.45 * graze);
 	vec3 c = LIGHT_COLOR * ATTENUATION;
 	SPECULAR_LIGHT += c * (sharp * ndl + sheen * (0.3 + 0.7 * ndl)) * SPECULAR_AMOUNT;
 	DIFFUSE_LIGHT += c * ndl * 0.015;
@@ -570,8 +635,9 @@ void light() {
 
 const _VISOR_GHOST := """
 	ALBEDO = vec3(0.0);
-	EMISSION = mix(eye_color, vec3(1.0), 0.3) * (0.4 + pow(1.0 - ndv, 2.0) * 2.5) + led * eyes * eye_energy * eye_gain;
-	ALPHA = clamp(0.22 + pow(1.0 - ndv, 2.0) * 0.6 + eyes, 0.0, 1.0);
+	EMISSION = mix(eye_color, vec3(1.0), 0.3) * (0.4 + pow(1.0 - ndv, 2.0) * 2.5) * visor_light + led * eyes * eye_energy * eye_gain
+		+ vec3(0.7, 0.85, 1.0) * frost_m * 0.8;
+	ALPHA = clamp(0.22 + pow(1.0 - ndv, 2.0) * 0.6 + eyes + frost_m * 0.5, 0.0, 1.0);
 """
 
 static var _shaders := {}

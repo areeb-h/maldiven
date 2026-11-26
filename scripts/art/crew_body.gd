@@ -362,9 +362,9 @@ static func _torso(k: CrewMeshKit) -> void:
 	k.rounded_box(Vector3(0, 1.315, 0.138), Vector3(0.07, 0.17, 0.036), 0.012, Basis.IDENTITY, 1)
 	k.deform = Callable()
 	k.set_part(CHEST, M)
-	k.ring(Vector3(0, 1.358, 0.157), 0.02, 0.0042, Basis(Vector3.RIGHT, PI * 0.5), 12, 4)
+	k.ring(Vector3(0, 1.358, 0.157), 0.02, 0.0042, Basis(Vector3.RIGHT, PI * 0.5), 16, 4)
 	k.set_part(CHEST, ST)
-	k.disc(Vector3(0, 1.358, 0.155), Vector3.BACK, 0.017, 12, 0.006)
+	k.disc(Vector3(0, 1.358, 0.155), Vector3.BACK, 0.017, 16, 0.006)
 	_decal(k, CHEST, Vector3(0, 1.288, 0.1575), Vector3.RIGHT, Vector3.UP, Vector2(0.05, 0.05), DECAL_DISPLAY)
 	# Name plate on the left of the abdominal plate, following its outer surface.
 	var name_surface := func(u: float, v: float) -> Vector3:
@@ -397,12 +397,12 @@ static func _backpack(k: CrewMeshKit, variant: int) -> void:
 		k.set_part(CHEST, S, 1.6)
 		k.set_blend(PACK, Vector3(0, 1.45, -0.13), Vector3.FORWARD, 0.03)
 		k.tube(PackedVector3Array([Vector3(s * 0.1, 1.46, -0.17), Vector3(s * 0.168, 1.5, -0.075), Vector3(s * 0.172, 1.485, 0.04), Vector3(s * 0.11, 1.42, 0.13), Vector3(s * 0.03, 1.38, 0.152)]),
-			0.015, 5, 9, 55.0, 0.22)
+			0.015, 8, 9, 55.0, 0.22)
 		# Ribbed air hoses with a gentle sag from the pack top into the helmet ports.
 		k.set_part(PACK, T, 0.75)
 		k.set_blend(HEAD, Vector3(0, 1.52, 0), Vector3.UP, 0.02)
 		k.tube(PackedVector3Array([Vector3(s * 0.075, 1.47, -0.2), Vector3(s * 0.12, 1.465, -0.175), Vector3(s * 0.135, 1.5, -0.14), Vector3(s * 0.108, 1.548, -0.118)]),
-			0.011, 6, 8, 70.0, 0.25)
+			0.011, 8, 8, 70.0, 0.25)
 		k.clear_blend()
 	match variant:
 		0:
@@ -549,7 +549,7 @@ static func _nozzle(k: CrewMeshKit, at: Vector3) -> void:
 static func _head(k: CrewMeshKit, variant: int) -> void:
 	var top := HELMET_C + HELMET_RY
 	k.set_part(HEAD, P, 1.0)
-	k.lathe(helmet_profile(), Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 22, Vector2(1.0, HELMET_DEPTH))
+	k.lathe(helmet_profile(), Transform3D(Basis.IDENTITY, Vector3(0, 0, HELMET_Z)), 26, Vector2(1.0, HELMET_DEPTH))
 	# Graphite jaw ring (panel seam between shell and collar seal).
 	var jaw := PackedVector2Array()
 	var jaw_y: Array[float] = [HELMET_BASE - 0.006, HELMET_BASE, 1.54, 1.562, 1.572]
@@ -576,16 +576,16 @@ static func _head(k: CrewMeshKit, variant: int) -> void:
 		var c := Vector3(s * 0.168, HELMET_C, -0.012)
 		var out := Vector3(s, 0, 0)
 		k.set_part(HEAD, S, 1.15)
-		k.cylinder(c, c + out * 0.034, 0.055, 14, 0.016)
-		_annulus(k, HEAD, A, c + out * 0.0345, out, 0.034, 0.041, 14)
-		_disc_decal(k, HEAD, c + out * 0.035, out, 0.031, DECAL_GRILLE, 12)
+		k.cylinder(c, c + out * 0.034, 0.055, 18, 0.016)
+		_annulus(k, HEAD, A, c + out * 0.0345, out, 0.034, 0.041, 18)
+		_disc_decal(k, HEAD, c + out * 0.035, out, 0.031, DECAL_GRILLE, 16)
 		k.set_part(HEAD, ST)
 		k.rounded_box(c + Vector3(s * 0.022, 0.0, 0.057), Vector3(0.012, 0.008, 0.005), 0.0, Basis.IDENTITY, 1)
 		# Side lamps above the ears.
 		k.set_part(HEAD, S, 1.3)
-		k.cylinder(Vector3(s * 0.166, 1.728, 0.0), Vector3(s * 0.166, 1.728, 0.066), 0.016, 8, 0.006)
+		k.cylinder(Vector3(s * 0.166, 1.728, 0.0), Vector3(s * 0.166, 1.728, 0.066), 0.016, 12, 0.006)
 		k.set_part(HEAD, L)
-		k.disc(Vector3(s * 0.166, 1.728, 0.0665), Vector3.BACK, 0.0115, 8, 0.004)
+		k.disc(Vector3(s * 0.166, 1.728, 0.0665), Vector3.BACK, 0.0115, 12, 0.004)
 		# Rear life-support ports where the air hoses plug in.
 		var hose_end := Vector3(s * 0.108, 1.548, -0.118)
 		var hose_dir := (hose_end - Vector3(s * 0.135, 1.5, -0.14)).normalized()
@@ -650,7 +650,7 @@ static func _antenna(k: CrewMeshKit, a: Vector3, b: Vector3, stub := 0.0) -> voi
 	k.cylinder(a, b, 0.0055 if stub == 0.0 else stub * 0.6, 6, 0.001)
 	k.clear_blend()
 	k.set_part(ANTENNA, BL)
-	k.ellipsoid(b, Vector3(0.012, 0.012, 0.012), Basis.IDENTITY, 8, 4)
+	k.ellipsoid(b, Vector3(0.012, 0.012, 0.012), Basis.IDENTITY, 12, 6)
 
 
 static func _visor_point(u: float, v: float, lift: float) -> Vector3:

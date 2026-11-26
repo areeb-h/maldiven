@@ -1,42 +1,50 @@
 class_name TitleCard
 extends Control
-## Title-card system for the trailer, the splash and in-game moments. It uses
-## the game's own type (UiStyle fonts, UiType motion) and logo (UiLogo), so a
-## title card in the trailer looks exactly like the game's UI.
+## Title cards for the trailer and the game's own title moments. They use the
+## game's fonts (UiStyle), type motion (UiType) and logo (UiLogo), so a card
+## in the trailer is the same family as the game's UI (production plan U9/U10).
 ##
-## Deterministic: everything is a pure function of `time`, so a frame renderer
-## can call `seek(t)` once per frame; `play()` advances it in real time.
+## Standalone and deterministic: plain data in, time from `set_progress(t)` or
+## `step(delta)` (or `play()` for real time). Fills its parent; lays out from
+## the frame size (1280×720 to 2560×1440, portrait too). Text stays inside the
+## letterboxed picture (`picture`, default the trailer's 2.39:1 bars) with 8 %
+## side margins. Text snaps in over three frames and cuts off; nothing fades
+## slowly except the slate's final fade to black.
 ##
-##   var card := TitleCard.create("title", {"kicker": "A GAME FOR 2–8 FRIENDS",
-##       "title": "ONE OF YOU IS LYING", "sub": "Restore the power. Save the core."})
-##   overlay.add_child(card)        # fills its parent (full rect)
-##   card.seek(beat_time)           # or card.play()
+##   var card := UiStyle.card_statement("ONE OF YOU IS LYING.")
+##   overlay.add_child(card)
+##   card.set_progress(lt)        # every frame
 ##
-## Kinds (spec keys in brackets, all optional unless noted):
-##   "title"   kicker types on, headline builds letter by letter, rule draws
-##             out, sub rises [kicker, title*, sub, accent, align]
-##   "logo"    the logo lockup sting: wipe + drift settle, tagline types on
-##             [layout (lockup|stacked|wordmark|mark), tagline, palette]
-##   "chapter" big outlined index + headline [index ("01"), title*, sub, accent]
-##   "lower"   lower-third caption with an accent bar [kicker, title*, accent]
-##   "end"     end card: logo, tagline, call-to-action pill, small print
-##             [tagline, cta, small, layout]
-## Common spec keys: hold (s, default 2.0), out (s fade-out, default 0.45;
-## 0 keeps it on screen), shade (0..1 black behind), letterbox (share of the
-## height for bars, 0 = none), accent (Color), safe (share of the frame kept
-## clear at each edge, default 0.07), color (text colour).
+## Kinds and their spec keys (all optional unless starred):
+##   "statement"  centred title font, 10 % of frame height, off-white, tracking
+##                +4 %, at most five words [text*, height (share), y (share of
+##                the picture, 0.5 = centre)]
+##   "line"       body bold, 4 % height [text*, height, y, color]
+##   "lockup"     the logo lands; at `flip` s the visor eyes snap to the red V;
+##                at `line_at` s a card line appears beneath
+##                [flip (1.2, <0 = never), line (text), line_at (1.8), height]
+##   "slate"      one-line logo small at the top, the real primary button
+##                (PLAY AGAIN) pulsing once a second, the platform line in
+##                amber, fade to black over [fade_from, fade_to]
+##                [button, platforms, fade_from (2.0), fade_to (2.5)]
+##   "lower"      lower-third caption with an accent bar [kicker, text*]
+## Common: hold (s before it cuts off; <= 0 = stays), picture (bar share,
+## default 0.128), margin (side share, default 0.08), shade (0..1 black).
 
 signal finished
 
-const IN_TIME := {"title": 1.3, "logo": 1.6, "chapter": 1.1, "lower": 0.8, "end": 2.6}
+const SNAP := 0.1  # three frames at 30 fps
+const OFF_WHITE := Color(0.93, 0.96, 1.0)
 
-var kind := "title"
+var kind := "statement"
 var spec := {}
 var time := 0.0:
 	set(value):
 		time = value
+		_sync_children()
 		queue_redraw()
 var playing := false
+var _button: Button
 
 
 static func create(card_kind: String, card_spec := {}) -> TitleCard:
@@ -53,17 +61,34 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	if get_parent() is Control or get_parent() is CanvasLayer or get_parent() is Window:
-		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if kind == "slate":
+		_button = UiStyle.button(str(spec.get("button", "PLAY AGAIN")), true, UiStyle.ACCENT, "play", 80)
+		_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_button)
+	resized.connect(_sync_children)
+	_sync_children()
 
 
-## Seconds from the start to the end of the fade-out.
+## Seconds until the card cuts off (or fades out, for the slate).
 func duration() -> float:
-	return IN_TIME.get(kind, 1.2) + float(spec.get("hold", 2.0)) + float(spec.get("out", 0.45))
+	if kind == "slate":
+		return float(spec.get("fade_to", 2.5))
+	return float(spec.get("hold", 0.0))
+
+
+func set_progress(t: float) -> void:
+	playing = false
+	set_process(false)
+	time = t
 
 
 func seek(t: float) -> void:
-	time = t
+	set_progress(t)
+
+
+func step(delta: float) -> void:
+	time += delta
 
 
 func play(from := 0.0) -> void:
@@ -74,218 +99,177 @@ func play(from := 0.0) -> void:
 
 func _process(delta: float) -> void:
 	time += delta
-	var out: float = spec.get("out", 0.45)
-	if out > 0.0 and time >= duration():
+	var end := duration()
+	if end > 0.0 and time >= end:
 		playing = false
 		set_process(false)
 		finished.emit()
 
 
-## 0..1 visibility envelope for the fade-out at the end.
-func _out_alpha() -> float:
-	var out: float = spec.get("out", 0.45)
-	if out <= 0.0:
-		return 1.0
-	var start := duration() - out
-	return 1.0 - UiType.ease_in_out((time - start) / out)
+func _gone() -> bool:
+	var hold: float = spec.get("hold", 0.0)
+	return kind != "slate" and hold > 0.0 and time >= hold
 
 
-## Unit scale: 1.0 at 1280×720; portrait frames scale with the width.
-func _base() -> float:
-	if size.x >= size.y:
-		return minf(size.x / 1280.0, size.y / 720.0)
-	return size.x / 760.0
+## The letterboxed picture the text must stay inside.
+func picture() -> Rect2:
+	var bars := size.y * float(spec.get("picture", 0.128))
+	var margin := size.x * float(spec.get("margin", 0.08))
+	return Rect2(margin, bars, size.x - margin * 2.0, size.y - bars * 2.0)
 
 
-func _accent() -> Color:
-	return spec.get("accent", UiStyle.ACCENT)
+func _fade() -> float:
+	if kind != "slate":
+		return 0.0
+	var fade_from: float = spec.get("fade_from", 2.0)
+	var fade_to: float = spec.get("fade_to", 2.5)
+	return clampf((time - fade_from) / maxf(0.01, fade_to - fade_from), 0.0, 1.0)
 
 
-func _text_color() -> Color:
-	return spec.get("color", UiStyle.TEXT)
-
-
-func _draw() -> void:
-	if size.x <= 0.0 or size.y <= 0.0:
-		return
-	var alpha := _out_alpha()
-	if alpha <= 0.0:
-		return
-	var shade: float = spec.get("shade", 0.0)
-	if shade > 0.0:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, shade * minf(1.0, time / 0.3) * alpha))
-	var bars: float = spec.get("letterbox", 0.0)
-	if bars > 0.0:
-		var h := size.y * bars * UiType.ease_out(time / 0.5)
-		draw_rect(Rect2(0, 0, size.x, h), Color.BLACK)
-		draw_rect(Rect2(0, size.y - h, size.x, h), Color.BLACK)
-	match kind:
-		"logo":
-			_draw_logo(alpha)
-		"chapter":
-			_draw_chapter(alpha)
-		"lower":
-			_draw_lower(alpha)
-		"end":
-			_draw_end(alpha)
-		_:
-			_draw_title(alpha)
+func _snap() -> float:
+	return clampf(time / SNAP, 0.0, 1.0)
 
 
 func _with(color: Color, a: float) -> Color:
 	return Color(color.r, color.g, color.b, color.a * clampf(a, 0.0, 1.0))
 
 
-func _width_limit() -> float:
-	return size.x * (1.0 - 2.0 * float(spec.get("safe", 0.07)))
+func _sync_children() -> void:
+	if _button == null or size.y <= 0.0:
+		return
+	var h := size.y
+	var font_size := int(h * 0.036)
+	_button.add_theme_font_size_override("font_size", font_size)
+	_button.add_theme_constant_override("icon_max_width", int(font_size * 1.0))
+	_button.custom_minimum_size = Vector2(h * 0.36, h * 0.085)
+	_button.reset_size()
+	_button.size = _button.get_combined_minimum_size()
+	_button.position = Vector2((size.x - _button.size.x) * 0.5, h * 0.5 - _button.size.y * 0.5)
+	_button.pivot_offset = _button.size * 0.5
+	# Pulse once a second: a quick swell that settles (deterministic in time).
+	var beat := fmod(maxf(time - 0.3, 0.0), 1.0)
+	var swell := exp(-beat * 7.0) if time > 0.3 else 0.0
+	_button.scale = Vector2.ONE * (1.0 + 0.06 * swell)
+	_button.modulate = Color(1.0 + 0.25 * swell, 1.0 + 0.25 * swell, 1.0 + 0.25 * swell, _snap() * (1.0 - _fade()))
 
 
-func _draw_title(alpha: float) -> void:
-	var b := _base()
-	var center := size * 0.5
-	var align := str(spec.get("align", "center"))
-	var x := center.x if align == "center" else size.x * float(spec.get("safe", 0.07))
-	var head_font := UiStyle.font("title")
-	var title := str(spec.get("title", "")).to_upper()
-	var head_size := UiType.fit_size(head_font, title, int(84 * b), _width_limit(), 6.0 * b)
-	var accent := _accent()
+func _draw() -> void:
+	if size.x <= 0.0 or size.y <= 0.0 or _gone():
+		return
+	var shade: float = spec.get("shade", 0.0)
+	if shade > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, shade))
+	match kind:
+		"line":
+			_draw_line_card()
+		"lockup":
+			_draw_lockup()
+		"slate":
+			_draw_slate()
+		"lower":
+			_draw_lower()
+		_:
+			_draw_statement()
+
+
+## Centred text that snaps in: alpha and a 4 % scale settle over three frames.
+func _draw_snapped(text: String, font: Font, font_size: int, color: Color, center_y: float, tracking: float) -> void:
+	var k := _snap()
+	if k <= 0.0 or text == "":
+		return
+	var width := UiType.tracked_width(font, text, font_size, tracking)
+	var grow := 1.0 + 0.04 * (1.0 - k)
+	var center := Vector2(size.x * 0.5, center_y)
+	draw_set_transform(center, 0.0, Vector2.ONE * grow)
+	var x := -width * 0.5
+	var baseline := font_size * 0.36
+	for i in range(text.length()):
+		var ch := text[i]
+		draw_string(font, Vector2(x, baseline), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, _with(color, k))
+		x += font.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + tracking
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_statement() -> void:
+	var area := picture()
+	var text := str(spec.get("text", spec.get("title", ""))).to_upper()
+	var font := UiStyle.font("title")
+	var font_size := int(size.y * float(spec.get("height", 0.10)))
+	font_size = UiType.fit_size(font, text, font_size, area.size.x, font_size * 0.04)
+	var y := area.position.y + area.size.y * float(spec.get("y", 0.5))
+	_draw_snapped(text, font, font_size, spec.get("color", OFF_WHITE), y, font_size * 0.04)
+
+
+func _draw_line_card() -> void:
+	var area := picture()
+	var text := str(spec.get("text", ""))
+	var font := UiStyle.font("bold")
+	var font_size := int(size.y * float(spec.get("height", 0.04)))
+	font_size = UiType.fit_size(font, text, font_size, area.size.x)
+	var y := area.position.y + area.size.y * float(spec.get("y", 0.5))
+	_draw_snapped(text, font, font_size, spec.get("color", OFF_WHITE), y, 0.0)
+
+
+func _draw_lockup() -> void:
+	var area := picture()
+	var height := minf(size.y * float(spec.get("height", 0.26)), area.size.x / UiLogo.aspect("lockup"))
+	var logo_size := Vector2(height * UiLogo.aspect("lockup"), height)
+	var line := str(spec.get("line", ""))
+	var line_at: float = spec.get("line_at", 1.8)
+	var line_size := int(size.y * 0.04)
+	var block := logo_size.y + (line_size * 2.4 if line != "" else 0.0)
+	var top := Vector2((size.x - logo_size.x) * 0.5, area.get_center().y - block * 0.5)
+	var k := _snap()
+	# The flip: two glitch frames, then the V.
+	var flip: float = spec.get("flip", 1.2)
+	var blend := 0.0
+	if flip >= 0.0 and time >= flip:
+		blend = 0.5 if time < flip + 2.0 / 30.0 else 1.0
+	UiLogo.draw(self, "lockup", top, height, str(spec.get("palette", "dark")), k, 1.0, 0.05 * (1.0 - k), blend, time)
+	if line != "" and time >= line_at:
+		var font := UiStyle.font("bold")
+		var font_size := UiType.fit_size(font, line, line_size, area.size.x)
+		var lk := clampf((time - line_at) / SNAP, 0.0, 1.0)
+		var width := font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		draw_string(font, Vector2((size.x - width) * 0.5, top.y + logo_size.y + line_size * 1.9), line,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, _with(OFF_WHITE, lk))
+
+
+func _draw_slate() -> void:
+	var area := picture()
+	var k := _snap()
+	var height := size.y * 0.07
+	var width := height * UiLogo.aspect("wordmark")
+	UiLogo.draw(self, "wordmark", Vector2((size.x - width) * 0.5, area.position.y + size.y * 0.05), height, "dark", k)
+	var platforms := str(spec.get("platforms", "ANDROID  ·  PC"))
+	var font := UiStyle.font("head")
+	var font_size := int(size.y * 0.032)
+	var text_width := UiType.tracked_width(font, platforms, font_size, font_size * 0.12)
+	var y := size.y * 0.5 + size.y * 0.085 * 0.5 + size.y * 0.075
+	var x := (size.x - text_width) * 0.5
+	for i in range(platforms.length()):
+		draw_string(font, Vector2(x, y), platforms[i], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, _with(UiStyle.AMBER, k))
+		x += font.get_string_size(platforms[i], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + font_size * 0.12
+	# The film's only slow fade (the button child fades with it).
+	var fade := _fade()
+	if fade > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, fade))
+
+
+func _draw_lower() -> void:
+	var area := picture()
+	var x := area.position.x
+	var bottom := area.end.y - area.size.y * 0.08
+	var font := UiStyle.font("head")
+	var text := str(spec.get("text", spec.get("title", ""))).to_upper()
+	var font_size := UiType.fit_size(font, text, int(size.y * 0.045), area.size.x, 3.0)
+	var k := _snap()
+	draw_rect(Rect2(x, bottom - font_size * 2.2, maxf(3.0, size.y * 0.006), font_size * 2.2), _with(spec.get("accent", UiStyle.ACCENT), k))
+	var tx := x + size.y * 0.03
 	var kicker := str(spec.get("kicker", "")).to_upper()
 	if kicker != "":
-		var caps := UiStyle.font("caps")
-		var kicker_size := int(22 * b)
-		UiType.draw_type_on(self, caps, kicker, Vector2(x, center.y - head_size * 0.72), kicker_size,
-			_with(accent, alpha), time, 40.0, align, 4.0 * b)
-	var width := UiType.draw_build(self, head_font, title, Vector2(x, center.y + head_size * 0.36), head_size,
-		_with(_text_color(), 1.0), time - 0.25, {"align": align, "tracking": 6.0 * b, "spread": head_size * 0.5,
-		"total": 0.7, "dur": 0.34, "scramble": true, "seed": title.hash(), "alpha": alpha,
-		"glow": _with(accent, 0.16)})
-	var rule_y := center.y + head_size * 0.36 + 22.0 * b
-	var rule_x := x if align == "center" else x + width * 0.5
-	UiType.draw_rule(self, Vector2(rule_x, rule_y), width * 0.7 if align == "center" else width, _with(accent, 0.85 * alpha),
-		(time - 0.85) / 0.45, maxf(2.0, 2.0 * b))
-	var sub := str(spec.get("sub", ""))
-	if sub != "":
-		var body := UiStyle.font("light")
-		var sub_size := UiType.fit_size(body, sub, int(34 * b), _width_limit())
-		var k := UiType.ease_out((time - 1.0) / 0.5)
-		var sub_width := body.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x
-		var sx := x - sub_width * 0.5 if align == "center" else x
-		draw_string(body, Vector2(sx, rule_y + 26.0 * b + sub_size * 0.8 + (1.0 - k) * 12.0 * b), sub,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, _with(UiStyle.MUTED.lightened(0.25), k * alpha))
-
-
-func _draw_logo(alpha: float) -> void:
-	var b := _base()
-	var layout := str(spec.get("layout", "lockup"))
-	var palette := str(spec.get("palette", "dark"))
-	var aspect := UiLogo.aspect(layout)
-	var height := minf(float(spec.get("height", 220.0)) * b, _width_limit() / aspect)
-	var size_logo := Vector2(height * aspect, height)
-	var tagline := str(spec.get("tagline", "TRUST NO ONE")).to_upper()
-	var caps := UiStyle.font("headcaps")
-	var tag_size := int(26 * b)
-	var block := size_logo.y + (tag_size * 2.2 if tagline != "" else 0.0)
-	var top := Vector2((size.x - size_logo.x) * 0.5, (size.y - block) * 0.5)
-	var reveal := UiType.ease_out(time / 0.75)
-	var slide := 1.4 * (1.0 - UiType.ease_out((time - 0.35) / 0.9))
-	# Hit frame: a short bright flash band on the drift line as it locks.
-	UiLogo.draw(self, layout, top, height, palette, alpha, reveal, slide)
-	var lock := clampf((time - 0.95) / 0.3, 0.0, 1.0)
-	if lock > 0.0 and lock < 1.0:
-		var line_y := top.y + height * (UiLogo.CAP + UiLogo.LINE_GAP + UiLogo.CUT_Y - UiLogo.bounds(layout).position.y) / UiLogo.bounds(layout).size.y
-		if layout == "wordmark":
-			line_y = top.y + height * (UiLogo.CUT_Y - UiLogo.bounds(layout).position.y) / UiLogo.bounds(layout).size.y
-		var glow := sin(lock * PI)
-		draw_rect(Rect2(top.x - 40.0 * b, line_y - 1.0, size_logo.x + 80.0 * b, 3.0), _with(_accent(), glow * 0.9 * alpha))
-	if tagline != "":
-		UiType.draw_type_on(self, caps, tagline, Vector2(size.x * 0.5, top.y + size_logo.y + tag_size * 1.9), tag_size,
-			_with(UiStyle.AMBER, alpha), time - 1.15, 30.0, "center", 10.0 * b)
-
-
-func _draw_chapter(alpha: float) -> void:
-	var b := _base()
-	var x := size.x * float(spec.get("safe", 0.07))
-	var cy := size.y * 0.5
-	var index := str(spec.get("index", "01"))
-	var head := UiStyle.font("title")
-	var big := int(180 * b)
-	var k := UiType.ease_out(time / 0.6)
-	draw_string_outline(head, Vector2(x - (1.0 - k) * 30.0 * b, cy + big * 0.36), index, HORIZONTAL_ALIGNMENT_LEFT, -1, big,
-		maxi(2, int(3 * b)), _with(_accent(), 0.55 * k * alpha))
-	var index_width := head.get_string_size(index, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x
-	var tx := x + index_width + 36.0 * b
-	var title := str(spec.get("title", "")).to_upper()
-	var limit := size.x - tx - size.x * float(spec.get("safe", 0.07))
-	var size_head := UiType.fit_size(head, title, int(64 * b), limit, 4.0 * b)
-	draw_rect(Rect2(tx - 18.0 * b, cy - size_head * 0.9, maxf(2.0, 3.0 * b), size_head * 1.9 * UiType.ease_out((time - 0.15) / 0.4)),
-		_with(_accent(), alpha))
-	UiType.draw_build(self, head, title, Vector2(tx, cy + size_head * 0.2), size_head, _text_color(), time - 0.25,
-		{"tracking": 4.0 * b, "total": 0.5, "dur": 0.3, "alpha": alpha, "spread": size_head * 0.3})
-	var sub := str(spec.get("sub", ""))
-	if sub != "":
-		var body := UiStyle.font("light")
-		var sub_size := UiType.fit_size(body, sub, int(30 * b), limit)
-		draw_string(body, Vector2(tx, cy + size_head * 0.2 + sub_size * 1.5), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size,
-			_with(UiStyle.MUTED.lightened(0.25), UiType.ease_out((time - 0.7) / 0.4) * alpha))
-
-
-func _draw_lower(alpha: float) -> void:
-	var b := _base()
-	var x := size.x * float(spec.get("safe", 0.07))
-	var bottom := size.y * (1.0 - float(spec.get("letterbox", 0.0))) - size.y * 0.12
-	var head := UiStyle.font("head")
-	var title := str(spec.get("title", "")).to_upper()
-	var size_head := UiType.fit_size(head, title, int(40 * b), _width_limit(), 3.0 * b)
-	var k := UiType.ease_out(time / 0.35)
-	draw_rect(Rect2(x, bottom - size_head * 2.2, maxf(3.0, 5.0 * b), size_head * 2.2 * k), _with(_accent(), alpha))
-	var tx := x + 22.0 * b
-	var kicker := str(spec.get("kicker", "")).to_upper()
-	if kicker != "":
-		UiType.draw_type_on(self, UiStyle.font("caps"), kicker, Vector2(tx, bottom - size_head * 1.35), int(18 * b),
-			_with(_accent(), alpha), time - 0.1, 44.0, "left", 3.0 * b)
-	UiType.draw_build(self, head, title, Vector2(tx, bottom - size_head * 0.1), size_head, _text_color(), time - 0.2,
-		{"tracking": 3.0 * b, "total": 0.35, "dur": 0.25, "alpha": alpha, "spread": size_head * 0.2,
-		"outline": maxi(2, int(6 * b)), "outline_color": Color(0, 0, 0, 0.55)})
-
-
-func _draw_end(alpha: float) -> void:
-	var b := _base()
-	var layout := str(spec.get("layout", "lockup"))
-	var aspect := UiLogo.aspect(layout)
-	var height := minf(170.0 * b, _width_limit() / aspect)
-	var logo_size := Vector2(height * aspect, height)
-	var tagline := str(spec.get("tagline", "Restore the power. Save the core. Trust no one."))
-	var cta := str(spec.get("cta", "PLAY WITH 2–8 FRIENDS")).to_upper()
-	var small := str(spec.get("small", "ANDROID  ·  PC  ·  SAME WI-FI OR ONLINE")).to_upper()
-	var body := UiStyle.font("light")
-	var tag_size := UiType.fit_size(body, tagline, int(34 * b), _width_limit())
-	var cta_size := int(26 * b)
-	var block := logo_size.y + tag_size * 2.4 + cta_size * 3.4 + 40.0 * b
-	var y := (size.y - block) * 0.5
-	var reveal := UiType.ease_out(time / 0.8)
-	var slide := 1.2 * (1.0 - UiType.ease_out((time - 0.4) / 0.9))
-	UiLogo.draw(self, layout, Vector2((size.x - logo_size.x) * 0.5, y), height, "dark", alpha, reveal, slide)
-	y += logo_size.y + tag_size * 1.7
-	var tag_k := UiType.ease_out((time - 1.2) / 0.6)
-	var tag_width := body.get_string_size(tagline, HORIZONTAL_ALIGNMENT_LEFT, -1, tag_size).x
-	draw_string(body, Vector2((size.x - tag_width) * 0.5, y + (1.0 - tag_k) * 10.0 * b), tagline, HORIZONTAL_ALIGNMENT_LEFT,
-		-1, tag_size, _with(UiStyle.TEXT, tag_k * alpha))
-	y += tag_size * 0.7 + 30.0 * b
-	if cta != "":
-		var bold := UiStyle.font("bold")
-		var cta_width := UiType.tracked_width(bold, cta, cta_size, 3.0 * b)
-		var pill := Rect2((size.x - cta_width) * 0.5 - 30.0 * b, y, cta_width + 60.0 * b, cta_size * 2.0)
-		var k := UiType.ease_back((time - 1.7) / 0.45)
-		if k > 0.0:
-			var box := UiStyle.pill_box(_accent(), 0.95 * alpha * clampf(k, 0.0, 1.0))
-			var grow := pill.grow_individual(0, 0, 0, 0)
-			grow = Rect2(grow.get_center() - grow.size * 0.5 * k, grow.size * k)
-			draw_style_box(box, grow)
-			if k > 0.6:
-				UiType.draw_build(self, bold, cta, Vector2(size.x * 0.5, pill.get_center().y + cta_size * 0.36), cta_size,
-					UiStyle.INK, time - 1.85, {"align": "center", "tracking": 3.0 * b, "spread": 0.0, "total": 0.3,
-					"dur": 0.2, "alpha": alpha, "rise": 0.0})
-		y += pill.size.y + 22.0 * b
-	if small != "":
-		UiType.draw_type_on(self, UiStyle.font("caps"), small, Vector2(size.x * 0.5, y + 18.0 * b), int(18 * b),
-			_with(UiStyle.MUTED, alpha), time - 2.2, 60.0, "center", 3.0 * b, 0.0)
+		draw_string(UiStyle.font("caps"), Vector2(tx, bottom - font_size * 1.35), kicker, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			int(size.y * 0.022), _with(spec.get("accent", UiStyle.ACCENT), k))
+	draw_string_outline(font, Vector2(tx, bottom - font_size * 0.1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
+		maxi(2, int(font_size * 0.15)), _with(Color(0, 0, 0, 0.55), k))
+	draw_string(font, Vector2(tx, bottom - font_size * 0.1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, _with(OFF_WHITE, k))

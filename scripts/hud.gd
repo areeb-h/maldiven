@@ -110,7 +110,9 @@ var _hit_color := Color.WHITE
 var _miss_age := 99.0
 var _callout := ""
 var _callout_age := 99.0
-var _casings: Array = []  # {age, slot}
+var _elapsed := 0.0
+var _cinematic := false
+var _chrome := 1.0  # chrome opacity (blackout drops it to 30 %)
 var _states := {}  # id -> life state last frame
 var _hurt := 0.0
 var _my_name := ""
@@ -156,7 +158,11 @@ var _result: HudResult
 var _top_box: StyleBoxFlat
 var _core_icon: UiIcon
 var _blackout_fx: ColorRect
-var _fx: Control  # gun readout, callouts, hit markers
+var _fx: Control  # callouts, hit markers
+var _ammo_view: HudAmmo
+var _ticker: HudTicker
+var _tags: HudNameTags
+var _auto_tags := false
 
 
 func _ready() -> void:
@@ -173,6 +179,10 @@ func _ready() -> void:
 		_was_ready[id] = true
 	_build_vignette()
 	_build_blackout_fx()
+	_tags = HudNameTags.new()
+	add_child(_tags)
+	_tags.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tags.visible = false  # until the world feeds it (set_name_tags)
 	_markers = HudMarkers.new()
 	add_child(_markers)
 	_markers.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -203,6 +213,12 @@ func _ready() -> void:
 	add_child(_fx)
 	_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fx.draw.connect(_draw_fx)
+	_ammo_view = HudAmmo.create({"ammo": StationRules.GUN_AMMO, "max": StationRules.GUN_AMMO, "height": 30.0, "plate": true})
+	add_child(_ammo_view)
+	_ammo_view.visible = false
+	_ticker = HudTicker.create({"font_size": 20, "grow_up": false, "max_rows": 2})
+	add_child(_ticker)
+	_ticker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dim = ColorRect.new()
 	_dim.color = Color(0.01, 0.02, 0.05, 0.62)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -572,6 +588,8 @@ func set_role(next_role: String) -> void:
 	var infiltrator := role == StationRules.INFILTRATOR
 	var color := UiStyle.role_color(role)
 	_briefing.set_role(role)
+	if crew != null:
+		_briefing.set_player(crew.display_name, crew.color)
 	_role_chip.queue_redraw()
 	_role_word.add_theme_stylebox_override("panel", UiStyle.pill_box(color, 0.92, 12, 2))
 	(_role_word.get_child(0).get_child(0) as UiIcon).icon = UiStyle.role_icon(role)
@@ -592,6 +610,7 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 		_briefing.fly_to(_role_chip.get_global_rect().get_center(), func():
 			UiMotion.pop(_role_chip, 0.0, 1.35, 0.3)
 			_reveal_role())
+	_elapsed = rules.elapsed
 	_update_timer(rules)
 	_update_blackout(rules)
 	_update_objective(rules, my_id)
@@ -617,6 +636,8 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 		_sabotage_cooldown = 0.0
 	if _auto_markers:
 		_markers.set_markers(markers_for(rules, my_id))
+	if _auto_tags:
+		_tags.set_tags(name_tags_for(rules, my_id))
 	if phase == StationRules.Phase.RESULT and not _result.visible:
 		_show_result(rules)
 	_set_dim(_menu_open)
@@ -875,8 +896,42 @@ func _reveal_role() -> void:
 	_role_word_tween.tween_property(_role_word, "modulate:a", 0.0, 0.25)
 
 
+## Public events: story beats get a banner; every event goes into the live
+## ticker as a timeline row (already anonymised by the rules where needed).
 func flash_alert(text: String, kind: String) -> void:
-	_alerts.push(text, kind)
+	var shown := text
+	var shown_kind := kind
+	var icon := ""
+	if kind == "blackout":
+		shown = "LIGHTS OUT — main power failed"
+		shown_kind = "danger"
+		icon = "blackout"
+	if HudAlerts.MAJOR.has(shown_kind):
+		_alerts.push(shown, shown_kind, icon)
+	if _result.visible:
+		return
+	_ticker.push(_elapsed, ticker_sentence(shown), _player_colors, icon)
+
+
+var _player_colors := {}
+
+
+## "POWER RESTORED — vault and armory open" -> "Power restored. Vault and armory open."
+static func ticker_sentence(text: String) -> String:
+	var parts := text.split(" — ", false, 1)
+	if parts.size() == 1:
+		parts = text.split(": ", false, 1)
+	var out := []
+	for part in parts:
+		var p := str(part).strip_edges()
+		if p == p.to_upper():
+			p = p.capitalize() if not p.contains(" ") else p.left(1) + p.substr(1).to_lower()
+		else:
+			p = p.left(1).to_upper() + p.substr(1)
+		if not (p.ends_with(".") or p.ends_with("!")):
+			p += "."
+		out.append(p)
+	return " ".join(out)
 
 
 ## "ok", "downed" or "dead", with seconds until a downed player gets up.

@@ -1,44 +1,47 @@
 class_name UiLogo
 extends RefCounted
-## The DRIFT STATION logo. Original geometric letterforms drawn on a 10-unit
-## cap grid: heavy 2.2-unit stems, 45° chamfered corners, square counters.
-## The signature is the drift line: one thin horizontal slice through every
-## letter at 70 % of the cap height, with everything below it slid left, as
-## if the station had been knocked off its orbit. The emblem (a chamfered
-## octagon hull around a diamond core) carries the same cut, aligned with
-## STATION's, so the lockup reads as one object.
+## The DRIFT STATION logo, drawn in code from an original stencil face: heavy
+## geometric letters on a 10-unit cap grid (2.2-unit stems, 45° chamfers,
+## square counters) with one stencil gap through every letter at 72 % of its
+## cap height, like the station's floor lettering.
 ##
-## One source of truth: the SVG is generated here. assets/ui/logo/*.svg are
-## exports of it for the splash, store art and the trailer (re-export with
-## `UiLogo.export_all(dir)`; tests/icons_smoke.gd checks the files match).
-## Rasterised with ThorVG (Image.load_svg_from_string) at any size and cached.
+## The lockup sets DRIFT large and STATION small, tracked out to DRIFT's width
+## on the same grid. The O of STATION is a crew helmet seen head-on: a domed
+## hull, a dark visor and two LED eyes. Its state is the game's premise:
+## "crew" shows white eyes, "infiltrator" snaps them to the red V.
 ##
-## Layouts: "wordmark" (one line), "stacked" (DRIFT / STATION), "lockup"
-## (emblem + stacked), "mark" (emblem only).
-## Palettes: "dark" (for dark backgrounds), "light" (for light backgrounds),
-## "mono" (white, tint it with modulate/colour).
+## Layouts: "lockup" (DRIFT over STATION), "wordmark" (one line, for narrow
+## slots), "mark" (the helmet O alone; matches the app icon).
+## Palettes: "dark" (on dark backgrounds), "light", "mono".
+##
+## Static textures are generated from an SVG built here (ThorVG, cached at the
+## exact pixel height); the visor and eyes are drawn live so the state can
+## flip. assets/ui/logo/*.svg are exports of the same geometry (state crew),
+## written by `UiLogo.export_all(dir)` and checked by tests/icons_smoke.gd.
 
 const CAP := 10.0
 const STEM := 2.2
 const CHAMFER := 1.6
 const TRACK := 1.3
 const WORD_GAP := 4.4
-const LINE_GAP := 2.6
-const CUT_Y := 7.0  # top of the drift slice, from the cap top
-const CUT_H := 0.6
-const DRIFT := 0.7  # how far the lower slice sits to the left
+const LINE_GAP := 2.2
+const STATION_SCALE := 0.56
+const CUT_AT := 0.72  # stencil gap position, share of the cap height
+const CUT_H := 0.55
 const PAD := 1.0
-const LAYOUTS := ["wordmark", "stacked", "lockup", "mark"]
+const LAYOUTS := ["lockup", "wordmark", "mark"]
+const STATES := ["crew", "infiltrator"]
 const PALETTES := {
 	"dark": ["#e8f1ff", "#5fd4ff"],
 	"light": ["#0b1220", "#1679ad"],
 	"mono": ["#ffffff", "#ffffff"],
 }
+const VISOR := Color("04121c")
+const EYES := Color("e8f1ff")
+const V_RED := Color("ff4d5e")
 const FILES := {
 	"drift_station_lockup_dark.svg": ["lockup", "dark"],
 	"drift_station_lockup_light.svg": ["lockup", "light"],
-	"drift_station_stacked_dark.svg": ["stacked", "dark"],
-	"drift_station_stacked_light.svg": ["stacked", "light"],
 	"drift_station_wordmark_dark.svg": ["wordmark", "dark"],
 	"drift_station_wordmark_light.svg": ["wordmark", "light"],
 	"drift_station_mark.svg": ["mark", "dark"],
@@ -67,14 +70,14 @@ static func _crect(x0: float, y0: float, x1: float, y1: float, tl := 0.0, tr := 
 	return out
 
 
-## Inner chamfer for a counter inset by STEM from an outer chamfer `c`.
-static func _inner(c: float) -> float:
-	return maxf(0.0, c - STEM * 0.586)
+## Inner chamfer for a counter inset by `wall` from an outer chamfer `c`.
+static func _inner(c: float, wall := STEM) -> float:
+	return maxf(0.0, c - wall * 0.586)
 
 
-## Glyph table: letter -> {w: advance width, shapes: [[outer, hole...], ...]}.
-## Shapes in one entry are filled even-odd (outer minus holes); separate
-## entries union.
+## Glyph table: letter -> {w, shapes: [[outer, holes...], ...]}; rings inside
+## one shape are filled even-odd, separate shapes union. "O" is the helmet;
+## its visor (counter) is listed in "visor".
 static func glyphs() -> Dictionary:
 	if not _glyphs.is_empty():
 		return _glyphs
@@ -107,87 +110,97 @@ static func glyphs() -> Dictionary:
 	g["A"] = {"w": w, "shapes": [[PackedVector2Array([Vector2(0, CAP), Vector2(0, big), Vector2(big, 0), Vector2(w - big, 0),
 		Vector2(w, big), Vector2(w, CAP), Vector2(w - s, CAP), Vector2(w - s, bar), Vector2(s, bar), Vector2(s, CAP)]),
 		_crect(s, s, w - s, bar - s, _inner(big), _inner(big), 0, 0)]]}
-	g["O"] = {"w": w, "shapes": [[_crect(0, 0, w, CAP, big, big, big, big),
-		_crect(s, s, w - s, CAP - s, _inner(big), _inner(big), _inner(big), _inner(big))]]}
+	# The helmet O: a wider, domed hull with thinner walls around the visor.
+	var ow := 9.4
+	var wall := 1.9
+	var dome := 3.8
+	var chin := 2.2
+	var visor := _crect(wall, wall + 0.5, ow - wall, CAP - wall, _inner(dome, wall) + 0.4, _inner(dome, wall) + 0.4,
+		_inner(chin, wall), _inner(chin, wall))
+	g["O"] = {"w": ow, "shapes": [[_crect(0, 0, ow, CAP, dome, dome, chin, chin), visor]], "visor": visor}
 	g["N"] = {"w": w, "shapes": [[_crect(0, 0, s, CAP)], [_crect(w - s, 0, w, CAP)],
 		[PackedVector2Array([Vector2(0, 0), Vector2(2.5, 0), Vector2(w, CAP), Vector2(w - 2.5, CAP)])]]}
 	_glyphs = g
 	return g
 
 
-## The emblem in a square of side `side` (units): chamfered octagon hull with
-## a diamond core. Returns shapes like glyphs().
-static func _mark_shapes(side: float) -> Array:
-	var k := side / 24.0
-	var hull_c := 7.0 * k
-	var wall := STEM * 1.05
-	var outer := _crect(0, 0, side, side, hull_c, hull_c, hull_c, hull_c)
-	var inner := _crect(wall, wall, side - wall, side - wall, _inner(hull_c), _inner(hull_c), _inner(hull_c), _inner(hull_c))
-	var mid := side * 0.5
-	var r := 4.6 * k
-	var core := PackedVector2Array([Vector2(mid, mid - r), Vector2(mid + r, mid), Vector2(mid, mid + r), Vector2(mid - r, mid)])
-	return [[outer, inner], [core]]
-
-
-## Pieces of the layout before the cut: [{shapes, color_index, offset: Vector2, cut_y}].
-static func _pieces(layout: String) -> Array:
-	var out := []
-	var mark_side := CAP * 2.0 + LINE_GAP
-	var text_x := 0.0
-	if layout == "mark" or layout == "lockup":
-		var shapes := _mark_shapes(mark_side)
-		# The emblem's cut lines up with STATION's (second line) in the lockup.
-		out.append({"shapes": [shapes[0]], "color": 0, "offset": Vector2.ZERO, "cut": CAP + LINE_GAP + CUT_Y})
-		out.append({"shapes": [shapes[1]], "color": 1, "offset": Vector2.ZERO, "cut": CAP + LINE_GAP + CUT_Y})
-		text_x = mark_side + 4.4
-	if layout == "mark":
-		return out
-	var lines := []
-	if layout == "wordmark":
-		lines = [["DRIFT STATION", Vector2(text_x, 0)]]
-	else:
-		lines = [["DRIFT", Vector2(text_x, 0)], ["STATION", Vector2(text_x, CAP + LINE_GAP)]]
+static func _advance(word: String, track: float) -> float:
 	var table := glyphs()
-	for line in lines:
-		var x: float = line[1].x
-		var y: float = line[1].y
-		var word_index := 0
-		for ch in str(line[0]):
-			if ch == " ":
-				x += WORD_GAP - TRACK
-				word_index += 1
-				continue
+	var width := 0.0
+	for ch in word:
+		width += float(table[ch].w)
+	return width + track * float(word.length() - 1)
+
+
+## Lines of the layout: [[word, origin, scale, tracking, color_index], ...].
+static func _lines(layout: String) -> Array:
+	match layout:
+		"mark":
+			return [["O", Vector2.ZERO, 1.0, 0.0, 1]]
+		"wordmark":
+			return [["DRIFT", Vector2.ZERO, 1.0, TRACK, 0],
+				["STATION", Vector2(_advance("DRIFT", TRACK) + WORD_GAP, 0), 1.0, TRACK, 1]]
+	# Lockup: STATION small, tracked out to DRIFT's width, on the same grid.
+	var top := _advance("DRIFT", TRACK)
+	var glyph_width := _advance("STATION", 0.0) * STATION_SCALE
+	var track := (top - glyph_width) / 6.0
+	return [["DRIFT", Vector2.ZERO, 1.0, TRACK, 0],
+		["STATION", Vector2(0, CAP + LINE_GAP), STATION_SCALE, track, 1]]
+
+
+## Placed letters: [{shapes (placed rings), color, cut_y, cut_h, visor?}].
+static func _placed(layout: String) -> Array:
+	var key := "placed:" + layout
+	if _cache.has(key):
+		return _cache[key]
+	var out := []
+	var table := glyphs()
+	for line in _lines(layout):
+		var word: String = line[0]
+		var origin: Vector2 = line[1]
+		var k: float = line[2]
+		var x := origin.x
+		for ch in word:
 			var glyph: Dictionary = table[ch]
-			# DRIFT in the primary colour, STATION in the accent.
-			var color_index := 1 if (str(line[0]) == "STATION" or word_index == 1) else 0
-			out.append({"shapes": glyph.shapes, "color": color_index, "offset": Vector2(x, y), "cut": y + CUT_Y})
-			x += float(glyph.w) + TRACK
+			var shapes := []
+			for shape in glyph.shapes:
+				var rings := []
+				for ring in shape:
+					var placed := PackedVector2Array()
+					for p in (ring as PackedVector2Array):
+						placed.append(Vector2(x, origin.y) + p * k)
+					rings.append(placed)
+				shapes.append(rings)
+			var entry := {"shapes": shapes, "color": line[4], "cut_y": origin.y + CAP * k * CUT_AT, "cut_h": CUT_H * maxf(k, 0.7)}
+			if glyph.has("visor"):
+				var visor := PackedVector2Array()
+				for p in (glyph.visor as PackedVector2Array):
+					visor.append(Vector2(x, origin.y) + p * k)
+				entry["visor"] = visor
+			out.append(entry)
+			x += float(glyph.w) * k + float(line[3])
+	_cache[key] = out
 	return out
 
 
-## Cut every piece at its drift line: returns [{polys: [[outer, holes...]], color, part}]
-## where part is "top" or "bottom" (bottom already slid left by DRIFT).
+## Cut every letter at its stencil gap: [{rings, color, part: "top"|"bottom"}].
 static func _cut(layout: String) -> Array:
+	var key := "cut:" + layout
+	if _cache.has(key):
+		return _cache[key]
 	var out := []
-	for piece in _pieces(layout):
-		var cut: float = piece.cut
-		var offset: Vector2 = piece.offset
-		for shape in piece.shapes:
+	for letter in _placed(layout):
+		var cut: float = letter.cut_y
+		for shape in letter.shapes:
 			for part in ["top", "bottom"]:
-				var band := _crect(-1000, -1000, 1000, cut) if part == "top" else _crect(-1000, cut + CUT_H, 1000, 1000)
-				var shift := Vector2.ZERO if part == "top" else Vector2(-DRIFT, 0)
+				var band := _crect(-1000, -1000, 1000, cut) if part == "top" else _crect(-1000, cut + float(letter.cut_h), 1000, 1000)
 				var rings := []
-				for ring_index in range((shape as Array).size()):
-					var poly := PackedVector2Array()
-					for p in (shape[ring_index] as PackedVector2Array):
-						poly.append(p + offset)
-					for clipped in Geometry2D.intersect_polygons(poly, band):
-						var moved := PackedVector2Array()
-						for p in clipped:
-							moved.append(p + shift)
-						rings.append(moved)
+				for ring in shape:
+					for clipped in Geometry2D.intersect_polygons(ring, band):
+						rings.append(clipped)
 				if not rings.is_empty():
-					out.append({"rings": rings, "color": piece.color, "part": part})
+					out.append({"rings": rings, "color": letter.color, "part": part})
+	_cache[key] = out
 	return out
 
 
@@ -198,14 +211,15 @@ static func bounds(layout: String) -> Rect2:
 		return _cache[key]
 	var box := Rect2()
 	var first := true
-	for entry in _cut(layout):
-		for ring in entry.rings:
-			for p in ring:
-				if first:
-					box = Rect2(p, Vector2.ZERO)
-					first = false
-				else:
-					box = box.expand(p)
+	for letter in _placed(layout):
+		for shape in letter.shapes:
+			for ring in shape:
+				for p in ring:
+					if first:
+						box = Rect2(p, Vector2.ZERO)
+						first = false
+					else:
+						box = box.expand(p)
 	box = box.grow(PAD)
 	_cache[key] = box
 	return box
@@ -214,6 +228,17 @@ static func bounds(layout: String) -> Rect2:
 static func aspect(layout: String) -> float:
 	var box := bounds(layout)
 	return box.size.x / box.size.y
+
+
+## The visor polygon (layout units, relative to the bounds' top-left).
+static func visor(layout: String) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var origin := bounds(layout).position
+	for letter in _placed(layout):
+		if letter.has("visor"):
+			for p in letter.visor:
+				out.append(p - origin)
+	return out
 
 
 static func _path(rings: Array, origin: Vector2) -> String:
@@ -228,9 +253,10 @@ static func _path(rings: Array, origin: Vector2) -> String:
 	return d.strip_edges()
 
 
-## The logo as an SVG document. part: "all", "top" or "bottom" (for the drift
-## animation: both parts share the same canvas).
-static func svg(layout := "lockup", palette := "dark", part := "all") -> String:
+## The logo as an SVG document. part: "all", "top" or "bottom" (the stencil
+## halves, for the slide animation). `with_face` adds the visor and the eyes
+## for `state` (exports); live drawing adds them itself.
+static func svg(layout := "lockup", palette := "dark", part := "all", with_face := false, state := "crew") -> String:
 	var box := bounds(layout)
 	var colors: Array = PALETTES.get(palette, PALETTES.dark)
 	var body := ""
@@ -238,11 +264,44 @@ static func svg(layout := "lockup", palette := "dark", part := "all") -> String:
 		if part != "all" and entry.part != part:
 			continue
 		body += "<path fill='%s' fill-rule='evenodd' d='%s'/>" % [colors[entry.color], _path(entry.rings, box.position)]
+	if with_face:
+		var face := visor(layout)
+		if not face.is_empty():
+			body += "<path fill='#%s' d='%s'/>" % [VISOR.to_html(false), _path([face], Vector2.ZERO)]
+			for poly in face_shapes(face)[0 if state == "crew" else 1]:
+				body += "<path fill='#%s' d='%s'/>" % [(EYES if state == "crew" else V_RED).to_html(false), _path([poly], Vector2.ZERO)]
 	return ("<svg xmlns='http://www.w3.org/2000/svg' width='%.3f' height='%.3f' viewBox='0 0 %.3f %.3f'>" %
 		[box.size.x, box.size.y, box.size.x, box.size.y]) + "<title>Drift Station</title>" + body + "</svg>"
 
 
-## Rasterised logo `px` tall (cached).
+## Eye shapes inside a visor polygon: [crew eyes, infiltrator V], each an
+## Array of polygons in the visor's space.
+static func face_shapes(face: PackedVector2Array) -> Array:
+	var box := Rect2(face[0], Vector2.ZERO)
+	for p in face:
+		box = box.expand(p)
+	var w := box.size.x
+	var h := box.size.y
+	var c := box.get_center() + Vector2(0, h * 0.04)
+	var eye := Vector2(w * 0.15, h * 0.4)
+	var eyes := []
+	for side in [-1.0, 1.0]:
+		var at: Vector2 = c + Vector2(side * w * 0.21, 0)
+		eyes.append(_crect(at.x - eye.x * 0.5, at.y - eye.y * 0.5, at.x + eye.x * 0.5, at.y + eye.y * 0.5,
+			eye.x * 0.3, eye.x * 0.3, eye.x * 0.3, eye.x * 0.3))
+	# The V: two slashes meeting low in the middle (the infiltrator's visor).
+	var v := []
+	var t := h * 0.17
+	var top_y := c.y - h * 0.24
+	var low_y := c.y + h * 0.2
+	for side in [-1.0, 1.0]:
+		var outer := Vector2(c.x + side * w * 0.4, top_y)
+		var inner := Vector2(c.x, low_y)
+		v.append(PackedVector2Array([outer, inner, inner + Vector2(0, t), outer + Vector2(0, t)]))
+	return [eyes, v]
+
+
+## Rasterised logo `px` tall (cached). part: "all", "top", "bottom".
 static func texture(layout := "lockup", px := 128, palette := "dark", part := "all") -> Texture2D:
 	px = clampi(px, 8, 4096)
 	var key := "%s|%d|%s|%s" % [layout, px, palette, part]
@@ -261,33 +320,71 @@ static func texture(layout := "lockup", px := 128, palette := "dark", part := "a
 
 
 ## Draw the logo with its top-left at `pos`, `height` px tall.
+## state_blend: 0 = crew eyes, 1 = infiltrator V (in between it glitches).
 ## reveal: 0..1 left-to-right wipe with a scan bar on the edge.
-## slide: extra drift of the lower slice (in cap heights; animates to 0).
+## slide: offset of the stencil halves (cap heights; 0 = locked together).
 static func draw(canvas: CanvasItem, layout: String, pos: Vector2, height: float, palette := "dark",
-		alpha := 1.0, reveal := 1.0, slide := 0.0, modulate := Color.WHITE) -> Vector2:
+		alpha := 1.0, reveal := 1.0, slide := 0.0, state_blend := 0.0, time := 0.0) -> Vector2:
 	var px := int(ceil(height))
 	var top := texture(layout, px, palette, "top")
 	var bottom := texture(layout, px, palette, "bottom")
 	if top == null or bottom == null:
 		return Vector2.ZERO
 	var size := Vector2(height * aspect(layout), height)
-	var tint := Color(modulate.r, modulate.g, modulate.b, modulate.a * alpha)
 	var units := height / bounds(layout).size.y
 	var k := clampf(reveal, 0.0, 1.0)
 	if k <= 0.0:
 		return size
+	var tint := Color(1, 1, 1, alpha)
 	var tex_size := Vector2(top.get_width(), top.get_height())
 	var src := Rect2(Vector2.ZERO, Vector2(tex_size.x * k, tex_size.y))
 	var dst := Rect2(pos, Vector2(size.x * k, size.y))
-	canvas.draw_texture_rect_region(top, dst, src, tint)
-	var shove := Vector2(-slide * CAP * units, 0)
-	canvas.draw_texture_rect_region(bottom, Rect2(dst.position + shove, dst.size), src, tint)
+	var shift := Vector2(slide * CAP * units, 0)
+	# Visor first, so the hull's anti-aliased edge sits on top of it.
+	var face := visor(layout)
+	if not face.is_empty():
+		var placed := PackedVector2Array()
+		for p in face:
+			placed.append(pos + p * units)
+		if placed[0].x < pos.x + size.x * k:
+			canvas.draw_colored_polygon(placed, Color(VISOR.r, VISOR.g, VISOR.b, 0.96 * alpha))
+			_draw_eyes(canvas, placed, state_blend, alpha, time)
+	canvas.draw_texture_rect_region(top, Rect2(dst.position + shift, dst.size), src, tint)
+	canvas.draw_texture_rect_region(bottom, Rect2(dst.position - shift, dst.size), src, tint)
 	if k < 1.0:
 		var x := pos.x + size.x * k
 		var accent := Color(PALETTES.dark[1]) if palette != "light" else Color(PALETTES.light[1])
 		canvas.draw_rect(Rect2(x - 1.5, pos.y - height * 0.08, 3.0, height * 1.16), Color(accent.r, accent.g, accent.b, 0.9 * alpha))
 		canvas.draw_rect(Rect2(x - 10.0, pos.y - height * 0.08, 10.0, height * 1.16), Color(accent.r, accent.g, accent.b, 0.18 * alpha))
 	return size
+
+
+static func _draw_eyes(canvas: CanvasItem, face: PackedVector2Array, blend: float, alpha: float, time: float) -> void:
+	var shapes := face_shapes(face)
+	var b := clampf(blend, 0.0, 1.0)
+	# The flip is a snap with two glitch frames, not a dissolve.
+	var glitch := b > 0.0 and b < 1.0
+	var jolt := Vector2.ZERO
+	if glitch:
+		var box_w := 0.0
+		for p in face:
+			box_w = maxf(box_w, p.x - face[0].x)
+		jolt = Vector2((UiType.hash01(9, int(time * 60.0)) - 0.5) * box_w * 0.18, 0)
+	var show_v := b >= 0.5
+	var polys: Array = shapes[1] if show_v else shapes[0]
+	var color := V_RED if show_v else EYES
+	for poly in polys:
+		var moved := PackedVector2Array()
+		var grown := PackedVector2Array()
+		var center := Vector2.ZERO
+		for p in poly:
+			center += p
+		center /= float(poly.size())
+		for p in poly:
+			moved.append(p + jolt)
+			grown.append(center + (p - center) * 1.5 + jolt)
+		canvas.draw_colored_polygon(grown, Color(color.r, color.g, color.b, 0.22 * alpha))
+		canvas.draw_colored_polygon(moved, Color(color.r, color.g, color.b, alpha))
 
 
 ## Write every logo file to `dir` (e.g. "res://assets/ui/logo"). Returns the
@@ -300,14 +397,15 @@ static func export_all(dir: String) -> int:
 		var file := FileAccess.open(dir.path_join(file_name), FileAccess.WRITE)
 		if file == null:
 			continue
-		file.store_string(svg(spec[0], spec[1]) + "\n")
+		file.store_string(svg(spec[0], spec[1], "all", true, "crew") + "\n")
 		file.close()
 		written += 1
 	return written
 
 
-## A Control that shows the logo fitted to its size (keeps aspect, aligns
-## left or centre). Animate `reveal` and `slide` for the intro.
+## A Control that shows the logo fitted to its size (keeps the aspect, aligns
+## left or centre). `set_state("infiltrator")` flips the visor; animate
+## `reveal` and `slide` for an intro, or call `play_intro()`.
 class View extends Control:
 	var layout := "lockup":
 		set(value):
@@ -332,10 +430,25 @@ class View extends Control:
 		set(value):
 			slide = value
 			queue_redraw()
+	var state_blend := 0.0:
+		set(value):
+			state_blend = value
+			set_process(value > 0.0 and value < 1.0)
+			queue_redraw()
+	var _time := 0.0
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		set_process(false)
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	## "crew" or "infiltrator"; blend 0..1 for in-between (glitch) frames.
+	func set_state(state_name: String, blend := 1.0) -> void:
+		state_blend = clampf(blend, 0.0, 1.0) if state_name == "infiltrator" else 1.0 - clampf(blend, 0.0, 1.0)
 
 	func _get_minimum_size() -> Vector2:
 		return Vector2(logo_height * UiLogo.aspect(layout), logo_height)
@@ -347,14 +460,14 @@ class View extends Control:
 			w = size.x
 			h = w / UiLogo.aspect(layout)
 		var x := (size.x - w) * 0.5 if center else 0.0
-		UiLogo.draw(self, layout, Vector2(x, (size.y - h) * 0.5), h, palette, 1.0, reveal, slide)
+		UiLogo.draw(self, layout, Vector2(x, (size.y - h) * 0.5), h, palette, 1.0, reveal, slide, state_blend, _time)
 
-	## Intro: wipe in with the scan bar, then the lower slice drifts home.
+	## Intro: the stencil halves slide together as the logo wipes in.
 	func play_intro(delay := 0.0) -> Tween:
 		reveal = 0.0
-		slide = 1.2
+		slide = 0.6
 		var tween := create_tween()
 		tween.tween_interval(delay)
-		tween.tween_property(self, "reveal", 1.0, 0.7).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-		tween.parallel().tween_property(self, "slide", 0.0, 1.1).set_delay(0.25).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		tween.tween_property(self, "reveal", 1.0, 0.6).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(self, "slide", 0.0, 0.9).set_delay(0.15).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 		return tween

@@ -81,7 +81,7 @@ static func kind_color(kind: String) -> Color:
 	match kind:
 		"power":
 			return GOOD
-		"pod":
+		"pod", "danger":
 			return INFILTRATOR
 		"shuttle":
 			return CREW
@@ -97,7 +97,7 @@ static func kind_color(kind: String) -> Color:
 
 
 static func kind_icon(kind: String) -> String:
-	return {"power": "bolt", "pod": "warning", "shuttle": "shuttle", "blackout": "blackout",
+	return {"power": "bolt", "pod": "warning", "danger": "blackout", "shuttle": "shuttle", "blackout": "blackout",
 		"gun": "crosshair", "down": "downed", "downed": "downed", "airlock": "airlock",
 		"spaced": "ghost", "abort": "abort", "core": "core", "cell": "cell"}.get(kind, "info")
 
@@ -348,6 +348,36 @@ static func chip(text: String, color: Color, icon_name := "", filled := true) ->
 	word.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(word)
 	return panel
+
+
+## The DRIFT STATION logo (UiLogo) as a Control, `height` px tall.
+## layout: "lockup" (DRIFT over STATION), "wordmark" (one line), "mark".
+## state: "crew" (white visor eyes) or "infiltrator" (the red V); flip later
+## with `view.set_state("infiltrator")`.
+static func logo(height := 96.0, state := "crew", layout := "lockup") -> UiLogo.View:
+	var view := UiLogo.View.new()
+	view.layout = layout
+	view.logo_height = height
+	view.set_state(state)
+	return view
+
+
+## Statement card (production plan U9): centred title font, 10 % of the frame
+## height, off-white, tracking +4 %, at most five words. Snaps in over three
+## frames. Returns a TitleCard; drive it with set_progress(t) or play().
+static func card_statement(text: String, height_share := 0.10, y_share := 0.5) -> TitleCard:
+	return TitleCard.create("statement", {"text": text, "height": height_share, "y": y_share})
+
+
+## Card line (U9): body bold, 4 % of the frame height (taglines).
+static func card_line(text: String, y_share := 0.5) -> TitleCard:
+	return TitleCard.create("line", {"text": text, "y": y_share})
+
+
+## A crew name tag: suit-colour dot plus the name on a small dark pill
+## (production plan U5). See HudNameTags for the in-world overlay.
+static func make_name_tag(player_name: String, color: Color, font_size := 18) -> Control:
+	return HudNameTags.make_name_tag(player_name, color, font_size)
 
 
 ## Safe-area margins in logical px for a control's viewport: max(inset, 24)

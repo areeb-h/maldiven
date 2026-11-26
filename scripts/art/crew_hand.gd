@@ -197,6 +197,7 @@ var _wave_w := 0.0
 var _ghost_w := 0.0
 var _brace_w := 0.0
 var _tremble := 0.0
+var _trigger_hold := 0.0
 var _breath_amp := 1.0
 var _run_curl := 1.0
 var _trigger_t := -1.0
@@ -250,7 +251,8 @@ func _setup(p_color: Color, p_side: int, fingers: int) -> void:
 	side = p_side
 	finger_count = fingers
 	name = "LeftGlove" if side < 0 else "RightGlove"
-	_rng.randomize()
+	# Seeded per colour and side, so trailer renders repeat frame for frame.
+	_rng.seed = hash("%s:%d" % [p_color.to_html(), p_side])
 	_phase = _rng.randf() * TAU
 	_fidget_timer = _rng.randf_range(2.0, 6.0)
 	var rest := _rest_frames(side, finger_count)
@@ -339,6 +341,12 @@ func set_tremble(amount: float) -> void:
 
 func get_tremble() -> float:
 	return _tremble
+
+
+## Held trigger squeeze, 0 (finger resting on the trigger) .. 1 (fully pulled), for a
+## visible squeeze over a few frames before the shot; trigger_pull() still snaps.
+func set_trigger(amount: float) -> void:
+	_trigger_hold = clampf(amount, 0.0, 1.0)
 
 
 ## Quick index-finger squeeze (~0.12 s); works from any pose, best from grip_gun(_trigger).
@@ -674,6 +682,12 @@ func _compose() -> void:
 	_add(PALM, 2, _lag[10] * mm)
 	_add(THUMB1, 2, _lag[11] * mm * 0.4)
 	_compose_fidget(spec_list)
+	# Held squeeze, then the snap of trigger_pull().
+	if _trigger_hold > 0.0:
+		_set_lerp(INDEX1, 0, _SQUEEZE.x, _trigger_hold)
+		_set_lerp(INDEX2, 0, _SQUEEZE.y, _trigger_hold)
+		_set_lerp(INDEX3, 0, _SQUEEZE.z, _trigger_hold)
+		_set_lerp(INDEX1, 2, 0.0, _trigger_hold)
 	# Trigger squeeze: the index snaps onto the trigger and back.
 	if _trigger_t >= 0.0:
 		var env := smoothstep(0.0, 0.035, _trigger_t) * (1.0 - smoothstep(0.05, 0.12, _trigger_t))
