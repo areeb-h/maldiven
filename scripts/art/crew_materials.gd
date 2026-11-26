@@ -572,12 +572,13 @@ void fragment() {
 	float da = face(puv, expr_a, blink, grow, 0.0012 * far);
 	float db = face(puv, expr_b, blink, grow, 0.0012 * far);
 	float core = mix(1.0 - smoothstep(-aa, aa, da), 1.0 - smoothstep(-aa, aa, db), expr_mix);
-	float halo = mix(exp(-max(da, 0.0) * 140.0), exp(-max(db, 0.0) * 140.0), expr_mix);
+	// Tight halo: a soft edge on the LEDs without fogging the glass (or the shapes at range).
+	float halo = mix(exp(-max(da, 0.0) * 260.0), exp(-max(db, 0.0) * 260.0), expr_mix);
 	float scan = 0.88 + 0.12 * sin(puv.y * 900.0);
 	float flick = mix(1.0, step(0.3, hash(vec2(floor(TIME * 18.0), 3.0))), glitch);
 	vec3 led_base = mix(eye_color, expr_tint.rgb, expr_tint.a);
 	vec3 led = mix(led_base, vec3(1.0, 0.2, 0.1), glitch * 0.7);
-	float eyes = (core * scan + halo * 0.3) * flick;
+	float eyes = (core * scan + halo * 0.16) * flick;
 	// Soft inner glow: the LEDs light the glass and the rim of the frame; the mood
 	// wash fills the whole glass so the colour reads from across a room.
 	vec2 qn = UV / vec2(0.17, 0.09);

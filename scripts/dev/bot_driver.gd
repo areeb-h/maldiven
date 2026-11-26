@@ -83,6 +83,7 @@ func _run() -> void:
 	await _wait(1.5)
 	await _shot("briefing")
 	var world: StationWorld = main.current_world()
+	world.event_seen.connect(_on_world_event)
 	while world.role == "" or world.rules.phase == StationRules.Phase.BRIEFING:
 		await _wait(0.2)
 	print("BOT_ROLE ", world.role)
@@ -108,6 +109,8 @@ func _run() -> void:
 	if plan == "crew" and my_index == 0:
 		await _pick_from_socket(world, "core", "vault")
 		await _insert(world, "core", "shuttle")
+	if plan == "crew":
+		await _accuse_and_tap(world, ids, my_index)
 	elif plan == "eject":
 		# Needs --bot-host-infiltrator. Crew shoot the host, drag them into the
 		# airlock and cycle it: exercises gun, downed bodies, drag and airlock.
@@ -176,6 +179,38 @@ func _run() -> void:
 	print("BOT_TIMELINE_LINES ", world.rules.timeline.size())
 	await _wait(3.0 if Net.is_host() else 1.0)
 	get_tree().quit(0)
+
+
+## Every printed public event the test checks for (each peer prints its own).
+func _on_world_event(event: Dictionary) -> void:
+	match str(event.get("type", "")):
+		"accuse":
+			print("BOT_ACCUSE by=%d target=%d" % [int(event.by), int(event.target)])
+		"gesture":
+			print("BOT_GESTURE %s by=%d" % [str(event.gesture), int(event.by)])
+
+
+## Social verbs, replicated: while the shuttle counts down everyone gathers in
+## Docking; the second peer accuses the host (every peer must see the event and
+## the SUSPECT accusation in its mirror), then the infiltrator triggers the
+## blackout in plain sight (every peer must see the helmet-tap gesture).
+func _accuse_and_tap(world: StationWorld, ids: Array, my_index: int) -> void:
+	await _until(func(): return world.rules.items.core.socket == "shuttle", 30.0)
+	if my_index > 0:
+		var spot: Vector3 = [Vector3(17.5, 0, 2.8), Vector3(22.0, 0, 2.8)][(my_index - 1) % 2]
+		var to: Vector3 = world.rules.players[ids[0]].pos - spot
+		await _teleport(world, spot, atan2(to.x, to.z) + PI)
+	await _wait(1.0)
+	if my_index == 1:
+		world.request_accuse(ids[0])
+	var marked: bool = await _until(func(): return world.rules.accusations.any(
+		func(entry: Dictionary) -> bool: return int(entry.target) == int(ids[0])), 6.0)
+	print("BOT_ACCUSE_MARK ", marked)
+	if world.role == StationRules.INFILTRATOR:
+		await _until(func(): return world.rules.sabotage_cooldown() <= 0.0, 20.0)
+		_act("sabotage")
+	var dark: bool = await _until(func(): return world.rules.is_blackout(), 22.0)
+	print("BOT_DARK ", dark)
 
 
 func _first_crew_index(world: StationWorld, ids: Array) -> int:

@@ -207,7 +207,7 @@ func _draw() -> void:
 	draw_rect(Rect2(0, size.y - bar, size.x, bar), Color.BLACK)
 	var frame := Rect2(Vector2(36, 36) * b + Vector2(0, bar), size - Vector2(72, 72) * b - Vector2(0, bar * 2.0))
 	UiType.draw_brackets(self, frame, 34.0 * b, _c(color, 0.45 * UiType.ease_out((t - 0.2) / 0.4) * fade), maxf(2.0, 2.0 * b))
-	var cy := size.y * (0.34 if portrait else 0.37)
+	var cy := size.y * (0.36 if portrait else 0.4)
 	# Identity scan: one sweep down the frame before the card lands.
 	var scan := (t - 0.1) / 0.5
 	if scan > 0.0 and scan < 1.0:
@@ -218,10 +218,11 @@ func _draw() -> void:
 	var caps := UiStyle.font("caps")
 	var kicker := "EYES ONLY" + ("  ·  %s" % _name.to_upper() if _name != "" else "")
 	var kicker_size := int(20 * b)
-	var kicker_width := UiType.draw_type_on(self, caps, kicker, Vector2(size.x * 0.5, frame.position.y + 44.0 * b), kicker_size,
+	var kicker_y := cy - 104.0 * b * 1.24 - 22.0 * b
+	var kicker_width := UiType.draw_type_on(self, caps, kicker, Vector2(size.x * 0.5, kicker_y), kicker_size,
 		_c(UiStyle.MUTED, fade), t - 0.15, 46.0, "center", 4.0 * b, 0.0)
 	if _name != "" and t > 0.15:
-		draw_circle(Vector2(size.x * 0.5 - kicker_width * 0.5 - 16.0 * b, frame.position.y + 44.0 * b - kicker_size * 0.36),
+		draw_circle(Vector2(size.x * 0.5 - kicker_width * 0.5 - 16.0 * b, kicker_y - kicker_size * 0.36),
 			6.0 * b, _c(_suit, fade))
 	if fly <= 0.0:
 		_draw_hero(b, cy, t - CARD_AT, fade)
@@ -232,7 +233,7 @@ func _draw() -> void:
 		draw_circle(at, side * 0.62, _c(color, 0.22 * (1.0 - fly * 0.5)))
 		UiIcons.draw(self, UiStyle.role_icon(_role), at, side, color)
 	# Objectives.
-	_draw_objectives(b, cy + 150.0 * b, portrait, fade)
+	_draw_objectives(b, cy + 146.0 * b, portrait, fade)
 	# Footer countdown.
 	var foot := UiType.ease_out((t - 2.2) / 0.3) * fade
 	if foot > 0.0:
@@ -266,14 +267,14 @@ func _draw_hero(b: float, cy: float, local: float, fade: float) -> void:
 	var cx := size.x * 0.5
 	draw_set_transform(Vector2(cx, cy), 0.0, Vector2.ONE * grow)
 	# Helmet: the infiltrator's red V, or the crew's LED eyes in the suit colour.
-	var helmet := 132.0 * b
+	var helmet := 104.0 * b
 	var helmet_y := -helmet * 0.62
 	draw_circle(Vector2(0, helmet_y), helmet * 0.62, _c(color, 0.16 * k))
 	draw_arc(Vector2(0, helmet_y), helmet * 0.62, 0.0, TAU, 64, _c(color, 0.5 * k), maxf(2.0, 2.0 * b), true)
 	if infiltrator:
 		UiIcons.draw(self, "mask", Vector2(0, helmet_y), helmet * 0.9, _c(Color.WHITE, k), 0.0, "color")
 	else:
-		UiIcons.draw(self, "face", Vector2(0, helmet_y), helmet * 0.9, _c(_suit if _suit != Color.WHITE else color, k))
+		UiIcons.draw(self, "face", Vector2(0, helmet_y), helmet * 0.9, _c(color, k))
 	# YOU ARE + the role, one line fitted to the frame.
 	var words := role_words()
 	var head := UiStyle.font("title")
@@ -308,7 +309,7 @@ func _draw_objectives(b: float, top: float, portrait: bool, fade: float) -> void
 	if count == 0:
 		return
 	var body := UiStyle.font("body")
-	var text_size := int(22 * b)
+	var text_size := int(20 * b)
 	var disc := 46.0 * b
 	var gap := 18.0 * b
 	var column := minf(340.0 * b, (size.x * 0.88 - gap * float(count - 1)) / float(count))
@@ -323,7 +324,9 @@ func _draw_objectives(b: float, top: float, portrait: bool, fade: float) -> void
 		var x := start_x + (column + gap) * i if not portrait else start_x
 		var y := top + (1.0 - k) * 16.0 * b + (i * (disc + 22.0 * b) if portrait else 0.0)
 		var tint: Color = entry[1]
-		var plate := Rect2(x, y, column, disc + 16.0 * b)
+		var text_w := column - 14.0 * b - disc - 24.0 * b
+		var need := body.get_multiline_string_size(str(entry[2]), HORIZONTAL_ALIGNMENT_LEFT, text_w, text_size, 3).y
+		var plate := Rect2(x, y, column, maxf(disc + 16.0 * b, need + 18.0 * b))
 		var box := UiStyle.inset_box(0.42 * k, int(10 * b), 0)
 		box.border_width_left = maxi(2, int(3 * b))
 		box.border_color = _c(tint, 0.8 * k)
@@ -333,6 +336,6 @@ func _draw_objectives(b: float, top: float, portrait: bool, fade: float) -> void
 		UiIcons.draw(self, str(entry[0]), disc_center, disc * 0.62, _c(tint, k))
 		var text_x := disc_center.x + disc * 0.5 + 12.0 * b
 		var width := plate.end.x - text_x - 12.0 * b
-		var text_height := body.get_multiline_string_size(str(entry[2]), HORIZONTAL_ALIGNMENT_LEFT, width, text_size, 2).y
+		var text_height := body.get_multiline_string_size(str(entry[2]), HORIZONTAL_ALIGNMENT_LEFT, width, text_size, 3).y
 		UiType.draw_wrapped(self, body, str(entry[2]), Vector2(text_x, plate.get_center().y - text_height * 0.5), width, text_size,
-			_c(UiStyle.TEXT, k), HORIZONTAL_ALIGNMENT_LEFT, 2)
+			_c(UiStyle.TEXT, k), HORIZONTAL_ALIGNMENT_LEFT, 3)

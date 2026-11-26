@@ -98,6 +98,24 @@ def net_round(engine, plan, players=3, seed=11, timeout=150, host_infiltrator=Fa
                 problems.append(f'throw replication: peers disagree by {spread:.3f} m: {points}')
             else:
                 print(f'  thrown cell agrees on {players} peers within {spread * 100:.1f} cm')
+        # Accuse and the blackout's helmet tap reach every peer (all gathered in Docking).
+        accuses, marks, taps, darks = [], [], [], []
+        for _, out in logs:
+            lines = out.splitlines()
+            accuses.append([l for l in lines if l.startswith('BOT_ACCUSE by=')])
+            marks.append([l for l in lines if l.startswith('BOT_ACCUSE_MARK')])
+            taps.append([l for l in lines if l.startswith('BOT_GESTURE helmet_tap')])
+            darks.append([l for l in lines if l.startswith('BOT_DARK')])
+        if any(len(a) != 1 for a in accuses) or len({a[0] for a in accuses}) != 1 or not accuses[0][0].endswith('target=1'):
+            problems.append('accuse replication: expected one identical accuse of the host on every peer: ' + repr(accuses))
+        if any(m != ['BOT_ACCUSE_MARK True'] and m != ['BOT_ACCUSE_MARK true'] for m in marks):
+            problems.append('accuse replication: every mirror should hold the SUSPECT accusation: ' + repr(marks))
+        if any(len(t) != 1 for t in taps) or len({t[0] for t in taps}) != 1:
+            problems.append('helmet tap: expected the same gesture on every peer in sight: ' + repr(taps))
+        if any(d not in (['BOT_DARK True'], ['BOT_DARK true']) for d in darks):
+            problems.append('helmet tap: the blackout should follow on every peer: ' + repr(darks))
+        if not problems:
+            print(f'  accuse + helmet tap replicated to {players} peers')
     if plan == 'eject':
         if not any('reason=The infiltrator was spaced.' in r for r in results):
             problems.append('expected the infiltrator to be spaced')

@@ -456,9 +456,6 @@ func _build_lobby() -> void:
 	_lobby = _screen(_safe)
 	var box := _column(_lobby, LOBBY_WIDTH)
 	box.add_theme_constant_override("separation", UiStyle.S1)
-	var header := UiStyle.logo(34.0, "crew", "wordmark")
-	header.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	box.add_child(header)
 	box.add_child(UiStyle.caption("STATION LOBBY", UiStyle.ACCENT, "users"))
 	_lobby_title = UiStyle.label("", "head", UiStyle.H2, UiStyle.TEXT)
 	_lobby_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -502,23 +499,23 @@ func _build_lobby() -> void:
 			else:
 				_lobby_slots.draw_arc(at, 4.5, 0.0, TAU, 16, Color(1, 1, 1, 0.25), 1.5, true))
 	head.add_child(_lobby_slots)
+	# Host: fill seats with bot players (they play the round like anyone else).
+	_bot_row = HBoxContainer.new()
+	_bot_row.add_theme_constant_override("separation", UiStyle.S1)
+	head.add_child(_bot_row)
+	_add_bot_button = UiStyle.button("ADD BOT", false, UiStyle.ACCENT, "gear", 80)
+	_add_bot_button.add_theme_font_size_override("font_size", 22)
+	_add_bot_button.pressed.connect(func(): Net.add_bot())
+	_bot_row.add_child(_add_bot_button)
+	_remove_bot_button = UiStyle.button("REMOVE", false, UiStyle.MUTED, "close", 80)
+	_remove_bot_button.add_theme_font_size_override("font_size", 22)
+	_remove_bot_button.pressed.connect(func(): Net.remove_bot())
+	_bot_row.add_child(_remove_bot_button)
 	_lobby_grid = GridContainer.new()
 	_lobby_grid.columns = 2
 	_lobby_grid.add_theme_constant_override("h_separation", UiStyle.S1)
 	_lobby_grid.add_theme_constant_override("v_separation", UiStyle.S1)
 	inner.add_child(_lobby_grid)
-	# Host: fill seats with bot players (they play the round like anyone else).
-	_bot_row = HBoxContainer.new()
-	_bot_row.add_theme_constant_override("separation", UiStyle.S1)
-	inner.add_child(_bot_row)
-	_add_bot_button = UiStyle.button("ADD BOT", false, UiStyle.ACCENT, "gear", 80)
-	_add_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_add_bot_button.pressed.connect(func(): Net.add_bot())
-	_bot_row.add_child(_add_bot_button)
-	_remove_bot_button = UiStyle.button("REMOVE BOT", false, UiStyle.MUTED, "close", 80)
-	_remove_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_remove_bot_button.pressed.connect(func(): Net.remove_bot())
-	_bot_row.add_child(_remove_bot_button)
 	_spacer(box, UiStyle.S1)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", UiStyle.S2)
@@ -571,6 +568,14 @@ func _build_lobby() -> void:
 		row.add_child(text)
 		steps.add_child(UiMotion.slide(row))
 	_lobby.set_meta("steps", steps)
+	var mark := UiStyle.logo(36.0, "crew", "wordmark")
+	mark.anchor_left = 1.0
+	mark.anchor_right = 1.0
+	mark.offset_left = -32.0 - 36.0 * UiLogo.aspect("wordmark")
+	mark.offset_right = -32.0
+	mark.offset_top = 8.0
+	mark.offset_bottom = 44.0
+	_lobby.add_child(mark)
 
 
 ## One crew card: suit swatch, LED face in the suit colour, name, HOST/YOU chips.
@@ -894,6 +899,7 @@ func _on_roster_changed() -> void:
 	_start_button.visible = host
 	_start_note.visible = host
 	_bot_row.visible = host
+	_lobby_slots.visible = not host
 	_add_bot_button.disabled = Net.roster.size() >= Net.max_players
 	_remove_bot_button.disabled = Net.bot_ids().is_empty()
 	if host:
