@@ -1143,6 +1143,13 @@ func _process(delta: float) -> void:
 		_role_word.offset_bottom = _role_word.offset_top
 	_fit(_menu)
 	_fit(_status, -112.0, true)
+	# Banners stay clear of the objective panel; the ticker sits under it.
+	var panel_right := _top_panel.position.x + _top_panel.size.x + 16.0
+	var safe_width := _safe_root.size.x
+	var left := maxf(safe_width * 0.5 - 300.0, panel_right)
+	_alerts.offset_left = left - safe_width * 0.5
+	_alerts.offset_right = _alerts.offset_left + 600.0
+	_ticker.origin_px = Vector2(_margin.position.x, _margin.position.y + _top_panel.size.y + 60.0)
 	_update_blackout_look(delta)
 	_update_fx(delta)
 	if _pips.get_meta("pop") > 0.0:
@@ -1270,7 +1277,7 @@ func _on_hit(rules: StationRules, id: int) -> void:
 	_hit_age = 0.0
 	_miss_age = 99.0
 	var player: Dictionary = rules.players[id]
-	_hit_text = "HIT" if rules.is_blackout() else "HIT  ·  %s" % str(player.name).to_upper()
+	_hit_text = "HIT" if rules.is_blackout() else "HIT  %s" % str(player.name).to_upper()
 	_hit_color = player.color if not rules.is_blackout() else UiStyle.AMBER
 	UiMotion.haptic(50)
 
