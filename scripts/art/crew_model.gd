@@ -19,6 +19,31 @@ const SHOVE_WRIST := -0.75
 ## from it (gun space).
 const AIM_GRIP := Vector3(-0.075, 1.36, 0.47)
 const AIM_SUPPORT := Vector3(0.055, -0.035, -0.035)
+## Held acting poses for set_performance(). They layer over set_motion's locomotion
+## (reach, accuse and surrender can walk) and combine with any expression.
+const PERFORMANCES: Array[String] = ["reach", "accuse", "surrender", "pound_glass", "press_glass", "dragged",
+	"ghost_drift", "victory", "defeat", "slump"]
+## One-shot timings (s): play_draw() from the thigh holster to aim, play_stagger().
+const DRAW_TIME := 0.5
+const STAGGER_TIME := 1.2
+## Where a dragged body's raised right wrist is held (root space, "dragged" pose).
+const DRAG_HANDLE := Vector3(-0.12, 0.72, 0.9)
+## Body language per expression, so moods read in silhouette at 4-8 m: head
+## (pitch + = down, yaw + = toward the character's left, roll) and chest offsets (rad),
+## shoulder shrug and crouch (m), hips lean (m, + = forward), an arm set, glove pose,
+## eye offset on the visor (m, + = character's left) and tremble. Head and chest tells
+## stay (at half strength) while walking; arm sets and crouch fade out when moving,
+## carrying or aiming.
+const _BODY := {
+	"happy": {"head": Vector3(-0.14, 0.0, 0.16), "chest": Vector3(-0.07, 0.0, 0.0), "arms_out": 0.1, "bounce": 1.0, "gloves": "open"},
+	"shocked": {"head": Vector3(-0.2, 0.0, 0.0), "chest": Vector3(-0.16, 0.0, 0.0), "lean": -0.04, "crouch": 0.03, "shrug": 0.02, "arms": "startle"},
+	"angry": {"head": Vector3(0.22, 0.0, 0.0), "chest": Vector3(0.14, 0.0, 0.0), "lean": 0.03, "crouch": 0.02, "shrug": 0.03, "arms": "fists"},
+	"suspicious": {"head": Vector3(0.12, 0.34, 0.2), "chest": Vector3(0.02, -0.14, 0.0), "arms": "cross", "look": Vector2(-0.032, 0.0)},
+	"hurt": {"head": Vector3(0.28, 0.0, 0.12), "chest": Vector3(0.26, 0.1, 0.1), "crouch": 0.05, "arms": "clutch"},
+	"scared": {"head": Vector3(0.12, 0.0, 0.0), "chest": Vector3(0.06, 0.0, 0.0), "crouch": 0.06, "shrug": 0.04, "lean": -0.03, "arms": "cower", "tremble": 1.0},
+	"sad": {"head": Vector3(0.42, 0.0, 0.06), "chest": Vector3(0.2, 0.0, 0.0), "crouch": 0.02, "shrug": -0.02, "arms_fwd": 0.12, "gloves": "limp"},
+	"sly": {"head": Vector3(-0.06, -0.2, -0.16), "chest": Vector3(-0.04, 0.12, 0.0), "arms": "akimbo", "look": Vector2(0.028, 0.0)},
+}
 
 var color := Color.WHITE
 var variant := 0
@@ -106,6 +131,29 @@ var _recoil_t := -1.0
 var _hand_pose: Array[String] = ["", ""]
 var _last_params := {}
 
+# Acting: performances, expression body language, focus point, one-shots.
+var _perf := ""
+var _perf_t := 0.0
+var _perf_rate := 3.3
+var _perf_w := {}  # performance name -> blend weight
+var _att_w := PackedFloat32Array()  # body-language weight per expression
+var _focus := Vector3.ZERO
+var _has_focus := false
+var _focus_w := 0.0
+var _focus_eye := Vector2.ZERO
+var _draw_t := -1.0
+var _stagger_t := -1.0
+var _stagger_push := Vector3(0, 0, -1)  # local direction the body is pushed
+var _stagger_k := 1.0
+var _hit_push := Vector3(0, 0, -1)
+var _tremble := 0.0
+var _glove_votes: Array[Dictionary] = [{}, {}]
+# Visor mood: LED tint (a = amount), brightness gain, glass wash, glint sweep.
+var _tint := Color(1, 1, 1, 0)
+var _gain := 1.0
+var _wash := 0.0
+var _glint_t := -1.0
+
 
 ## `variant` 0..3 picks the helmet top and backpack style; `number` 1..8 is the
 ## player number painted on the pauldrons and glowing on the pack (0 = crew emblem).
@@ -154,6 +202,8 @@ func _setup(p_color: Color, p_variant: int, p_number: int) -> void:
 		hands.append(glove)
 	hand_anchor = hands[1].grip_node("gun")
 	set_number(p_number)
+	_att_w.resize(CrewMaterials.EXPRESSIONS.size())
+	_att_w[0] = 1.0
 	_blink_timer = randf_range(2.0, 4.5)
 	_fidget_timer = randf_range(6.0, 10.0)
 	_upload()
@@ -194,6 +244,20 @@ func set_motion(speed: float, on_floor: bool, carrying: bool, stunned: bool, del
 		_recoil_t += delta
 		if _recoil_t > RECOIL_TIME:
 			_recoil_t = -1.0
+	if _draw_t >= 0.0:
+		_draw_t += delta
+		if _draw_t > DRAW_TIME:
+			_draw_t = -1.0
+	if _stagger_t >= 0.0:
+		_stagger_t += delta
+		if _stagger_t > STAGGER_TIME:
+			_stagger_t = -1.0
+	_perf_t += delta
+	for key: String in _perf_w:
+		_perf_w[key] = move_toward(float(_perf_w[key]), 1.0 if key == _perf else 0.0, delta * _perf_rate)
+	_focus_w = move_toward(_focus_w, 1.0 if _has_focus else 0.0, delta * 4.0)
+	for i in _att_w.size():
+		_att_w[i] = move_toward(_att_w[i], 1.0 if i == _expr else 0.0, delta * 4.5)
 	_update_fidget(delta)
 	var g := _gait(_speed)
 	var before := _phase
@@ -219,9 +283,104 @@ func play_shove() -> void:
 
 
 ## A strong flinch that reads as being shot: snap back, arms jerk up, red rim flash.
-func play_hit() -> void:
+## Pass the shooter's (or impact's) world position to snap away from it; without it
+## the body snaps backward and twists to a random side.
+func play_hit(source := Vector3.INF) -> void:
 	_hit_t = 0.0
 	_hit_side = -1.0 if randf() < 0.5 else 1.0
+	_hit_push = _push_from(source)
+	if source.is_finite() and absf(_hit_push.x) > 0.2:
+		_hit_side = signf(_hit_push.x)
+
+
+## Knocked off balance (shove, blast, being barged): the torso reels away from
+## `source` (world point; omitted = from the front), arms windmill, a knee buckles and
+## the trailing foot takes a catch step, then the body recovers over STAGGER_TIME.
+## `strength` 0.3 .. 1.5 scales it. Physics' ragdoll / knockback may layer on top.
+func play_stagger(source := Vector3.INF, strength := 1.0) -> void:
+	_stagger_t = 0.0
+	_stagger_push = _push_from(source)
+	_stagger_k = clampf(strength, 0.2, 1.6)
+
+
+## Draw the gun from the right-thigh holster and come up into the aim (DRAW_TIME s);
+## leaves the model aiming (set_aiming(false) lowers it). Parent the gun to
+## hand_anchor first: the hand carries it out of the holster.
+func play_draw() -> void:
+	_draw_t = 0.0
+	_aiming = true
+	_held = "gun"
+
+
+## Hold an acting pose from PERFORMANCES ("" = plain locomotion again), blended over
+## `blend` seconds (0 snaps). Performances layer over set_motion's locomotion and
+## the current expression; reach / accuse / pound_glass / press_glass use the focus
+## point (set_focus) when one is set.
+func set_performance(perf_name: String, blend := 0.3) -> void:
+	if perf_name != "" and not PERFORMANCES.has(perf_name):
+		push_warning("CrewModel: unknown performance " + perf_name)
+		return
+	if perf_name != "" and not _perf_w.has(perf_name):
+		_perf_w[perf_name] = 0.0
+	if perf_name != _perf:
+		_perf_t = 0.0
+	_perf = perf_name
+	if blend <= 0.0:
+		for key: String in _perf_w:
+			_perf_w[key] = 1.0 if key == perf_name else 0.0
+		_perf_rate = 1000.0
+	else:
+		_perf_rate = 1.0 / blend
+
+
+func get_performance() -> String:
+	return _perf
+
+
+## A world point the character attends to: the head and eyes turn to it (the chest
+## follows a little), the gun aims at it, and reach / accuse / pound_glass /
+## press_glass aim their hands at it. Blends in and out over ~0.25 s.
+func set_focus(world_point: Vector3) -> void:
+	_focus = world_point
+	_has_focus = true
+
+
+func clear_focus() -> void:
+	_has_focus = false
+
+
+## A bright streak sweeps across the visor (also plays on angry / suspicious / sly /
+## shocked faces).
+func play_visor_glint() -> void:
+	_glint_t = 0.0
+
+
+## Wear level: 0 = factory fresh, 1 = default scuffs and chipped edges, up to 2 for a
+## battered suit late in a round.
+func set_wear(amount: float) -> void:
+	var v := clampf(amount, 0.0, 2.0)
+	_suit_mat.set_shader_parameter("scuff_amount", v)
+	if _ghost_mat != null:
+		_ghost_mat.set_shader_parameter("scuff_amount", v)
+	for glove in hands:
+		glove.set_suit_param("scuff_amount", v)
+
+
+## World position of the raised right wrist in the "dragged" pose: put the dragger's
+## grip (e.g. its left glove) here, or place the body so this meets the dragger's hand.
+func get_drag_handle() -> Vector3:
+	return bones[CrewBody.R_HAND].global_position if is_inside_tree() else _root_xf(CrewBody.R_HAND).origin
+
+
+## Local, horizontal direction pointing away from `source` (default: pushed back).
+func _push_from(source: Vector3) -> Vector3:
+	if not source.is_finite() or not is_inside_tree():
+		return Vector3(0, 0, -1)
+	var d := to_local(source)
+	d.y = 0.0
+	if d.length_squared() < 1e-6:
+		return Vector3(0, 0, -1)
+	return -d.normalized()
 
 
 func set_flashlight_on(on: bool) -> void:
@@ -315,6 +474,9 @@ func _show_expression(id: int) -> void:
 	_expr_prev = _expr
 	_expr = id
 	_expr_mix = 0.0
+	_gain += 0.35  # the LEDs ping brighter on a change of mood
+	if id in [2, 3, 4, 10]:
+		_glint_t = 0.0
 
 
 func _auto_expression() -> void:
@@ -377,8 +539,12 @@ func _face(delta: float, flash: float) -> void:
 		_saccade_timer = randf_range(1.2, 3.5)
 		_saccade = Vector2(randf_range(-0.012, 0.012), randf_range(-0.005, 0.006)) * (1.0 - _move_w)
 	var target := Vector2(clampf(_yaw_rate * 0.012, -0.024, 0.024), -0.004 * _move_w) + _saccade
-	if _expr == 4:
-		target.x = -0.016
+	# Expression glances (the suspicious side-eye, the sly look) and the focus point.
+	for i in _att_w.size():
+		if _att_w[i] > 0.001:
+			var spec: Dictionary = _BODY.get(CrewMaterials.EXPRESSIONS[i], {})
+			target += (spec.get("look", Vector2.ZERO) as Vector2) * _att_w[i]
+	target += _focus_eye * _focus_w
 	if _fidget_t >= 0.0:
 		var fe := _fidget_env()
 		match _fidget_kind:
@@ -389,7 +555,24 @@ func _face(delta: float, flash: float) -> void:
 	if _stun_w > 0.0:
 		target += Vector2(sin(_time * 9.0), cos(_time * 7.0)) * 0.01 * _stun_w
 	_look = _look.lerp(target, 1.0 - exp(-delta * 18.0))
+	# Mood colour, brightness and glass wash ease to the face's style.
+	var style: Array = CrewMaterials.EXPRESSION_STYLE.get(CrewMaterials.EXPRESSIONS[_expr], [Color.WHITE, 0.0, 1.0, 0.0])
+	var tc: Color = style[0]
+	tc.a = float(style[1])
+	var k := 1.0 - exp(-delta * 9.0)
+	_tint = _tint.lerp(tc, k)
+	_gain = lerpf(_gain, float(style[2]), 1.0 - exp(-delta * 5.0))
+	_wash = lerpf(_wash, float(style[3]), k)
+	if _glint_t >= 0.0:
+		_glint_t += delta / 0.55
+		if _glint_t > 1.0:
+			_glint_t = -1.0
 	var vm := _ghost_visor_mat if _ghost else _visor_mat
+	vm.set_shader_parameter("expr_tint", Vector4(_tint.r, _tint.g, _tint.b, _tint.a))
+	vm.set_shader_parameter("eye_gain", _gain)
+	vm.set_shader_parameter("wash", _wash)
+	vm.set_shader_parameter("glint", _glint_t)
+	vm.set_shader_parameter("tremble", _tremble)
 	vm.set_shader_parameter("expr_a", _expr_prev)
 	vm.set_shader_parameter("expr_b", _expr)
 	vm.set_shader_parameter("expr_mix", _expr_mix)
@@ -805,6 +988,329 @@ func _pose(g: Vector3) -> void:
 				target_pose[i] = target_pose[i].interpolate_with(carried_pose[i], _carried_w)
 		for i in bones.size():
 			B[i].transform = B[i].transform.interpolate_with(target_pose[i], _down_w)
+
+
+# --- acting layers -----------------------------------------------------------------
+
+## Body language (from the expressions' blend weights), performances, stagger: summed
+## by weight each frame. Arm goals are wrist targets, in chest space ("chest" true)
+## when they move with the torso or root space when fixed in the world; poles are in
+## chest space; palm / fingers (optional) orient the glove, in the goal's space.
+func _layers(t: float) -> Dictionary:
+	var L := {"head": Vector3.ZERO, "chest": Vector3.ZERO, "spine": Vector3.ZERO, "hips": Vector3.ZERO, "hips_rot": Vector3.ZERO,
+		"shrug": 0.0, "swing": 0.0, "spread": 0.0, "elbow": 0.0, "feet": [Vector3.ZERO, Vector3.ZERO], "foot_pitch": [0.0, 0.0],
+		"tremble": 0.0, "goals": [[], []], "perf_arms": 0.0}
+	_glove_votes = [{}, {}]
+	var calm := 1.0 - _down_w
+	for perf_name: String in _perf_w:
+		var pw: float = _perf_w[perf_name]
+		if pw > 0.001:
+			_perf_layer(L, perf_name, pw * calm, t)
+	if _stagger_t >= 0.0:
+		_stagger_layer(L, t)
+	var still := (1.0 - 0.5 * _move_w) * calm * (1.0 - _ghost_w)
+	var free_arms := 1.0 - clampf(float(L.perf_arms), 0.0, 1.0)
+	var arm_gate := (1.0 - _move_w) * (1.0 - _carry_w) * (1.0 - _aim_w) * calm * (1.0 - _ghost_w) * (1.0 - _stun_w) * free_arms
+	var legs_gate := (1.0 - _move_w) * calm * (1.0 - _ghost_w) * (1.0 - _air_w)
+	for i in _att_w.size():
+		var w := _att_w[i]
+		if w < 0.001:
+			continue
+		var spec: Dictionary = _BODY.get(CrewMaterials.EXPRESSIONS[i], {})
+		if spec.is_empty():
+			continue
+		L.head += (spec.get("head", Vector3.ZERO) as Vector3) * w * still
+		L.chest += (spec.get("chest", Vector3.ZERO) as Vector3) * w * still
+		L.shrug += float(spec.get("shrug", 0.0)) * w * still
+		L.hips += Vector3(0.0, -float(spec.get("crouch", 0.0)), float(spec.get("lean", 0.0))) * w * legs_gate
+		L.tremble += float(spec.get("tremble", 0.0)) * w
+		L.spread += float(spec.get("arms_out", 0.0)) * w * arm_gate
+		L.swing -= float(spec.get("arms_fwd", 0.0)) * w * arm_gate
+		if spec.has("bounce"):
+			L.hips += Vector3(0.0, absf(sin(t * TAU * 1.1)) * 0.012, 0.0) * w * legs_gate
+		var aw := w * arm_gate
+		if aw > 0.001:
+			_expression_arms(L, String(spec.get("arms", "")), aw)
+			var g: String = spec.get("gloves", "")
+			if g != "":
+				_vote(0, g, aw)
+				_vote(1, g, aw)
+	return L
+
+
+func _goal(L: Dictionary, side: int, pos: Vector3, w: float, pole: Vector3, chest_space := true, palm := Vector3.ZERO, fingers := Vector3.ZERO) -> void:
+	(L.goals[side] as Array).append({"pos": pos, "w": w, "pole": pole, "chest": chest_space, "palm": palm, "fingers": fingers})
+
+
+func _vote(side: int, pose_name: String, w: float) -> void:
+	var votes := _glove_votes[side]
+	votes[pose_name] = float(votes.get(pose_name, 0.0)) + w
+
+
+## Arm sets of the expression body language (chest-space wrist goals; side 0 = left).
+func _expression_arms(L: Dictionary, kind: String, w: float) -> void:
+	match kind:
+		"cross":
+			_goal(L, 0, Vector3(-0.075, -0.05, 0.19), w, Vector3(1.0, -0.4, -0.3))
+			_goal(L, 1, Vector3(0.085, 0.01, 0.215), w, Vector3(-1.0, -0.4, -0.3))
+		"clutch":
+			_goal(L, 0, Vector3(-0.1, -0.14, 0.14), w, Vector3(1.0, -0.6, -0.4))
+			_vote(0, "brace", w)
+			L.spread += 0.05 * w
+		"cower":
+			for side in 2:
+				var s := 1.0 if side == 0 else -1.0
+				_goal(L, side, Vector3(s * 0.11, 0.12, 0.22), w, Vector3(s * 0.5, -1.0, -0.1), true, Vector3(0, 0.2, 1), Vector3(s * 0.2, 1, 0))
+				_vote(side, "brace", w)
+		"akimbo":
+			_goal(L, 1, Vector3(-0.175, -0.23, 0.0), w, Vector3(-1.0, 0.15, -0.8))
+			_vote(1, "fist", w)
+		"startle":
+			for side in 2:
+				var s2 := 1.0 if side == 0 else -1.0
+				_goal(L, side, Vector3(s2 * 0.36, -0.1, 0.2), w, Vector3(s2, -0.8, -0.3), true, Vector3(s2 * 0.3, 0.0, 1.0), Vector3(s2 * 0.4, 1.0, 0.0))
+				_vote(side, "brace", w)
+		"fists":
+			for side in 2:
+				var s3 := 1.0 if side == 0 else -1.0
+				_goal(L, side, Vector3(s3 * 0.29, -0.3, 0.09), w, Vector3(s3, -0.5, -0.6))
+				_vote(side, "fist", w)
+
+
+## Focus point in root space, or `fallback` when there is none (blended by _focus_w).
+func _focus_root(fallback: Vector3) -> Vector3:
+	if _focus_w <= 0.001:
+		return fallback
+	var f: Vector3 = global_transform.affine_inverse() * _focus if is_inside_tree() else _focus
+	return fallback.lerp(f, _focus_w)
+
+
+func _perf_layer(L: Dictionary, perf_name: String, w: float, t: float) -> void:
+	var pt: float = _perf_t if perf_name == _perf else 10.0
+	match perf_name:
+		"reach":
+			# Cautious reach into the dark: weight back, low, the right hand probing
+			# ahead with spread fingers, the left fist held close.
+			var shoulder := Vector3(-0.2, 1.33, 0.02)
+			var aim := _focus_root(shoulder + Vector3(0.08, 0.0, 1.0))
+			var dir := (aim - shoulder).normalized()
+			var probe := Vector3(0.015 * sin(t * 1.3), 0.012 * sin(t * 1.7 + 1.0), 0.04 * sin(t * 0.8))
+			_goal(L, 1, shoulder + dir * 0.5 + probe, w, Vector3(-1.0, -0.6, 0.0), false, Vector3(0.0, -1.0, 0.3), dir)
+			_goal(L, 0, Vector3(0.07, -0.05, 0.18), w, Vector3(1.0, -0.6, -0.3))
+			_vote(1, "spread", w)
+			_vote(0, "fist", w)
+			L.hips += Vector3(0.0, -0.08, -0.03) * w
+			L.chest += Vector3(0.2, -0.08, 0.0) * w
+			L.head += Vector3(0.02, 0.0, 0.0) * w
+			L.feet[1] += Vector3(0.0, 0.0, 0.16) * w
+			L.feet[0] += Vector3(0.02, 0.0, -0.08) * w
+			L.tremble += 0.45 * w
+			L.perf_arms += w
+		"accuse":
+			# Accusing point: arm snapped out straight at the focus (or ahead), chest
+			# squared to it, the other hand a fist.
+			var sh := Vector3(-0.235, 1.43, 0.0)
+			var at := _focus_root(sh + Vector3(-0.15, 0.12, 1.0))
+			var d2 := (at - sh).normalized()
+			var jab := clampf(1.0 - exp(-pt * 10.0) * cos(pt * 16.0), 0.0, 1.15)
+			_goal(L, 1, sh + d2 * 0.58 * lerpf(0.7, 1.0, jab), w, Vector3(-1.0, -0.6, 0.0), false, Vector3(0.4, -1.0, 0.0), d2)
+			_vote(1, "point", w)
+			_vote(0, "fist", w)
+			L.chest += Vector3(0.1, -0.12 * (1.0 - _focus_w), 0.0) * w
+			L.hips += Vector3(0.0, -0.01, 0.025) * w
+			L.feet[1] += Vector3(0.0, 0.0, 0.08) * w
+			L.spread += 0.08 * w
+			L.elbow += 0.35 * w
+			L.perf_arms += w
+		"surrender":
+			# Hands up, open palms forward, a little shaky.
+			var tr := 0.006 * sin(t * 23.0)
+			for side in 2:
+				var s := 1.0 if side == 0 else -1.0
+				_goal(L, side, Vector3(s * 0.31, 0.53 + tr * s, 0.06), w, Vector3(s, -0.5, -0.1), true, Vector3(0, 0, 1), Vector3(s * 0.15, 1, 0))
+				_vote(side, "open", w)
+			L.chest += Vector3(-0.07, 0.0, 0.0) * w
+			L.head += Vector3(0.06, 0.0, 0.0) * w
+			L.hips += Vector3(0.0, -0.02, -0.01) * w
+			L.tremble += 0.5 * w
+			L.perf_arms += w
+		"pound_glass", "press_glass":
+			# At a window (the focus point sets the glass depth, default 0.52 m ahead):
+			# hammer it with alternating fists, or lean on it with flat palms.
+			var glass_z := clampf(_focus_root(Vector3(0, 0, 0.52)).z, 0.3, 0.8)
+			var pound := perf_name == "pound_glass"
+			var slam := 0.0
+			for side in 2:
+				var s := 1.0 if side == 0 else -1.0
+				if pound:
+					var u := fposmod(t * 1.5 + 0.5 * side, 1.0)
+					var back: float = smoothstep(0.0, 0.7, u) if u < 0.7 else 1.0 - pow((u - 0.7) / 0.3, 2.0)
+					slam += (1.0 - smoothstep(0.0, 0.12, u)) * 0.5
+					_goal(L, side, Vector3(s * 0.14, 1.5 + 0.07 * back, glass_z - 0.085 - 0.17 * back), w, Vector3(s, -0.7, -0.2), false, Vector3(-s, 0.0, 0.25), Vector3(0.0, 0.65, 0.75))
+					_vote(side, "fist", w)
+				else:
+					var sag := 0.03 * sin(t * 0.6 + side)
+					_goal(L, side, Vector3(s * 0.21, 1.52 + sag, glass_z - 0.03), w, Vector3(s, -0.6, -0.3), false, Vector3(0, 0, 1), Vector3(s * 0.25, 1, 0))
+					_vote(side, "press", w)
+			L.chest += Vector3(0.12 + 0.05 * slam, 0.0, 0.0) * w
+			L.head += Vector3(-0.04 if pound else 0.08, 0.0, 0.0) * w
+			L.hips += Vector3(0.0, -0.03, 0.04 if pound else 0.07) * w
+			L.tremble += (0.15 if pound else 0.35) * w
+			L.perf_arms += w
+		"dragged":
+			# Full-body pose (see _dragged_pose); gloves hang.
+			_vote(0, "limp", w)
+			_vote(1, "limp", w)
+			L.perf_arms += w
+		"ghost_drift":
+			# Weightless drift: lean into the glide, arms and legs trailing, slow sway.
+			L.hips += Vector3(0.0, 0.24 + 0.05 * sin(t * 1.4), 0.0) * w
+			L.hips_rot += Vector3(0.55 + 0.06 * sin(t * 0.9), 0.0, 0.08 * sin(t * 0.7)) * w
+			L.head += Vector3(-0.45, 0.0, 0.0) * w
+			L.swing += (0.55 + 0.12 * sin(t * 1.1)) * w
+			L.spread += 0.35 * w
+			L.elbow += 0.25 * w
+			L.feet[0] += Vector3(0.0, 0.42 + 0.05 * sin(t * 1.2), -0.4) * w
+			L.feet[1] += Vector3(0.0, 0.32 + 0.05 * sin(t * 1.2 + 1.5), -0.3) * w
+			L.foot_pitch[0] += 0.9 * w
+			L.foot_pitch[1] += 0.9 * w
+			_vote(0, "open", w)
+			_vote(1, "open", w)
+			L.perf_arms += w
+		"victory":
+			# Both fists punched up in a V, chest out, bouncing on the knees.
+			var pump := 0.035 * sin(t * TAU * 1.6)
+			for side in 2:
+				var s := 1.0 if side == 0 else -1.0
+				_goal(L, side, Vector3(s * 0.42, 0.66 + pump, 0.06), w, Vector3(s, -0.2, -0.4), true, Vector3(0, 0, 1), Vector3(s * 0.25, 1, 0))
+				_vote(side, "fist", w)
+			L.chest += Vector3(-0.14, 0.0, 0.0) * w
+			L.head += Vector3(-0.32, 0.0, 0.0) * w
+			L.hips += Vector3(0.0, -0.035 * absf(sin(t * PI * 1.6)), 0.0) * w
+			L.perf_arms += w
+		"defeat":
+			# On the knees, head bowed, arms hanging, slow heavy breaths.
+			var heave := 0.03 * sin(t * 2.2)
+			L.hips += Vector3(0.0, -0.44, -0.05) * w
+			L.feet[0] += Vector3(0.0, -0.01, -0.36) * w
+			L.feet[1] += Vector3(0.0, -0.01, -0.36) * w
+			L.foot_pitch[0] += 2.9 * w
+			L.foot_pitch[1] += 2.9 * w
+			L.chest += Vector3(0.38 + heave, 0.0, 0.0) * w
+			L.head += Vector3(0.55, 0.0, 0.08) * w
+			L.shrug -= 0.02 * w
+			L.swing -= 0.06 * w
+			_vote(0, "limp", w)
+			_vote(1, "limp", w)
+			L.perf_arms += w
+		"slump":
+			# Standing defeat: shoulders dropped, chest caved, head hung.
+			var heave2 := 0.025 * sin(t * 1.9)
+			L.hips += Vector3(0.0, -0.04, -0.02) * w
+			L.chest += Vector3(0.3 + heave2, 0.0, 0.0) * w
+			L.head += Vector3(0.5, 0.0, 0.06) * w
+			L.shrug -= 0.025 * w
+			L.swing -= 0.1 * w
+			_vote(0, "limp", w)
+			_vote(1, "limp", w)
+			L.perf_arms += w
+
+
+## Stagger: the torso reels along the push, arms windmill, the knees buckle and the
+## foot on the push side takes a catch step; everything settles by STAGGER_TIME.
+func _stagger_layer(L: Dictionary, t: float) -> void:
+	var st := _stagger_t
+	var k := _stagger_k
+	var env := smoothstep(0.0, 0.07, st) * (1.0 - smoothstep(0.45, STAGGER_TIME, st))
+	var wob := sin(st * 11.0) * exp(-st * 3.0)
+	var push := _stagger_push
+	var local_push := Vector3(push.x, 0.0, push.z)
+	L.hips += (local_push * 0.09 + Vector3(0.0, -0.07, 0.0)) * env * k
+	L.hips_rot += Vector3(-0.12 * push.z, 0.0, 0.18 * push.x) * env * k
+	L.chest += Vector3(0.45 * push.z + 0.12 * wob, 0.25 * wob, -0.3 * push.x) * env * k
+	L.head += Vector3(0.35 * push.z + 0.25 * wob, 0.0, -0.25 * push.x + 0.2 * wob) * env * k
+	L.swing += 0.8 * sin(t * 9.0) * env * k
+	L.spread += 0.75 * env * k
+	L.elbow += 0.5 * env * k
+	# Catch step on the side the body falls toward, a shuffle with the other foot.
+	var lead: int = 0 if push.x > 0.0 else 1
+	var step := smoothstep(0.06, 0.28, st) * (1.0 - smoothstep(0.7, STAGGER_TIME, st))
+	var lift := sin(PI * clampf((st - 0.06) / 0.22, 0.0, 1.0)) * 0.08
+	L.feet[lead] += (local_push * 0.24 * step + Vector3(0.0, lift, 0.0)) * k
+	var step2 := smoothstep(0.32, 0.5, st) * (1.0 - smoothstep(0.75, STAGGER_TIME, st))
+	L.feet[1 - lead] += local_push * 0.1 * step2 * k
+	_vote(0, "brace", env)
+	_vote(1, "brace", env)
+	L.perf_arms += env
+
+
+## Glove pose with the most acting weight (performance or body language) above 0.5.
+func _voted_glove(side: int) -> String:
+	var best := ""
+	var best_w := 0.5
+	for pose_name: String in _glove_votes[side]:
+		var w: float = _glove_votes[side][pose_name]
+		if w > best_w:
+			best = pose_name
+			best_w = w
+	return best
+
+
+## Root-space wrist path of play_draw(): down to the holster grip on the right thigh,
+## then a rising arc into the aim. `aim` is the aiming wrist transform.
+func _draw_wrist(u: float, aim: Transform3D) -> Transform3D:
+	var hang := Vector3(-0.235, 0.87, 0.0)
+	var holster := Vector3(-0.17, 0.85, -0.085)
+	if u < 0.28:
+		return Transform3D(Basis.IDENTITY, hang.lerp(holster, smoothstep(0.0, 1.0, u / 0.28)))
+	var v := smoothstep(0.0, 1.0, (u - 0.28) / 0.72)
+	var ctrl := Vector3(-0.3, 1.12, 0.18)
+	var p := holster.lerp(ctrl, v).lerp(ctrl.lerp(aim.origin, v), v)
+	return Transform3D(Basis.IDENTITY.slerp(aim.basis, v), p)
+
+
+## Root-space glove basis with the palm facing `palm` and the fingers along `fingers`
+## (side 0 = left glove, 1 = right). The glove's palm normal is +X for the right hand
+## and -X for the left; the fingers run along -Y.
+static func _hand_basis(side: int, palm: Vector3, fingers: Vector3) -> Basis:
+	var f := fingers.normalized()
+	var pn := (palm - f * palm.dot(f)).normalized()
+	var x := pn * (1.0 if side == 1 else -1.0)
+	var y := -f
+	return Basis(x, y, x.cross(y)).orthonormalized()
+
+
+## Being dragged by the right wrist: on the back, head first toward +Z, the torso
+## pulled up toward the raised arm (DRAG_HANDLE), head lolling, heels trailing.
+func _dragged_pose(t: float) -> Array[Transform3D]:
+	var out := _rest_pose()
+	var bump := 0.04 * sin(t * 7.3) * clampf(_speed, 0.0, 1.5)
+	var c := cos(0.3)
+	var sn := sin(0.3)
+	var lay := Basis(Vector3(-1, 0, 0), Vector3(0, sn, c), Vector3(0, c, -sn))
+	out[CrewBody.HIPS] = Transform3D(lay * Basis(Vector3.UP, 0.12), Vector3(0.0, 0.15, 0.0))
+	out[CrewBody.SPINE].basis = Basis.from_euler(Vector3(0.16, 0.05, 0.04))
+	out[CrewBody.CHEST].basis = Basis.from_euler(Vector3(0.12, 0.1, 0.06))
+	out[CrewBody.NECK].basis = Basis.from_euler(Vector3(-0.3 + bump, 0.2, 0.1))
+	out[CrewBody.HEAD].basis = Basis.from_euler(Vector3(-0.35 + bump, 0.45 + 0.08 * sin(t * 1.3), 0.2))
+	out[CrewBody.L_ARM].basis = Basis.from_euler(Vector3(0.2, 0.0, 0.6))
+	out[CrewBody.L_FORE].basis = Basis.from_euler(Vector3(-0.3, 0.0, 0.0))
+	out[CrewBody.L_HAND].basis = Basis.from_euler(Vector3(0.25, 0.0, 0.2))
+	for leg in [CrewBody.L_LEG, CrewBody.R_LEG]:
+		var s := 1.0 if leg == CrewBody.L_LEG else -1.0
+		out[leg].basis = Basis.from_euler(Vector3(-0.36 + 0.03 * s + bump * 0.5 * s, 0.0, s * 0.09))
+		out[leg + 1].basis = Basis.from_euler(Vector3(0.14, 0.0, 0.0))
+		out[leg + 2].basis = Basis.from_euler(Vector3(-0.2, s * 0.55, 0.0))
+	# Right arm stretched to the handle.
+	var chest_xf := Transform3D.IDENTITY
+	for b in [CrewBody.HIPS, CrewBody.SPINE, CrewBody.CHEST]:
+		chest_xf = chest_xf * out[b]
+	var lt := chest_xf.affine_inverse() * DRAG_HANDLE
+	var ik := _two_bone(out[CrewBody.R_ARM].origin, lt, chest_xf.basis.inverse() * Vector3(-1.0, 0.3, 0.0), 0.295, 0.27, -1.0)
+	out[CrewBody.R_ARM].basis = ik[0]
+	out[CrewBody.R_FORE].basis = ik[1]
+	out[CrewBody.R_HAND].basis = Basis.from_euler(Vector3(0.3, 0.0, 0.0))
+	return out
 
 
 ## Lying on the back, rolled slightly onto the side, one arm limp.

@@ -44,7 +44,7 @@ const MODEL_Y_BIAS := 1.0
 ## wrap items believably; three read cartoonish. Cost: 1362 vs 1208 triangles.
 const FINGERS := 4
 const POSES: Array[String] = ["relaxed", "open", "fist", "grip_large", "grip_core", "grip_gun", "grip_gun_trigger",
-	"point", "thumbs_up", "wave", "push", "brace", "limp", "ghost"]
+	"point", "thumbs_up", "wave", "push", "brace", "limp", "ghost", "spread", "press"]
 const ANCHORS: Array[String] = ["cell", "core", "gun"]
 ## Budgets (per hand). The smoke test checks them.
 const MAX_TRIANGLES := 1500
@@ -110,6 +110,13 @@ const _POSE_DATA := {
 		"t": [-0.2, 0.0, 0.75, -0.08, 0.05]},
 	"limp": {"w": Vector3(0.32, 0.0, -0.08), "f": [Vector4(0.2, 0.32, 0.2, 0.05), Vector4(0.28, 0.42, 0.24, 0.0), Vector4(0.36, 0.5, 0.3, -0.04), Vector4(0.46, 0.6, 0.36, -0.08)],
 		"t": [0.2, 0.18, 0.18, 0.12, 0.15]},
+	# Cautious reach into the dark: fingers splayed wide and a little hooked, thumb out.
+	"spread": {"w": Vector3(-0.18, 0.0, 0.0), "f": [Vector4(0.1, 0.2, 0.12, 0.34), Vector4(0.08, 0.18, 0.12, 0.1), Vector4(0.1, 0.2, 0.12, -0.15), Vector4(0.14, 0.24, 0.14, -0.4)],
+		"t": [-0.18, 0.1, 0.68, 0.02, 0.06]},
+	# Palm flat against glass: straight fingers, slightly spread, wrist neutral (the
+	# arm's IK sets the wrist angle).
+	"press": {"w": Vector3(0.0, 0.0, 0.0), "f": [Vector4(-0.06, -0.02, 0.0, 0.14), Vector4(-0.06, -0.02, 0.0, 0.04), Vector4(-0.05, -0.02, 0.0, -0.06), Vector4(-0.04, -0.02, 0.0, -0.16)],
+		"t": [-0.12, 0.0, 0.48, -0.05, -0.05]},
 	"ghost": {"w": Vector3(0.06, 0.0, 0.0), "f": [Vector4(0.12, 0.2, 0.14, 0.1), Vector4(0.16, 0.24, 0.16, 0.02), Vector4(0.2, 0.28, 0.18, -0.06), Vector4(0.26, 0.32, 0.2, -0.14)],
 		"t": [0.0, 0.08, 0.38, 0.08, 0.1]},
 }
@@ -121,6 +128,7 @@ const _POSE_LIFE := {
 	"grip_core": [0.35, "grip", 0.0], "grip_gun": [0.3, "gun", 0.0], "grip_gun_trigger": [0.25, "", 0.0],
 	"point": [0.4, "", 0.0], "thumbs_up": [0.4, "", 0.0], "wave": [0.5, "", 0.0], "push": [0.2, "", 0.0],
 	"brace": [0.3, "", 0.0], "limp": [0.3, "", 0.0], "ghost": [0.0, "", 0.0], "curl": [0.8, "", 0.6],
+	"spread": [0.5, "", 0.0], "press": [0.2, "", 0.0],
 }
 ## Item anchors for the canonical right hand. `pivot` (item space) lands on `center`
 ## (hand space); item +Y runs along the knuckle line toward the thumb, tilted by `tilt`
@@ -188,6 +196,7 @@ var _idle_w := 1.0
 var _wave_w := 0.0
 var _ghost_w := 0.0
 var _brace_w := 0.0
+var _tremble := 0.0
 var _breath_amp := 1.0
 var _run_curl := 1.0
 var _trigger_t := -1.0
@@ -269,6 +278,8 @@ func _setup(p_color: Color, p_side: int, fingers: int) -> void:
 	_lag.resize(12)
 	_lag_v.resize(12)
 	_mat = CrewMaterials.instance("suit", color)
+	# The glove mesh is built around y = 0; the wear pass should see hand height.
+	_mat.set_shader_parameter("scuff_lift", 0.85)
 	mesh_instance = MeshInstance3D.new()
 	mesh_instance.name = "Glove"
 	mesh_instance.mesh = hand_mesh(side, finger_count)
@@ -318,6 +329,16 @@ func set_curl(amount: float) -> void:
 		_set_blend(0.1)
 		_apply_pose_life("curl", old_family)
 		set_ghost_look(false)
+
+
+## Fear / strain tremor on every finger, 0 (still) .. 1 (shaking). Blendable; the
+## crew model drives it from expressions and performances.
+func set_tremble(amount: float) -> void:
+	_tremble = clampf(amount, 0.0, 1.0)
+
+
+func get_tremble() -> float:
+	return _tremble
 
 
 ## Quick index-finger squeeze (~0.12 s); works from any pose, best from grip_gun(_trigger).
@@ -625,9 +646,12 @@ func _compose() -> void:
 			_add(b + 1, 0, 0.11 * sin(t * 1.35 + f * 0.8 - 0.7) * _ghost_w)
 			_add(b + 2, 0, 0.08 * sin(t * 1.35 + f * 0.8 - 1.3) * _ghost_w)
 			_add(b, 2, 0.06 * sin(t * 0.87 + f * 1.3) * _ghost_w)
-		# Brace: muscle tremor under load.
+		# Brace: muscle tremor under load; fear tremble on top.
 		if _brace_w > 0.001:
 			_add(b, 0, 0.018 * sin(_time * 23.0 + f * 1.9) * _brace_w * mm)
+		if _tremble > 0.001:
+			_add(b, 0, _tremble * (0.035 * sin(_time * 29.0 + f * 2.3) + 0.02 * sin(_time * 17.0 + f)))
+			_add(b + 1, 0, _tremble * 0.025 * sin(_time * 31.0 + f * 1.7))
 	# Thumb life.
 	var tb := breath * (0.018 * sin(t * TAU * 0.27 + 0.6) + 0.012 * sin(t * 0.91))
 	_add(THUMB1, 0, tb)
@@ -643,6 +667,10 @@ func _compose() -> void:
 		_add(PALM, 2, 0.42 * sin(_time * TAU * 1.7) * _wave_w)
 		_add(THUMB1, 2, 0.06 * sin(_time * TAU * 1.7 - 1.2) * _wave_w)
 	_add(PALM, 0, breath * 0.012 * sin(t * TAU * 0.27 + 1.2))
+	if _tremble > 0.001:
+		_add(PALM, 0, _tremble * 0.03 * sin(_time * 21.0))
+		_add(PALM, 2, _tremble * 0.025 * sin(_time * 26.0 + 1.0))
+		_add(THUMB1, 0, _tremble * 0.03 * sin(_time * 27.0 + 0.4))
 	_add(PALM, 2, _lag[10] * mm)
 	_add(THUMB1, 2, _lag[11] * mm * 0.4)
 	_compose_fidget(spec_list)

@@ -18,6 +18,25 @@ static func haptic(ms := 12) -> void:
 		Input.vibrate_handheld(ms)
 
 
+## A one-shot UI sound from assets/audio (same files as Sfx) on the SFX bus.
+## The player frees itself; missing files and headless runs are a no-op.
+static func sound(owner: Node, sound_name: String, volume_db := 0.0, pitch := 1.0) -> void:
+	if owner == null or not owner.is_inside_tree() or DisplayServer.get_name() == "headless":
+		return
+	var path := "res://assets/audio/%s.wav" % sound_name
+	if not ResourceLoader.exists(path):
+		return
+	var player := AudioStreamPlayer.new()
+	player.stream = load(path)
+	player.volume_db = volume_db
+	player.pitch_scale = pitch
+	if AudioServer.get_bus_index("SFX") >= 0:
+		player.bus = "SFX"
+	owner.add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
 ## Hover lift and press squash for any Control button, plus a tap haptic.
 static func attach_press(control: Control, hover_scale := 1.02, press_scale := 0.95) -> void:
 	control.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS

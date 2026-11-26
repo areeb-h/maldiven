@@ -9,15 +9,35 @@ extends RefCounted
 enum { PRIMARY, SECONDARY, FABRIC, METAL, ACCENT, RUBBER, STATUS, LAMP, TRIM, DECAL, BLINK, VENT, GAUGE, SOLE }
 
 const BONE_COUNT := 19
-const EXPRESSIONS: Array[String] = ["neutral", "happy", "shocked", "angry", "suspicious", "hurt", "downed", "ghost"]
+## LED faces (index = shader id; new names are only ever appended).
+const EXPRESSIONS: Array[String] = ["neutral", "happy", "shocked", "angry", "suspicious", "hurt", "downed", "ghost",
+	"scared", "sad", "sly"]
+## Per face: LED tint, tint amount (0 = the player's own eye colour), brightness gain
+## and glass wash (the whole visor glows faintly in the LED colour). Colour and wash
+## carry the mood at 4-8 m, where the eye shapes are only a few pixels.
+const EXPRESSION_STYLE := {
+	"neutral": [Color(1.0, 1.0, 1.0), 0.0, 1.0, 0.0],
+	"happy": [Color(1.0, 0.86, 0.45), 0.4, 1.1, 0.05],
+	"shocked": [Color(1.0, 1.0, 1.0), 0.65, 1.35, 0.1],
+	"angry": [Color(1.0, 0.14, 0.07), 0.9, 1.2, 0.17],
+	"suspicious": [Color(1.0, 0.6, 0.08), 0.85, 1.05, 0.11],
+	"hurt": [Color(1.0, 0.38, 0.2), 0.6, 0.9, 0.06],
+	"downed": [Color(1.0, 0.15, 0.1), 0.65, 0.55, 0.03],
+	"ghost": [Color(1.0, 1.0, 1.0), 0.0, 1.0, 0.0],
+	"scared": [Color(0.8, 0.95, 1.0), 0.55, 1.15, 0.07],
+	"sad": [Color(0.35, 0.55, 1.0), 0.8, 0.8, 0.08],
+	"sly": [Color(0.92, 0.28, 1.0), 0.85, 1.05, 0.11],
+}
 
 const _SKIN := """
 uniform mat4 bones[19];
 varying flat float v_id;
 varying flat float v_bone;
 varying float v_model_y;
+varying float v_bind_y;
 
 void vertex() {
+	v_bind_y = VERTEX.y;
 	int a = int(CUSTOM0.x + 0.5);
 	int b = int(CUSTOM0.y + 0.5);
 	mat4 m = bones[a] * (1.0 - CUSTOM0.z) + bones[b] * CUSTOM0.z;
@@ -45,6 +65,11 @@ uniform int decal_number = 0;
 uniform vec2 sole_pulse = vec2(0.0);
 uniform float vent_puff = 0.0;
 uniform float oxygen = 1.0;
+// Wear: scuffs (more toward the boots), paint chips on exposed edges, dust on the
+// undersuit. 0 = factory fresh. scuff_lift raises the "height" the dirt sees (the
+// gloves are built around y = 0 but live at hand height).
+uniform float scuff_amount = 1.0;
+uniform float scuff_lift = 0.0;
 uniform sampler2D detail_noise : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform sampler2D detail_normal : hint_normal, filter_linear_mipmap, repeat_enable;
 
@@ -148,8 +173,18 @@ void fragment() {
 		met = mix(0.04, 0.6, wear * 0.5);
 		rough = 0.22 + 0.06 * nlo + scr * 0.14 + cav * 0.3;
 		cc = 0.9 * (1.0 - wear);
+		// Scuffs (soft, darker, satin) and small paint chips on the edges.
+		float low = 1.0 - smoothstep(0.12, 0.85, v_bind_y + scuff_lift);
+		float smudge = texture(detail_noise, nuv * 2.3 + vec2(0.37, 0.11)).r;
+		float scuff = smoothstep(0.58, 0.8, smudge) * (0.2 + 0.8 * low) * scuff_amount;
+		float chip = smoothstep(0.74, 0.86, nhi) * smoothstep(0.5, 0.9, edge) * fade * scuff_amount;
+		alb = mix(alb, alb * 0.7 + vec3(0.015), scuff * 0.5);
+		alb = mix(alb, vec3(0.09, 0.095, 0.1), chip * 0.85);
+		rough += scuff * 0.16 + chip * 0.35;
+		cc *= 1.0 - max(scuff * 0.45, chip);
 		nd = 0.04;
 		gloss_rim = 0.22;
+		rim = 0.16 * (1.0 - chip);
 	} else if (id < 1.5) {
 		// Satin graphite composite.
 		float cav2;
@@ -161,6 +196,7 @@ void fragment() {
 		cc = 0.35;
 		nd = 0.08;
 		gloss_rim = 0.08;
+		rim = 0.1;
 	} else if (id < 2.5) {
 		// Satin undersuit: ripstop weave and soft fold creases at the joints.
 		vec2 w = UV * 520.0;
@@ -169,6 +205,8 @@ void fragment() {
 		tilt = vec2(0.03 * wf * cos(w.x) * sin(w.y * 0.5), 0.03 * wf * sin(w.x * 0.5) * cos(w.y));
 		tilt.y += crease * 0.2 * sin(UV.y * 115.0 + sin(UV.x * 24.0) * 1.6);
 		alb = fabric * shade * (0.97 + 0.06 * nlo) * (1.0 - crease * 0.1 * (0.5 + 0.5 * fold));
+		float dust = smoothstep(0.5, 0.8, nlo) * (1.0 - smoothstep(0.1, 0.6, v_bind_y + scuff_lift)) * scuff_amount;
+		alb = mix(alb, vec3(0.3, 0.29, 0.27) * shade, dust * 0.22);
 		rough = 0.48;
 		rim = 0.3;
 		nd = 0.0;
@@ -346,6 +384,10 @@ void fragment() {
 """
 
 ## LED face visor. UV is metres on the glass (x across, y up, origin at the visor middle).
+## The face is drawn 1.2x the old size with brows on the faces that need them, tinted
+## and washed per expression (CrewModel drives expr_tint / eye_gain / wash), with a
+## sweeping glint on mood changes and a custom light() so the glass picks up the colour
+## of the scene's lights (emergency red, reactor blue) instead of only a fixed studio.
 const _VISOR := """
 shader_type spatial;
 render_mode %s;
@@ -360,6 +402,13 @@ uniform vec2 look = vec2(0.0);
 uniform float glitch = 0.0;
 uniform float reflect_strength = 0.65;
 uniform float eye_depth = 0.012;
+uniform vec4 expr_tint = vec4(1.0, 1.0, 1.0, 0.0);
+uniform float eye_gain = 1.0;
+uniform float wash = 0.0;
+uniform float glint = -1.0;
+uniform float tremble = 0.0;
+uniform float env_strength = 0.6;
+const float FACE_SCALE = 1.2;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -374,33 +423,71 @@ float sd_seg(vec2 p, vec2 a, vec2 b, float r) {
 float eye_sd(vec2 p, int e, float side, float bl) {
 	float inw = -side;
 	if (e == 1) {
-		return min(sd_seg(p, vec2(-0.018, -0.008), vec2(0.0, 0.01), 0.0058), sd_seg(p, vec2(0.0, 0.01), vec2(0.018, -0.008), 0.0058));
+		return min(sd_seg(p, vec2(-0.018, -0.008), vec2(0.0, 0.01), 0.0062), sd_seg(p, vec2(0.0, 0.01), vec2(0.018, -0.008), 0.0062));
 	} else if (e == 2) {
-		return abs(length(p) - 0.019) - 0.0055;
+		return abs(length(p) - 0.019) - 0.0058;
 	} else if (e == 3) {
 		float d = sd_seg(p, vec2(0.0, -0.013), vec2(0.0, 0.01), 0.013);
 		return max(d, dot(p - vec2(0.0, 0.001), normalize(vec2(inw * 0.8, 1.0))));
 	} else if (e == 4) {
 		if (side > 0.0) {
-			return sd_seg(p, vec2(-0.014, 0.0), vec2(0.014, 0.0), 0.005);
+			return sd_seg(p, vec2(-0.016, 0.001), vec2(0.016, -0.001), 0.0048);
 		}
 		return max(sd_seg(p, vec2(0.0, -0.012), vec2(0.0, 0.008), 0.013), p.y - 0.004);
 	} else if (e == 5) {
 		vec2 tip = vec2(inw * 0.012, 0.0);
-		return min(sd_seg(p, vec2(-inw * 0.012, 0.016), tip, 0.0052), sd_seg(p, tip, vec2(-inw * 0.012, -0.016), 0.0052));
+		return min(sd_seg(p, vec2(-inw * 0.012, 0.016), tip, 0.0055), sd_seg(p, tip, vec2(-inw * 0.012, -0.016), 0.0055));
 	} else if (e == 6) {
 		return min(sd_seg(p, vec2(-0.015, -0.015), vec2(0.015, 0.015), 0.005), sd_seg(p, vec2(-0.015, 0.015), vec2(0.015, -0.015), 0.005));
 	} else if (e == 7) {
 		return abs(length(p) - 0.017) - 0.003;
+	} else if (e == 8) {
+		// Scared: small round eyes, pulled together.
+		return length((p - vec2(inw * 0.003, 0.0)) * vec2(1.0, 0.85)) - 0.0088;
+	} else if (e == 9) {
+		// Sad: short pill, the lid droops toward the outer corner.
+		float d9 = sd_seg(p, vec2(0.0, -0.011), vec2(0.0, 0.005), 0.0118);
+		return max(d9, dot(p - vec2(0.0, 0.0), normalize(vec2(-inw * 0.6, 1.0))));
+	} else if (e == 10) {
+		// Sly: heavy flat upper lid over a smug crescent.
+		float d10 = length(p * vec2(0.85, 1.25)) - 0.0148;
+		return max(d10, p.y - 0.0012 - p.x * inw * 0.1);
 	}
 	float h = 0.014 * (1.0 - bl);
 	return sd_seg(p, vec2(0.0, -h), vec2(0.0, h), 0.0128 * (1.0 - bl * 0.4));
 }
 
+// Brow over one eye (same frame as eye_sd); faces without brows return a large value.
+float brow_sd(vec2 p, int e, float side) {
+	float inw = -side;
+	if (e == 2) {
+		return min(sd_seg(p, vec2(-0.017, 0.035), vec2(0.0, 0.041), 0.0034), sd_seg(p, vec2(0.0, 0.041), vec2(0.017, 0.035), 0.0034));
+	} else if (e == 3) {
+		return sd_seg(p, vec2(inw * 0.006, 0.019), vec2(-inw * 0.022, 0.033), 0.0044);
+	} else if (e == 4) {
+		if (side > 0.0) {
+			return sd_seg(p, vec2(-0.02, 0.015), vec2(0.02, 0.0115), 0.0042);
+		}
+		return min(sd_seg(p, vec2(inw * 0.017, 0.029), vec2(0.0, 0.039), 0.0036), sd_seg(p, vec2(0.0, 0.039), vec2(-inw * 0.017, 0.035), 0.0036));
+	} else if (e == 8) {
+		return sd_seg(p, vec2(inw * 0.005, 0.035), vec2(-inw * 0.018, 0.025), 0.0034);
+	} else if (e == 9) {
+		return sd_seg(p, vec2(inw * 0.008, 0.026), vec2(-inw * 0.02, 0.017), 0.0036);
+	} else if (e == 10) {
+		if (side > 0.0) {
+			return sd_seg(p, vec2(inw * 0.008, 0.02), vec2(-inw * 0.02, 0.025), 0.0038);
+		}
+		return sd_seg(p, vec2(inw * 0.014, 0.028), vec2(-inw * 0.018, 0.036), 0.0036);
+	}
+	return 1e3;
+}
+
 float face(vec2 uv, int e, float bl) {
-	vec2 c = vec2(0.057, 0.008);
-	vec2 q = uv - look;
-	return min(eye_sd(q - c, e, 1.0, bl), eye_sd(q + vec2(c.x, -c.y), e, -1.0, bl));
+	vec2 q = (uv - look) / FACE_SCALE;
+	vec2 c = vec2(0.057, 0.006);
+	float d = min(eye_sd(q - c, e, 1.0, bl), eye_sd(q + vec2(c.x, -c.y), e, -1.0, bl));
+	d = min(d, min(brow_sd(q - c, e, 1.0), brow_sd(q + vec2(c.x, -c.y), e, -1.0)));
+	return d * FACE_SCALE;
 }
 
 void fragment() {
@@ -408,20 +495,23 @@ void fragment() {
 	float ndv = clamp(dot(n, VIEW), 0.0, 1.0);
 	float fres = 0.06 + 0.94 * pow(1.0 - ndv, 4.0);
 	vec3 r = normalize((INV_VIEW_MATRIX * vec4(reflect(-VIEW, n), 0.0)).xyz);
-	// Studio / station environment: dark floor, cool horizon band, soft overhead, two softboxes.
+	// Neutral studio / station environment (dark floor, soft horizon band, overhead,
+	// two softboxes); kept fairly grey so the scene's own coloured lights (light())
+	// decide the visor's colour.
 	vec3 env = mix(vec3(0.012, 0.014, 0.02), vec3(0.06, 0.08, 0.12), smoothstep(-0.25, 0.05, r.y));
 	env = mix(env, vec3(0.16, 0.2, 0.28), smoothstep(0.1, 0.8, r.y));
 	env += vec3(0.5, 0.62, 0.8) * exp(-pow((r.y - 0.06) * 10.0, 2.0)) * 0.55;
 	env += vec3(1.6, 1.55, 1.45) * smoothstep(0.93, 0.985, dot(r, normalize(vec3(-0.55, 0.62, 0.55))));
 	env += vec3(0.7, 0.85, 1.2) * smoothstep(0.95, 0.99, dot(r, normalize(vec3(0.7, 0.35, -0.2))));
-	// Station interior: a row of lit wall panels around the horizon.
 	float az = atan(r.x, r.z);
 	env += vec3(0.45, 0.6, 0.85) * smoothstep(0.55, 0.85, sin(az * 7.0)) * smoothstep(0.0, 0.05, r.y) * (1.0 - smoothstep(0.18, 0.26, r.y)) * 0.35;
+	env = mix(vec3(dot(env, vec3(0.3, 0.59, 0.11))), env, 0.55) * env_strength;
 	// LED face behind the glass (parallax so it sits inside the helmet).
 	vec2 vt = vec2(dot(VIEW, TANGENT), dot(VIEW, BINORMAL));
 	vec2 puv = UV - vt / max(dot(VIEW, n), 0.35) * eye_depth;
 	float gl = glitch * (hash(vec2(floor(UV.y * 70.0), floor(TIME * 22.0))) - 0.5);
 	puv.x += gl * 0.012;
+	puv += vec2(sin(TIME * 47.0), cos(TIME * 39.0)) * 0.0009 * tremble;
 	float aa = max(max(fwidth(puv.x), fwidth(puv.y)), 0.0003) * 1.1;
 	float da = face(puv, expr_a, blink);
 	float db = face(puv, expr_b, blink);
@@ -429,17 +519,28 @@ void fragment() {
 	float halo = mix(exp(-max(da, 0.0) * 140.0), exp(-max(db, 0.0) * 140.0), expr_mix);
 	float scan = 0.88 + 0.12 * sin(puv.y * 900.0);
 	float flick = mix(1.0, step(0.3, hash(vec2(floor(TIME * 18.0), 3.0))), glitch);
-	vec3 led = mix(eye_color, vec3(1.0, 0.2, 0.1), glitch * 0.7);
+	vec3 led_base = mix(eye_color, expr_tint.rgb, expr_tint.a);
+	vec3 led = mix(led_base, vec3(1.0, 0.2, 0.1), glitch * 0.7);
 	float eyes = (core * scan + halo * 0.3) * flick;
-	// Soft inner glow: the LEDs light the glass and the rim of the frame.
+	// Soft inner glow: the LEDs light the glass and the rim of the frame; the mood
+	// wash fills the whole glass so the colour reads from across a room.
 	vec2 qn = UV / vec2(0.17, 0.09);
 	float rimg = smoothstep(0.6, 1.05, max(abs(qn.x), abs(qn.y)));
-	vec3 inner = led * (0.012 + 0.05 * rimg) * flick;
+	vec3 inner = led * (0.012 + 0.05 * rimg + wash * (0.55 + 0.45 * exp(-dot(qn, qn) * 1.5))) * flick;
 	// Thin emissive line just inside the bezel (UV2 = visor patch parameters).
 	float edge = max(abs(UV2.x * 2.0 - 1.0), abs(UV2.y * 2.0 - 1.0));
-	inner += eye_color * smoothstep(0.88, 0.94, edge) * (1.0 - smoothstep(0.97, 1.0, edge)) * 0.9;
+	inner += led_base * smoothstep(0.88, 0.94, edge) * (1.0 - smoothstep(0.97, 1.0, edge)) * 0.9;
+	// Glint: a bright diagonal streak (and a thin echo) sweeps across the glass.
+	vec3 glint_e = vec3(0.0);
+	if (glint >= 0.0) {
+		float g0 = UV.x * 0.75 + UV.y - mix(-0.32, 0.32, glint);
+		float env_g = smoothstep(0.0, 0.12, glint) * (1.0 - smoothstep(0.7, 1.0, glint));
+		float g = exp(-g0 * g0 * 5000.0) + 0.5 * exp(-pow(g0 + 0.03, 2.0) * 30000.0);
+		glint_e = vec3(1.0, 0.97, 0.92) * g * env_g * 1.8 * smoothstep(1.0, 0.85, edge);
+	}
 	%s
 }
+%s
 """
 
 const _VISOR_OPAQUE := """
@@ -447,12 +548,29 @@ const _VISOR_OPAQUE := """
 	METALLIC = 0.0;
 	ROUGHNESS = 0.05;
 	SPECULAR = 1.0;
-	EMISSION = env * fres * reflect_strength * 2.4 + led * eyes * eye_energy + inner;
+	EMISSION = env * fres * reflect_strength * 2.4 + led * eyes * eye_energy * eye_gain + inner + glint_e;
+"""
+
+## Smoked glass: almost no diffuse, a tight glint per light plus a broad sheen that
+## grows toward grazing angles, both in the light's colour.
+const _VISOR_LIGHT := """
+void light() {
+	vec3 h = normalize(VIEW + LIGHT);
+	float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+	float ndh = clamp(dot(NORMAL, h), 0.0, 1.0);
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float graze = pow(1.0 - ndv, 3.0);
+	float sharp = pow(ndh, 1200.0) * 40.0 + pow(ndh, 160.0) * 2.5;
+	float sheen = pow(ndh, 12.0) * (0.25 + 1.6 * graze);
+	vec3 c = LIGHT_COLOR * ATTENUATION;
+	SPECULAR_LIGHT += c * (sharp * ndl + sheen * (0.3 + 0.7 * ndl)) * SPECULAR_AMOUNT;
+	DIFFUSE_LIGHT += c * ndl * 0.015;
+}
 """
 
 const _VISOR_GHOST := """
 	ALBEDO = vec3(0.0);
-	EMISSION = mix(eye_color, vec3(1.0), 0.3) * (0.4 + pow(1.0 - ndv, 2.0) * 2.5) + led * eyes * eye_energy;
+	EMISSION = mix(eye_color, vec3(1.0), 0.3) * (0.4 + pow(1.0 - ndv, 2.0) * 2.5) + led * eyes * eye_energy * eye_gain;
 	ALPHA = clamp(0.22 + pow(1.0 - ndv, 2.0) * 0.6 + eyes, 0.0, 1.0);
 """
 
@@ -471,9 +589,9 @@ static func shader(key: String) -> Shader:
 		"ghost":
 			code = "shader_type spatial;\nrender_mode cull_back, blend_mix, depth_prepass_alpha, shadows_disabled;\n" + _SKIN + _COMMON + _GHOST_FRAGMENT
 		"visor":
-			code = _VISOR % ["cull_back", _VISOR_OPAQUE]
+			code = _VISOR % ["cull_back", _VISOR_OPAQUE, _VISOR_LIGHT]
 		"ghost_visor":
-			code = _VISOR % ["cull_back, blend_mix, depth_draw_always, shadows_disabled", _VISOR_GHOST]
+			code = _VISOR % ["cull_back, blend_mix, depth_draw_always, shadows_disabled", _VISOR_GHOST, ""]
 	var s := Shader.new()
 	s.code = code
 	_shaders[key] = s
