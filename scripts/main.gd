@@ -51,6 +51,8 @@ var _fader: ColorRect
 var _fade_tween: Tween
 var _time := 0.0
 var _connecting := false
+var _logo: UiLogo.View
+var _logo_flip := 6.0
 
 
 func _ready() -> void:
@@ -156,6 +158,16 @@ func _process(delta: float) -> void:
 	_update_orbit(delta)
 	if _home.visible:
 		_scan.queue_redraw()
+		# The tell: now and then the helmet's eyes snap to the red V for a beat.
+		_logo_flip -= delta
+		if _logo_flip <= 0.0:
+			_logo_flip = 7.0 + randf() * 5.0
+			var tween := _logo.create_tween()
+			tween.tween_method(func(b: float): _logo.state_blend = b, 0.0, 0.5, 0.06)
+			tween.tween_callback(func(): _logo.state_blend = 1.0)
+			tween.tween_interval(0.9)
+			tween.tween_method(func(b: float): _logo.state_blend = b, 0.5, 0.49, 0.06)
+			tween.tween_callback(func(): _logo.state_blend = 0.0)
 		if _banner_spinner.visible:
 			_banner_spinner.queue_redraw()
 	if _lobby.visible and _lobby_waiting.visible:
@@ -261,12 +273,11 @@ func _build_home() -> void:
 	var tag := UiStyle.chip("WEEK 1 BUILD  ·  v%s" % VERSION, UiStyle.ACCENT, "", false)
 	tag.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	brand.add_child(tag)
-	var title := VBoxContainer.new()
-	title.add_theme_constant_override("separation", -24)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	brand.add_child(title)
-	title.add_child(UiStyle.label("DRIFT", "title", UiStyle.DISPLAY, UiStyle.TEXT))
-	title.add_child(UiStyle.label("STATION", "title", UiStyle.DISPLAY, UiStyle.ACCENT))
+	# The logo lockup (UiLogo): DRIFT over STATION, the O a crew helmet. Every
+	# so often its visor glitches to the infiltrator's red V and back.
+	_logo = UiStyle.logo(176.0, "crew")
+	_logo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	brand.add_child(_logo)
 	var lines := VBoxContainer.new()
 	lines.add_theme_constant_override("separation", 0)
 	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -296,11 +307,12 @@ func _build_home() -> void:
 	panel.add_child(box)
 	box.add_child(UiStyle.caption("CALLSIGN", UiStyle.MUTED, "user"))
 	_name_edit = _field("Your name", _load_setting("name"))
+	_name_edit.custom_minimum_size.y = 72
 	_name_edit.max_length = 16
 	_name_edit.text_changed.connect(func(_text): _save_setting("name", _name_edit.text.strip_edges()))
 	box.add_child(_name_edit)
 	_spacer(box, UiStyle.S1)
-	var host_button := UiStyle.button("HOST A STATION", true, UiStyle.ACCENT, "play", 64)
+	var host_button := UiStyle.button("HOST A STATION", true, UiStyle.ACCENT, "play", 80)
 	host_button.pressed.connect(_on_host)
 	box.add_child(host_button)
 	_spacer(box, UiStyle.S2)
@@ -317,7 +329,7 @@ func _build_home() -> void:
 	nearby.add_child(_scan)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 136)
+	scroll.custom_minimum_size = Vector2(0, 120)
 	box.add_child(scroll)
 	_rooms_box = VBoxContainer.new()
 	_rooms_box.add_theme_constant_override("separation", UiStyle.S1)
@@ -333,7 +345,8 @@ func _build_home() -> void:
 	_ip_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL
 	_ip_edit.text_submitted.connect(func(text): _join(text))
 	row.add_child(_ip_edit)
-	var join_button := UiStyle.button("JOIN", false, UiStyle.ACCENT, "chevron", 56)
+	_ip_edit.custom_minimum_size.y = 80
+	var join_button := UiStyle.button("JOIN", false, UiStyle.ACCENT, "chevron", 80)
 	join_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	join_button.custom_minimum_size.x = 128
 	join_button.pressed.connect(func(): _join(_ip_edit.text))
@@ -385,7 +398,7 @@ func _build_banner(box: VBoxContainer) -> void:
 	_banner_action.focus_mode = Control.FOCUS_NONE
 	_banner_action.icon = UiIcons.texture("close")
 	_banner_action.add_theme_constant_override("icon_max_width", 20)
-	_banner_action.custom_minimum_size = Vector2(48, 48)
+	_banner_action.custom_minimum_size = Vector2(80, 80)
 	_banner_action.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_banner_action.add_theme_color_override("icon_normal_color", UiStyle.MUTED)
 	_banner_action.add_theme_color_override("icon_hover_color", UiStyle.TEXT)
@@ -418,7 +431,7 @@ func _show_banner(kind: String, title: String, body := "") -> void:
 	_banner_body.visible = body != ""
 	_banner_action.text = "CANCEL" if kind == "busy" else ""
 	_banner_action.icon = null if kind == "busy" else UiIcons.texture("close")
-	_banner_action.custom_minimum_size = Vector2(96 if kind == "busy" else 48, 48)
+	_banner_action.custom_minimum_size = Vector2(112 if kind == "busy" else 80, 80)
 	_banner.show()
 	_banner.modulate.a = 0.0
 	UiMotion.fade(_banner, 1.0, 0.2)
@@ -443,8 +456,11 @@ func _build_lobby() -> void:
 	_lobby = _screen(_safe)
 	var box := _column(_lobby, LOBBY_WIDTH)
 	box.add_theme_constant_override("separation", UiStyle.S1)
+	var header := UiStyle.logo(34.0, "crew", "wordmark")
+	header.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	box.add_child(header)
 	box.add_child(UiStyle.caption("STATION LOBBY", UiStyle.ACCENT, "users"))
-	_lobby_title = UiStyle.label("", "head", UiStyle.H1, UiStyle.TEXT)
+	_lobby_title = UiStyle.label("", "head", UiStyle.H2, UiStyle.TEXT)
 	_lobby_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_lobby_title.custom_minimum_size = Vector2(LOBBY_WIDTH, 0)
 	box.add_child(_lobby_title)
@@ -495,11 +511,11 @@ func _build_lobby() -> void:
 	_bot_row = HBoxContainer.new()
 	_bot_row.add_theme_constant_override("separation", UiStyle.S1)
 	inner.add_child(_bot_row)
-	_add_bot_button = UiStyle.button("ADD BOT", false, UiStyle.ACCENT, "gear", 48)
+	_add_bot_button = UiStyle.button("ADD BOT", false, UiStyle.ACCENT, "gear", 80)
 	_add_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_add_bot_button.pressed.connect(func(): Net.add_bot())
 	_bot_row.add_child(_add_bot_button)
-	_remove_bot_button = UiStyle.button("REMOVE BOT", false, UiStyle.MUTED, "close", 48)
+	_remove_bot_button = UiStyle.button("REMOVE BOT", false, UiStyle.MUTED, "close", 80)
 	_remove_bot_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_remove_bot_button.pressed.connect(func(): Net.remove_bot())
 	_bot_row.add_child(_remove_bot_button)
@@ -507,11 +523,11 @@ func _build_lobby() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", UiStyle.S2)
 	box.add_child(buttons)
-	_start_button = UiStyle.button("START ROUND", true, UiStyle.ACCENT, "play", 64)
+	_start_button = UiStyle.button("START ROUND", true, UiStyle.ACCENT, "play", 80)
 	_start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_start_button.pressed.connect(func(): Net.start_round())
 	buttons.add_child(_start_button)
-	var leave := UiStyle.button("LEAVE", false, UiStyle.ACCENT, "leave", 64)
+	var leave := UiStyle.button("LEAVE", false, UiStyle.ACCENT, "leave", 80)
 	leave.custom_minimum_size.x = 176
 	leave.pressed.connect(func():
 		Net.leave()
@@ -637,7 +653,7 @@ func _address_chip(address: String) -> Control:
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color",
 			"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color"]:
 		button.add_theme_color_override(state, UiStyle.ACCENT.lightened(0.2))
-	button.custom_minimum_size = Vector2(0, 48)
+	button.custom_minimum_size = Vector2(0, 80)
 	button.tooltip_text = "Copy the address"
 	UiMotion.attach_press(button)
 	button.pressed.connect(func():
@@ -726,6 +742,7 @@ func _show_home(message: String) -> void:
 	Sfx.set_music("lobby")
 	_ui.show()
 	_switch_to(_home)
+	_logo.play_intro(0.15)
 	if message != "":
 		var words := _friendly(message)
 		_show_banner("error", words[0], words[1])
@@ -798,7 +815,7 @@ func _room_card(ip: String, room: Dictionary) -> Control:
 	var playing: bool = room.state == "playing"
 	var button := Button.new()
 	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = Vector2(0, 56)
+	button.custom_minimum_size = Vector2(0, 80)
 	button.disabled = playing
 	var color := UiStyle.MUTED if playing else UiStyle.GOOD
 	var normal := UiStyle.inset_box(0.4, 10, 0)

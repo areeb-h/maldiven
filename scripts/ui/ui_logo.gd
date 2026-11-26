@@ -115,8 +115,8 @@ static func glyphs() -> Dictionary:
 	var wall := 1.9
 	var dome := 3.8
 	var chin := 2.2
-	var visor := _crect(wall, wall + 0.5, ow - wall, CAP - wall, _inner(dome, wall) + 0.4, _inner(dome, wall) + 0.4,
-		_inner(chin, wall), _inner(chin, wall))
+	var top_cut := minf(_inner(dome, wall) + 0.2, (ow - wall * 2.0) * 0.42)
+	var visor := _crect(wall, wall + 0.5, ow - wall, CAP - wall, top_cut, top_cut, _inner(chin, wall), _inner(chin, wall))
 	g["O"] = {"w": ow, "shapes": [[_crect(0, 0, ow, CAP, dome, dome, chin, chin), visor]], "visor": visor}
 	g["N"] = {"w": w, "shapes": [[_crect(0, 0, s, CAP)], [_crect(w - s, 0, w, CAP)],
 		[PackedVector2Array([Vector2(0, 0), Vector2(2.5, 0), Vector2(w, CAP), Vector2(w - 2.5, CAP)])]]}

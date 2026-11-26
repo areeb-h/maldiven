@@ -94,6 +94,14 @@ var _holder_since := 0.0  # rules time the current core carrier picked it up
 var _gun_mission := false  # committed to fetching the gun for a suspect
 var _eject_target := 0  # downed suspect this bot is carrying to the airlock
 var _cycle_until := -1.0  # rules time until which this bot tries to cycle the airlock
+var _next_accuse_at := 0.0  # rules time before which this bot won't accuse (keeps it rare)
+## Accuse (normal/hard only): chance per think once a crew bot has a suspect in
+## sight, and the infiltrator's chance per think to point at an innocent.
+const ACCUSE_SUSPICION := 2.5
+const ACCUSE_CHANCE := {"normal": 0.04, "hard": 0.07}
+const FRAME_CHANCE := {"normal": 0.006, "hard": 0.01}
+const NOTICE_TAP := {"easy": 0.3, "normal": 0.6, "hard": 0.9}  # chance to catch a helmet tap in sight
+var accusations := 0
 
 ## Test/diagnostic counters.
 var stuck_time := 0.0  # current continuous seconds trying to move without progress
@@ -116,6 +124,7 @@ func setup(p_id: int, controller: BotController, p_avatar: CrewMember, p_skill: 
 	_wants_gun = rng.randf() < float(skill.gun)
 	_think_left = rng.randf_range(0.0, THINK_INTERVAL)
 	_anchor = avatar.global_position
+	_next_accuse_at = rng.randf_range(15.0, 40.0)
 
 
 # --- Frame update --------------------------------------------------------------
@@ -199,6 +208,19 @@ func on_event(event: Dictionary) -> void:
 					_suspect[by] = float(_suspect.get(by, 0.0)) + 1.5  # shot someone who looked innocent
 			if target == id:
 				avatar.express("shocked", 1.0)
+		"gesture":
+			# The helmet tap is the infiltrator's tell: a crew bot that sees it may catch it.
+			var by := int(event.get("by", 0))
+			if str(event.get("gesture", "")) == "helmet_tap" and by != id and _sees(by) \
+					and rules.role_of(id) != StationRules.INFILTRATOR and rng.randf() < float(NOTICE_TAP.get(skill_name, 0.5)):
+				_suspect[by] = float(_suspect.get(by, 0.0)) + 3.0
+		"accuse":
+			# Social pressure: an accusation nudges suspicion a little (not if it's me).
+			var target := int(event.get("target", 0))
+			if target == id:
+				avatar.express("angry", 1.0)
+			elif int(event.get("by", 0)) != id and rules.role_of(id) != StationRules.INFILTRATOR:
+				_suspect[target] = float(_suspect.get(target, 0.0)) + 0.3
 
 
 ## What this bot could see with its own eyes: in line of sight and not too far
@@ -224,6 +246,7 @@ func _looks_hostile(pid: int) -> bool:
 
 func _think(me: Dictionary) -> void:
 	_observe()
+	_consider_accuse(me)
 	var next := _choose(me)
 	var keep: Array = next.get("claims", [])
 	ctl.release_all(id, keep)
@@ -283,6 +306,13 @@ func _observe() -> void:
 			_pod_trend[int(core.holder)] = 0.0  # judge where they go from here
 		_last_core_holder = int(core.holder)
 	_core_was = where
+	# Lurking at the vault in the dark is suspicious.
+	if rules.is_blackout() and rules.phase == StationRules.Phase.EXTRACTION and rules.role_of(id) != StationRules.INFILTRATOR:
+		var vault := BotNav.approach_of("vault")
+		for pid in rules.players:
+			if pid != id and rules.players[pid].state == StationRules.OK \
+					and _flat_dist(rules.players[pid].pos, vault) < 5.0 and _sees(pid):
+				_suspect[pid] = minf(4.0, float(_suspect.get(pid, 0.0)) + 0.12)
 	for pid in _revive_rolls.keys():
 		if rules.state_of(pid) != StationRules.DOWNED:
 			_revive_rolls.erase(pid)
@@ -749,6 +779,45 @@ func _choose_infiltrator(me: Dictionary) -> Dictionary:
 	if gun:
 		return {"kind": "drop"}
 	return {"kind": "pickup", "item": "core", "urgent": true}
+
+
+## Now and then point at someone (normal/hard bots, rarely): crew at whoever they
+## suspect most, the infiltrator at an innocent to muddy the water. Never in a
+## blackout (players can't target then either) and only with empty hands.
+func _consider_accuse(me: Dictionary) -> void:
+	if not ACCUSE_CHANCE.has(skill_name) or me.state != StationRules.OK or _held_kind(id) != "" or int(me.body) != 0:
+		return
+	if rules.phase != StationRules.Phase.STABILISE and rules.phase != StationRules.Phase.EXTRACTION:
+		return
+	if rules.is_blackout() or rules.elapsed < _next_accuse_at or not rules.can_accuse(id):
+		return
+	var target := 0
+	if rules.role_of(id) == StationRules.INFILTRATOR:
+		if rng.randf() >= float(FRAME_CHANCE[skill_name]):
+			return
+		var best_d := StationRules.ACCUSE_RANGE - 1.0
+		for pid in rules.players:
+			var d := _flat_dist(_target_pos(pid), _pos())
+			if pid != id and rules.players[pid].state == StationRules.OK and d < best_d and _sees(pid):
+				best_d = d
+				target = pid
+	else:
+		var best := ACCUSE_SUSPICION
+		for pid in rules.players:
+			var score := float(_suspect.get(pid, 0.0))
+			if pid != id and score >= best and rules.players[pid].state == StationRules.OK \
+					and _flat_dist(_target_pos(pid), _pos()) < StationRules.ACCUSE_RANGE - 1.0 and _sees(pid):
+				best = score
+				target = pid
+		if target == 0 or rng.randf() >= float(ACCUSE_CHANCE[skill_name]):
+			return
+	if target == 0:
+		return
+	var to: Vector3 = rules.players[target].pos - _pos()
+	var aim := atan2(to.x, to.z)
+	_next_accuse_at = rules.elapsed + rng.randf_range(25.0, 45.0)
+	accusations += 1
+	ctl.world.host_accuse(id, target, avatar.global_position, aim)
 
 
 ## A fixed per-bot offset, so bots guarding the same spot spread out.

@@ -85,7 +85,7 @@ static func kind_color(kind: String) -> Color:
 			return INFILTRATOR
 		"shuttle":
 			return CREW
-		"blackout", "gun", "down", "downed", "airlock":
+		"blackout", "gun", "down", "downed", "airlock", "accuse", "suspect":
 			return AMBER
 		"spaced", "ghost":
 			return GHOST
@@ -97,7 +97,7 @@ static func kind_color(kind: String) -> Color:
 
 
 static func kind_icon(kind: String) -> String:
-	return {"power": "bolt", "pod": "warning", "danger": "blackout", "shuttle": "shuttle", "blackout": "blackout",
+	return {"power": "bolt", "pod": "warning", "danger": "blackout", "accuse": "warning", "suspect": "warning", "shuttle": "shuttle", "blackout": "blackout",
 		"gun": "crosshair", "down": "downed", "downed": "downed", "airlock": "airlock",
 		"spaced": "ghost", "abort": "abort", "core": "core", "cell": "cell"}.get(kind, "info")
 

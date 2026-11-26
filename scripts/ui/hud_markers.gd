@@ -5,7 +5,8 @@ extends Control
 ## behind the camera). Fades in and out per marker; never hides the centre.
 ##
 ## markers: Array of {pos: Vector3, kind: String, label: String}
-## kinds: "core", "shuttle", "pod", "downed", "cell", "gun", "medbay"
+## kinds: "core", "shuttle", "pod", "downed", "cell", "gun", "medbay",
+## "suspect" (an accusation: an amber chevron over the accused, 3 s)
 
 const EDGE := Vector2(64, 64)  # inset from the safe area for edge badges
 const TOP_CLEAR := 120.0  # keep below the top bar
@@ -50,7 +51,7 @@ func _key(marker: Dictionary) -> String:
 
 static func icon_for(kind: String) -> String:
 	return {"core": "core", "shuttle": "shuttle", "pod": "pod", "downed": "downed", "cell": "cell",
-		"gun": "gun", "medbay": "medbay"}.get(kind, "info")
+		"gun": "gun", "medbay": "medbay", "suspect": "warning"}.get(kind, "info")
 
 
 static func color_for(kind: String) -> Color:
@@ -61,7 +62,7 @@ static func color_for(kind: String) -> Color:
 			return UiStyle.CREW
 		"pod":
 			return UiStyle.INFILTRATOR
-		"downed", "cell", "gun":
+		"downed", "cell", "gun", "suspect":
 			return UiStyle.AMBER
 		"medbay":
 			return UiStyle.GOOD
@@ -89,6 +90,9 @@ func _draw() -> void:
 		var point := cam.unproject_position(pos)
 		var on_screen := not behind and area.grow(EDGE.x * 0.5).has_point(point)
 		var eased := 1.0 - pow(1.0 - alpha, 3.0)
+		if on_screen and kind == "suspect":
+			_draw_suspect(point, label, eased, font)
+			continue
 		if on_screen:
 			_draw_pin(point, kind, color, label, meters, eased, font)
 			continue
@@ -147,3 +151,25 @@ func _draw_edge(at: Vector2, angle: float, kind: String, color: Color, label: St
 	var inward := -Vector2.from_angle(angle)
 	var caption_at := at + Vector2(0, 42.0) if inward.y >= -0.3 else at + Vector2(0, -30.0)
 	_draw_caption(caption_at, label, meters, alpha * 0.9, font)
+
+
+## SUSPECT: two stacked amber chevrons bouncing over the accused's head, and
+## the word, so everyone in the room sees who was pointed at.
+func _draw_suspect(point: Vector2, label: String, alpha: float, font: Font) -> void:
+	var bounce := absf(sin(_time * 5.0)) * 6.0
+	var color := UiStyle.AMBER
+	for i in range(2):
+		var y := point.y - bounce - i * 13.0
+		var chevron := PackedVector2Array([Vector2(point.x - 16, y - 14), Vector2(point.x, y), Vector2(point.x + 16, y - 14),
+			Vector2(point.x + 16, y - 6), Vector2(point.x, y + 8), Vector2(point.x - 16, y - 6)])
+		draw_colored_polygon(chevron, Color(0, 0, 0, 0.35 * alpha))
+		var inner := PackedVector2Array()
+		for p in chevron:
+			inner.append(p + Vector2(0, -2))
+		draw_colored_polygon(inner, UiStyle.with_alpha(color, alpha * (1.0 if i == 0 else 0.6)))
+	var text := "SUSPECT" + ("  ·  " + label if label != "" else "")
+	var head := UiStyle.font("head")
+	var width := head.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	var at := Vector2(point.x - width * 0.5, point.y - bounce - 40.0)
+	draw_string_outline(head, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, Color(0, 0, 0, 0.7 * alpha))
+	draw_string(head, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UiStyle.with_alpha(color, alpha))

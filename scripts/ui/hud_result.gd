@@ -29,7 +29,7 @@ const ROW_STAGGER := 0.06
 const FLIP_DELAY := 0.35
 const SLOT_RATE := 12.0
 ## Timeline kinds that become markers on the story track and get a highlight.
-const KEY_KINDS := ["power", "blackout", "crosshair", "spaced", "shuttle", "pod", "downed", "clock", "abort"]
+const KEY_KINDS := ["accuse", "power", "blackout", "crosshair", "spaced", "shuttle", "pod", "downed", "clock", "abort"]
 
 var data := {}
 var manual := false
@@ -636,7 +636,7 @@ static func _strip(bbcode: String) -> String:
 
 
 static func row_icon(kind: String) -> String:
-	return UiStyle.kind_icon(kind) if kind in ["power", "blackout", "spaced", "downed", "abort"] else kind
+	return UiStyle.kind_icon(kind) if kind in ["accuse", "power", "blackout", "spaced", "downed", "abort"] else kind
 
 
 static func kind_tint(kind: String) -> Color:
@@ -657,6 +657,8 @@ static func timeline_kind(text: String) -> String:
 	var t := text.to_lower()
 	if t.begins_with("round started"):
 		return "flag"
+	if t.contains(" accused "):
+		return "accuse"
 	if t.contains("shoved"):
 		return "shove"
 	if t.contains("threw") or (t.contains(" hit ") and t.contains(" with the ")):

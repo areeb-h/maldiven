@@ -1369,7 +1369,7 @@ func _pose(g: Vector3) -> void:
 			fw = fid
 		# Acting goals, by priority: reach > gesture > body language > the rest.
 		var goals: Array = (L.goals as Array)[side]
-		var top := [0.0, 0.0, 0.0]
+		var top: Array[float] = [0.0, 0.0, 0.0]
 		for goal: Dictionary in goals:
 			top[int(goal.pri)] = maxf(top[int(goal.pri)], float(goal.w))
 		var keep: float = (1.0 - top[PRI_REACH]) * (1.0 - top[PRI_GESTURE]) * (1.0 - busy * (1.0 - top[PRI_GESTURE]))
@@ -1520,12 +1520,18 @@ func _layers(t: float) -> Dictionary:
 		"shoulder": [0.0, 0.0], "tremble": 0.0, "goals": [[], []], "busy": 0.0}
 	_glove_votes = [{}, {}]
 	var calm := 1.0 - _down_w
+	# Gestures can be triggered on any avatar at any time: downed, carried or ghost
+	# bodies simply don't show the arm gestures (except the ghost's own drift and the
+	# dragged pose).
+	var able := calm * (1.0 - _ghost_w)
 	for key: String in _gest_w:
 		var gw: float = _gest_w[key]
 		if gw > 0.001:
-			_gesture_layer(L, key, gw * (calm if key != "dragged" else 1.0), float(_gest_t.get(key, 0.0)), t)
-	for key: String in _shots:
-		_one_shot_layer(L, key, float(_shots[key]), t)
+			var gate := 1.0 if key == "dragged" else (calm if key == "ghost_drift" else able)
+			_gesture_layer(L, key, gw * gate, float(_gest_t.get(key, 0.0)), t)
+	if able > 0.001:
+		for key: String in _shots:
+			_one_shot_layer(L, key, float(_shots[key]), t, able)
 	_reach_layer(L)
 	if _stagger_t >= 0.0:
 		_stagger_layer(L, t)
@@ -1781,9 +1787,9 @@ func _kneel(L: Dictionary, w: float, knees: int) -> void:
 		L.feet[0] += Vector3(0.03, 0.0, 0.24) * w
 
 
-func _one_shot_layer(L: Dictionary, key: String, st: float, t: float) -> void:
+func _one_shot_layer(L: Dictionary, key: String, st: float, _t: float, able: float) -> void:
 	var dur: float = ONE_SHOTS[key]
-	var env := smoothstep(0.0, 0.22, st) * (1.0 - smoothstep(dur - 0.3, dur, st))
+	var env := smoothstep(0.0, 0.22, st) * (1.0 - smoothstep(dur - 0.3, dur, st)) * able
 	match key:
 		"wave":
 			var wag := 0.06 * sin(st * TAU * 1.7)
@@ -1799,7 +1805,7 @@ func _one_shot_layer(L: Dictionary, key: String, st: float, t: float) -> void:
 			L.head += Vector3(-0.05, 0.0, 0.08) * env
 		"helmet_tap":
 			# The tell: elbow thrown wide, index on the right ear pod, two taps.
-			var tap_env := smoothstep(0.0, 0.18, st) * (1.0 - smoothstep(0.62, dur, st))
+			var tap_env := smoothstep(0.0, 0.18, st) * (1.0 - smoothstep(0.62, dur, st)) * able
 			var off := 0.0
 			if st < 0.22:
 				off = lerpf(0.2, 0.03, smoothstep(0.0, 0.22, st))

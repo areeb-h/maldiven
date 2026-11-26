@@ -92,6 +92,13 @@ var _prev_facing := 0.0
 var _lean := 0.0
 var _was_on_floor := true
 var _fall_speed := 0.0
+## Accuse: the arm points at this target (a CrewModel or any Node3D) while a
+## point is playing (point_at) or the local ACCUSE hold raises it (preview).
+const POINT_SECONDS := 1.6
+var _point_target: Node3D = null
+var _point_left := 0.0
+var _point_preview := 0.0
+var _point_weight := 0.0
 
 
 func setup(id: int, local: bool, player_name: String, suit: Color, spawn_at: Vector3) -> void:
@@ -253,6 +260,39 @@ func camera_kick(strength: float) -> void:
 		Input.vibrate_handheld(int(40 + 80 * strength))
 
 
+## A one-shot gesture on the model (e.g. "helmet_tap"); no-op on the fallback visual.
+func play_gesture(gesture: String) -> void:
+	if visual.has_method("play_gesture"):
+		visual.play_gesture(gesture)
+
+
+## Point at `target` for `seconds` (the accuse performance, seen by everyone).
+func point_at(target: Node3D, seconds := POINT_SECONDS) -> void:
+	if target != null:
+		_point_target = target
+	_point_left = seconds
+
+
+## Local ACCUSE hold: 0..1 raises the point towards `target` (null/0 releases).
+func set_point_preview(target: Node3D, amount: float) -> void:
+	if target != null and amount > 0.0:
+		_point_target = target
+	_point_preview = clampf(amount, 0.0, 1.0) if target != null else 0.0
+
+
+func _update_point(delta: float) -> void:
+	_point_left = maxf(0.0, _point_left - delta)
+	if _point_target != null and not is_instance_valid(_point_target):
+		_point_target = null
+	var weight := 0.0
+	if _point_target != null and life_state == "ok" and not carried:
+		weight = 1.0 if _point_left > 0.0 else _point_preview
+	if weight == _point_weight or not visual.has_method("set_gesture"):
+		return
+	_point_weight = weight
+	visual.set_gesture("point", weight, _point_target if weight > 0.0 else null)
+
+
 func express(face: String, hold := 0.8) -> void:
 	if visual.has_method("set_expression"):
 		visual.set_expression(face, hold)
@@ -400,6 +440,7 @@ func _process(delta: float) -> void:
 	visual.rotation.y = _facing + _visual_yaw_offset
 	if carried:
 		_ride_carrier(delta)
+	_update_point(delta)
 	if reactions != null:
 		reactions.post_render(delta)
 

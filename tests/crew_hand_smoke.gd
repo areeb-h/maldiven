@@ -87,6 +87,19 @@ func _initialize() -> void:
 		right.set_motion(0.0, DT)
 	_check(moved > 0.008, "trigger_pull moves the index (%.3f m)" % moved)
 	_check(right.get_joint_position(CrewHand.INDEX3).distance_to(rest_index) < 0.004, "trigger_pull returns within ~0.12 s")
+	# Held trigger squeeze (set_trigger) and fear tremble.
+	right.set_pose("grip_gun_trigger", 0.0)
+	right.set_motion(0.0, DT)
+	var rest_tip := right.get_joint_position(CrewHand.INDEX3)
+	right.set_trigger(1.0)
+	right.set_motion(0.0, DT)
+	_check(right.get_joint_position(CrewHand.INDEX3).distance_to(rest_tip) > 0.006, "set_trigger squeezes the index")
+	right.set_trigger(0.0)
+	right.set_tremble(1.0)
+	for f in 30:
+		right.set_motion(0.0, DT)
+	_check_finite([right], "tremble")
+	right.set_tremble(0.0)
 	right.set_pose("relaxed", 0.0)
 	for k in 6:
 		right.play_fidget(k)

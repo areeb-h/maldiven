@@ -17,6 +17,20 @@ const STUN_SECONDS := 1.1
 const BLACKOUT_SECONDS := 25.0
 const BLACKOUT_COOLDOWN := 75.0
 const BLACKOUT_FIRST_DELAY := 20.0
+## The infiltrator's tell: accepting a blackout plays the helmet tap on their
+## avatar (a public "gesture" event, no role in it) and the lights die this long
+## after, once both taps (0.30 s, 0.52 s) have landed in the light.
+const BLACKOUT_TAP_LEAD := 0.55
+## Gestures reach only the peers who could see them: within this range with a
+## clear line, or close enough to catch it round a corner with the camera.
+const GESTURE_SIGHT := 30.0
+const GESTURE_NEAR := 6.0
+## Accuse (no vote, social pressure only): point at a living player in front,
+## in range and in sight. The SUSPECT chevron hangs over them for MARK seconds.
+const ACCUSE_RANGE := 12.0
+const ACCUSE_CONE := 0.5  # radians either side of the aim
+const ACCUSE_COOLDOWN := 8.0
+const ACCUSE_MARK_SECONDS := 3.0
 const CARRY_SPEED := {"cell": 0.8, "core": 0.72, "gun": 1.0, "body": 0.62}
 # Week 2: the gun question, downed/drag/medbay, airlock, throwing.
 const GUN_AMMO := 3
@@ -51,7 +65,7 @@ const DEAD := "dead"
 var phase: int = Phase.BRIEFING
 var elapsed := 0.0
 ## peer id -> {name, color, role (host only), pos, yaw, holding, body, carried_by,
-##             state, down_until, shove_ready, stunned_until}
+##             state, down_until, shove_ready, stunned_until, accuse_ready}
 var players := {}
 ## item id -> {kind, holder (peer id or 0), pos: Vector3, rot: Quaternion, vel: Vector3,
 ##             socket: String, ammo, flight ({} or {by, start}: thrown and dangerous),
@@ -66,6 +80,9 @@ var shuttle_left := -1.0
 var pod_left := -1.0
 var blackout_until := -1.0
 var blackout_ready := BLACKOUT_FIRST_DELAY
+var blackout_pending := -1.0  # host: elapsed time the accepted blackout starts, or -1
+## Live accusations, newest last: {by, target, until (elapsed)}. Public.
+var accusations: Array = []
 var airlock_state := "idle"  # idle / warning / cooldown
 var airlock_left := 0.0
 var gun_ready := 0.0
@@ -94,6 +111,8 @@ func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
 	pod_left = -1.0
 	blackout_until = -1.0
 	blackout_ready = BLACKOUT_FIRST_DELAY
+	blackout_pending = -1.0
+	accusations.clear()
 	airlock_state = "idle"
 	airlock_left = 0.0
 	gun_ready = 0.0
@@ -125,7 +144,7 @@ func setup(roster: Dictionary, rng: RandomNumberGenerator) -> void:
 func _new_player(player_name: String, color: Color, role: String, pos: Vector3) -> Dictionary:
 	return {"name": player_name, "color": color, "role": role, "pos": pos, "yaw": 0.0,
 		"holding": "", "body": 0, "carried_by": 0, "state": OK, "down_until": 0.0,
-		"shove_ready": 0.0, "stunned_until": 0.0}
+		"shove_ready": 0.0, "stunned_until": 0.0, "accuse_ready": 0.0}
 
 
 func _respawn_item(item_id: String) -> void:
@@ -804,21 +823,126 @@ func _check_survivors() -> void:
 
 # --- Sabotage / lifecycle ----------------------------------------------------
 
-## Host only. Infiltrator-only blackout.
+## Host only. Infiltrator-only blackout. The avatar taps its helmet first (a
+## public gesture event about the avatar, never the role); the lights die
+## BLACKOUT_TAP_LEAD later. Neither the alert nor the timeline names anyone.
 func request_sabotage(id: int) -> bool:
 	if role_of(id) != INFILTRATOR or phase == Phase.RESULT or phase == Phase.BRIEFING:
 		return false
-	if state_of(id) != OK or blackout_ready > elapsed:
+	if state_of(id) != OK or blackout_ready > elapsed or blackout_pending >= 0.0:
 		return false
-	blackout_until = elapsed + BLACKOUT_SECONDS
 	blackout_ready = elapsed + BLACKOUT_COOLDOWN
-	_log("%s triggered a blackout." % players[id].name)
-	_alert("BLACKOUT — main lights failed", "blackout")
+	blackout_pending = elapsed + BLACKOUT_TAP_LEAD
+	events.append({"type": "gesture", "by": id, "gesture": "helmet_tap"})
 	return true
+
+
+func _start_blackout() -> void:
+	blackout_pending = -1.0
+	blackout_until = elapsed + BLACKOUT_SECONDS
+	_log("Someone triggered a blackout.")
+	_alert("BLACKOUT — main lights failed", "blackout")
+
+
+## Host: who could see player `id` right now (for gesture events): everyone in
+## GESTURE_NEAR, or in GESTURE_SIGHT with a clear line head to head, plus `id`
+## itself. Ghosts and downed players watch too. `has_los` (optional) checks walls.
+func sight_audience(id: int, has_los := Callable()) -> Array:
+	var out := []
+	if not players.has(id):
+		return out
+	var head: Vector3 = players[id].pos + Vector3(0, 1.5, 0)
+	for other_id in players:
+		if other_id == id:
+			out.append(other_id)
+			continue
+		var at: Vector3 = players[other_id].pos
+		var distance := _flat_distance(at, head)
+		if distance <= GESTURE_NEAR:
+			out.append(other_id)
+		elif distance <= GESTURE_SIGHT and (not has_los.is_valid() or has_los.call(at + Vector3(0, 1.5, 0), head)):
+			out.append(other_id)
+	return out
 
 
 func sabotage_cooldown() -> float:
 	return maxf(0.0, blackout_ready - elapsed)
+
+
+# --- Accuse ------------------------------------------------------------------
+
+## Living (not downed) players may accuse while a round runs, every ACCUSE_COOLDOWN s.
+func can_accuse(id: int) -> bool:
+	return phase != Phase.RESULT and players.has(id) and players[id].state == OK \
+		and float(players[id].accuse_ready) <= elapsed
+
+
+func accuse_cooldown(id: int) -> float:
+	return maxf(0.0, float(players[id].accuse_ready) - elapsed) if players.has(id) else 0.0
+
+
+## Who `id` would accuse aiming along `aim` (NAN: its facing): `wanted` if that
+## player qualifies (living, within ACCUSE_RANGE, inside ACCUSE_CONE, in sight),
+## else (wanted 0) the best candidate in the cone, by angle first, then
+## distance. 0 = nobody. Works on the client mirror too.
+func accuse_target(id: int, has_los := Callable(), wanted := 0, aim := NAN) -> int:
+	if not players.has(id):
+		return 0
+	var me: Dictionary = players[id]
+	var forward := _forward(float(me.yaw) if is_nan(aim) else aim)
+	var eye: Vector3 = me.pos + Vector3(0, 1.3, 0)
+	var best := 0
+	var best_score := INF
+	for other_id in players:
+		if other_id == id or (wanted != 0 and other_id != wanted):
+			continue
+		var other: Dictionary = players[other_id]
+		if other.state == DEAD:
+			continue
+		var offset: Vector3 = other.pos - me.pos
+		offset.y = 0
+		var distance := offset.length()
+		if distance > ACCUSE_RANGE or distance < 0.01:
+			continue
+		var angle := forward.angle_to(offset.normalized())
+		if angle > ACCUSE_CONE:
+			continue
+		var height := 0.3 if other.state == DOWNED else 1.2
+		if has_los.is_valid() and not has_los.call(eye, other.pos + Vector3(0, height, 0)):
+			continue
+		var score := angle * 10.0 + distance * 0.1
+		if score < best_score:
+			best_score = score
+			best = other_id
+	return best
+
+
+## Host only. `id` points at `wanted` (0: whoever is best in the aim cone)
+## along `aim` (NAN: its facing).
+## Returns the accused peer id, or 0 when refused (no cooldown is spent then).
+## Public: the accuse event (ids only), an "accuse" alert for the live ticker,
+## a timeline row, and the accusation in the snapshot for the SUSPECT chevron.
+## Names follow _visible_name (anonymous in a blackout).
+func request_accuse(id: int, wanted := 0, has_los := Callable(), aim := NAN) -> int:
+	if not can_accuse(id):
+		return 0
+	var target := accuse_target(id, has_los, wanted, aim)
+	if target == 0:
+		return 0
+	players[id].accuse_ready = elapsed + ACCUSE_COOLDOWN
+	accusations = accusations.filter(func(entry: Dictionary) -> bool: return int(entry.by) != id)
+	accusations.append({"by": id, "target": target, "until": elapsed + ACCUSE_MARK_SECONDS})
+	var text := "%s accused %s." % [_visible_name(id), _visible_name(target)]
+	text = text.left(1).to_upper() + text.substr(1)
+	_log(text)
+	_alert(text, "accuse")
+	events.append({"type": "accuse", "by": id, "target": target})
+	return target
+
+
+func _tick_accusations() -> void:
+	if not accusations.is_empty():
+		accusations = accusations.filter(func(entry: Dictionary) -> bool: return float(entry.until) > elapsed)
 
 
 func remove_player(id: int) -> void:
@@ -832,6 +956,7 @@ func remove_player(id: int) -> void:
 		players[carrier].body = 0
 	var was_infiltrator: bool = players[id].role == INFILTRATOR
 	players.erase(id)
+	accusations = accusations.filter(func(entry: Dictionary) -> bool: return int(entry.by) != id and int(entry.target) != id)
 	_log("%s disconnected." % leaver_name)
 	if phase == Phase.RESULT:
 		return
@@ -850,6 +975,9 @@ func tick(delta: float) -> void:
 	if phase == Phase.BRIEFING and elapsed >= BRIEFING_SECONDS:
 		phase = Phase.STABILISE
 		_alert("Restore power: bring 3 cells to the Reactor", "info")
+	if blackout_pending >= 0.0 and elapsed >= blackout_pending:
+		_start_blackout()
+	_tick_accusations()
 	_tick_flights(delta)
 	_tick_airlock(delta)
 	for item_id in items:
@@ -886,6 +1014,8 @@ func _finish(who: String, why: String) -> void:
 	winner = who
 	reason = why
 	blackout_until = -1.0
+	blackout_pending = -1.0
+	accusations.clear()
 	_log(why)
 	events.append({"type": "result"})
 
@@ -917,6 +1047,7 @@ func public_snapshot() -> Dictionary:
 			"stunned": maxf(0.0, p.stunned_until - elapsed), "state": p.state,
 			"down_left": maxf(0.0, p.down_until - elapsed), "body": p.body, "carried_by": p.carried_by,
 			"shove_in": maxf(0.0, p.shove_ready - elapsed),
+			"accuse_in": maxf(0.0, float(p.accuse_ready) - elapsed),
 			"pos": p.pos}
 	var public_items := {}
 	for item_id in items:
@@ -927,6 +1058,10 @@ func public_snapshot() -> Dictionary:
 		public_items[item_id] = {"kind": item.kind, "holder": item.holder, "pos": item.pos,
 			"rot": item.rot, "socket": item.socket, "ammo": item.ammo, "flight": flight,
 			"moving": item.moving, "lost": float(item.lost) >= 0.0, "epoch": item.epoch}
+	var public_accusations := []
+	for entry in accusations:
+		public_accusations.append({"by": entry.by, "target": entry.target,
+			"left": maxf(0.0, float(entry.until) - elapsed)})
 	var snap := {
 		"phase": phase, "elapsed": elapsed, "players": public_players, "items": public_items,
 		"shuttle_left": shuttle_left, "pod_left": pod_left,
@@ -934,6 +1069,7 @@ func public_snapshot() -> Dictionary:
 		"blackout_ready_in": maxf(0.0, blackout_ready - elapsed),
 		"airlock_state": airlock_state, "airlock_left": airlock_left,
 		"gun_ready_in": maxf(0.0, gun_ready - elapsed),
+		"accusations": public_accusations,
 	}
 	if phase == Phase.RESULT:
 		snap["winner"] = winner
@@ -955,6 +1091,9 @@ func apply_snapshot(snap: Dictionary, own_id: int, own_role: String) -> void:
 	airlock_state = snap.get("airlock_state", "idle")
 	airlock_left = snap.get("airlock_left", 0.0)
 	gun_ready = elapsed + float(snap.get("gun_ready_in", 0.0))
+	accusations = []
+	for entry in snap.get("accusations", []):
+		accusations.append({"by": int(entry.by), "target": int(entry.target), "until": elapsed + float(entry.left)})
 	var next_players := {}
 	for key in snap.players:
 		var id := int(key)
@@ -968,6 +1107,7 @@ func apply_snapshot(snap: Dictionary, own_id: int, own_role: String) -> void:
 		entry.body = int(p.body)
 		entry.carried_by = int(p.carried_by)
 		entry.shove_ready = elapsed + float(p.get("shove_in", 0.0))
+		entry.accuse_ready = elapsed + float(p.get("accuse_in", 0.0))
 		entry.stunned_until = elapsed + float(p.stunned)
 		if p.state == DOWNED or not previous.has("pos"):
 			entry.pos = p.pos

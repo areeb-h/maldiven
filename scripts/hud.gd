@@ -12,13 +12,18 @@ extends Control
 signal action_pressed(action: String)  # interact / shove / shoot / sabotage
 signal leave_pressed
 signal lobby_pressed
+## ACCUSE (hold to point): emitted with the target's peer id when the hold
+## completes. world.gd sends it to the host. See accuse_target()/accuse_hold().
+signal accuse_pressed(target_id: int)
 
 const STICK_TRAVEL := 72.0
 const STICK_RING := 80.0
 const STICK_DEAD := 0.12
 const STICK_RUN := 0.8
 const STICK_LINGER := 1.5  # the stick stays where it was last used
-const HOLD_TO_FIRE := 0.3  # BLACKOUT is hold-to-fire so one stray tap can't expose you
+const HOLD_TO_FIRE := 0.3
+const ACCUSE_HOLD := 0.4  # hold to point; a tap never accuses anyone
+const ACCUSE_RANGE := 12.0  # BLACKOUT is hold-to-fire so one stray tap can't expose you
 const EDGE_GUARD := 24.0  # Android back-gesture strip on both sides
 ## id -> [offset from the bottom-right safe corner, visual radius, hit radius, colour]
 const BUTTONS := {
@@ -27,6 +32,7 @@ const BUTTONS := {
 	"jump": [Vector2(90, 80), 44.0, 56.0, Color("e8f1ff")],
 	"shoot": [Vector2(340, 190), 54.0, 64.0, Color("ff8a4a")],
 	"sabotage": [Vector2(330, 320), 50.0, 62.0, Color("ff4d5e")],
+	"accuse": [Vector2(130, 410), 46.0, 60.0, Color("ffe14d")],
 }
 ## USE verbs -> icon, from StationRules.available_action labels.
 const USE_ICONS := {"Pick up cell": "cell", "Insert cell": "cell", "Pick up core": "core", "Pull core out": "core",
@@ -164,6 +170,14 @@ var _ticker: HudTicker
 var _tags: HudNameTags
 var _auto_tags := false
 var _player_colors := {}
+# Accuse: the target in view, the hold, the desktop key.
+var _accuse_target := 0
+var _accuse_name := ""
+var _accuse_head := Vector3.ZERO
+var _accuse_hold := 0.0
+var _accuse_key := false
+var _accuse_ready := 1.0
+var _accuse_scan := 0.0
 
 
 func _ready() -> void:
@@ -596,7 +610,7 @@ func set_role(next_role: String) -> void:
 	(_role_word.get_child(0).get_child(0) as UiIcon).icon = UiStyle.role_icon(role)
 	_role_word_label.text = "INFILTRATOR" if infiltrator else "CREW"
 	if not _touch:
-		_hint.text = "WASD move  ·  Shift run  ·  RMB look  ·  E use  ·  F shove/throw  ·  R shoot%s  ·  Space jump" % ("  ·  Q blackout" if infiltrator else "")
+		_hint.text = "WASD move  ·  Shift run  ·  RMB look  ·  E use  ·  F shove/throw  ·  hold R accuse  ·  T/LMB shoot%s  ·  Space jump" % ("  ·  Q blackout" if infiltrator else "")
 	_controls.queue_redraw()
 
 
@@ -643,6 +657,7 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 		_markers.set_markers(markers_for(rules, my_id))
 	if _auto_tags:
 		_tags.set_tags(name_tags_for(rules, my_id))
+	_update_accuse(rules, my_id)
 	if phase == StationRules.Phase.RESULT and not _result.visible:
 		_show_result(rules)
 	_set_dim(_menu_open)
@@ -824,6 +839,14 @@ static func markers_for(rules: StationRules, my_id: int) -> Array:
 		out.append({"pos": StationLayout.to_world(StationLayout.SOCKETS.shuttle.pos, 2.2), "kind": "shuttle", "label": "Shuttle"})
 	if rules.pod_left >= 0.0:
 		out.append({"pos": StationLayout.to_world(StationLayout.SOCKETS.pod.pos, 2.0), "kind": "pod", "label": "Cargo pod"})
+	# Accusations: an amber SUSPECT chevron over the target for everyone, 3 s.
+	var accusations: Variant = rules.get("accusations")
+	if accusations is Array:
+		for entry in accusations:
+			var target := int(entry.get("target", 0))
+			if rules.players.has(target) and float(entry.get("until", 0.0)) > rules.elapsed:
+				out.append({"pos": rules.players[target].pos + Vector3(0, 2.75, 0), "kind": "suspect",
+					"label": str(rules.players[target].name)})
 	for id in rules.players:
 		var player: Dictionary = rules.players[id]
 		if id == my_id or player.state != StationRules.DOWNED or int(player.carried_by) != 0:
@@ -831,6 +854,83 @@ static func markers_for(rules: StationRules, my_id: int) -> Array:
 		var who: String = "Crewmate" if rules.is_blackout() else str(player.name)
 		out.append({"pos": player.pos + Vector3(0, 0.9, 0), "kind": "downed", "label": who})
 	return out
+
+
+# --- Accuse (hold to point) ----------------------------------------------------
+
+## The crewmate the accuse control would point at (0 = none).
+func accuse_target() -> int:
+	return _accuse_target
+
+
+## 0..1 progress of the accuse hold (drive the avatar's point pose with it).
+func accuse_hold() -> float:
+	return _accuse_hold
+
+
+## Pick the target: nearest living crewmate in range, on screen near the
+## centre, in line of sight; nobody in a blackout (you can't see who).
+func _update_accuse(rules: StationRules, my_id: int) -> void:
+	var me: Dictionary = rules.players.get(my_id, {})
+	var ready_at := float(me.get("accuse_ready", 0.0))
+	_accuse_ready = 1.0 if ready_at <= rules.elapsed else clampf(1.0 - (ready_at - rules.elapsed) / 10.0, 0.0, 1.0)
+	var playing := rules.phase == StationRules.Phase.STABILISE or rules.phase == StationRules.Phase.EXTRACTION
+	var cam := camera if camera != null and is_instance_valid(camera) else (get_viewport().get_camera_3d() if is_inside_tree() else null)
+	if not playing or me.is_empty() or _life != "ok" or rules.is_blackout() or cam == null or _cinematic:
+		_accuse_target = 0
+		return
+	var best := 0
+	var best_score := INF
+	var head := Vector3.ZERO
+	var view := get_viewport_rect().size
+	for id in rules.players:
+		var player: Dictionary = rules.players[id]
+		if id == my_id or str(player.state) != StationRules.OK:
+			continue
+		var pos: Vector3 = player.pos
+		var distance := pos.distance_to(me.pos)
+		var top := pos + Vector3(0, 1.7, 0)
+		if distance > ACCUSE_RANGE or cam.is_position_behind(top):
+			continue
+		var point := cam.unproject_position(top)
+		var off := (point - view * 0.5) / (view * 0.5)
+		if absf(off.x) > 0.62 or off.y < -0.85 or off.y > 0.6:
+			continue
+		var score := off.length() * 6.0 + distance * 0.3
+		if id == _accuse_target:
+			score -= 0.8  # sticky: keep the current target unless another is clearly better
+		if score < best_score:
+			best_score = score
+			best = id
+			head = top + Vector3(0, 0.45, 0)
+	# Line of sight, a few times a second (rays are cheap but not free).
+	_accuse_scan -= get_process_delta_time()
+	if best != 0 and (best != _accuse_target or _accuse_scan <= 0.0):
+		_accuse_scan = 0.2
+		var world := cam.get_world_3d()
+		if world != null and not world.direct_space_state.intersect_ray(
+				PhysicsRayQueryParameters3D.create(cam.global_position, head - Vector3(0, 0.6, 0), 1)).is_empty():
+			best = 0
+	if best != _accuse_target:
+		_accuse_hold = 0.0
+	_accuse_target = best
+	if best != 0:
+		_accuse_head = head
+		_accuse_name = str(rules.players[best].name)
+
+
+func _tick_accuse(delta: float, held: bool) -> void:
+	if (held or _accuse_key) and _accuse_target != 0 and _accuse_ready >= 1.0:
+		_accuse_hold = minf(1.0, _accuse_hold + delta / ACCUSE_HOLD)
+		if _accuse_hold >= 1.0:
+			_pressed.erase("accuse")
+			_accuse_key = false
+			_accuse_hold = 0.0
+			_flash["accuse"] = 1.0
+			UiMotion.haptic(30)
+			accuse_pressed.emit(_accuse_target)
+	else:
+		_accuse_hold = move_toward(_accuse_hold, 0.0, delta / 0.15)
 
 
 ## Name tags (U5) for everyone but me: [{id, name, color, pos, armed, state}].
@@ -1224,8 +1324,32 @@ func _draw_fx() -> void:
 	_fx.set_meta("drawn", true)
 	if _result.visible:
 		return
+	_draw_accuse_target(_fx)
 	_draw_callout(_fx)
 	_draw_hit(_fx)
+
+
+## The accuse target in view: amber corner brackets on their head, a fill
+## ring while the hold runs, and their name.
+func _draw_accuse_target(c: CanvasItem) -> void:
+	if _accuse_target == 0 or _cinematic:
+		return
+	var cam := camera if camera != null and is_instance_valid(camera) else get_viewport().get_camera_3d()
+	if cam == null or cam.is_position_behind(_accuse_head):
+		return
+	var at := cam.unproject_position(_accuse_head)
+	var hold := _accuse_hold
+	var side := 46.0 - 10.0 * hold
+	var alpha := 0.55 + 0.45 * hold
+	UiType.draw_brackets(c, Rect2(at - Vector2(side, side) * 0.5, Vector2(side, side)), 10.0,
+		UiStyle.with_alpha(UiStyle.AMBER, alpha), 2.0)
+	if hold > 0.0:
+		c.draw_arc(at, side * 0.72, -PI / 2.0, -PI / 2.0 + TAU * hold, 48, UiStyle.with_alpha(UiStyle.AMBER, 0.9), 3.0, true)
+		var font := UiStyle.font("head")
+		var text := "ACCUSE  %s" % _accuse_name.to_upper()
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		c.draw_string_outline(font, at + Vector2(-width * 0.5, -side * 0.75), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, Color(0, 0, 0, 0.6))
+		c.draw_string(font, at + Vector2(-width * 0.5, -side * 0.75), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, UiStyle.AMBER)
 
 
 ## Pickup / empty callout under the centre: brackets, kicker, big words,
@@ -1334,6 +1458,8 @@ func _wanted(id: String) -> bool:
 			return role == StationRules.INFILTRATOR
 		"shoot":
 			return _has_gun
+		"accuse":
+			return _accuse_target != 0 or _accuse_hold > 0.0
 	return true
 
 
@@ -1362,6 +1488,8 @@ func _ready_fraction(id: String) -> float:
 			return _gun_ready if _ammo > 0 else 0.0
 		"sabotage":
 			return _sabotage_ready
+		"accuse":
+			return _accuse_ready
 	return 1.0
 
 
@@ -1402,6 +1530,7 @@ func _update_controls(delta: float) -> void:
 			action_pressed.emit("sabotage")
 	else:
 		_hold = move_toward(_hold, 0.0, delta / 0.15)
+	_tick_accuse(delta, _pressed.has("accuse"))
 	_use_fade = minf(1.0, _use_fade + delta / 0.12)
 	_use_on = move_toward(_use_on, 1.0 if _interact_enabled else 0.0, delta / 0.12)
 	# Stick: follows the thumb, lingers, then drifts home and fades.
@@ -1432,6 +1561,11 @@ func _press(button_id: String) -> void:
 				_deny[button_id] = 1.0
 				return
 			_hold = 0.0  # fires in _update_controls after HOLD_TO_FIRE
+			UiMotion.haptic(10)
+			return
+		"accuse":
+			if _accuse_target == 0 or _accuse_ready < 1.0:
+				_deny[button_id] = 1.0
 			UiMotion.haptic(10)
 			return
 		"interact":
@@ -1478,6 +1612,8 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not _result.visible:
 			_set_menu(not _menu_open)
 		return
+	if event is InputEventKey and event.keycode == KEY_R and not event.echo:
+		_accuse_key = event.pressed  # hold R to accuse (desktop)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_ESCAPE:
@@ -1491,7 +1627,7 @@ func _input(event: InputEvent) -> void:
 			KEY_Q:
 				if role == StationRules.INFILTRATOR and _sabotage_cooldown <= 0.0:
 					action_pressed.emit("sabotage")
-			KEY_R:
+			KEY_T:
 				if _has_gun:
 					action_pressed.emit("shoot")
 			KEY_TAB:
@@ -1624,6 +1760,10 @@ func _button_look(id: String) -> Dictionary:
 			out.icon = "crosshair"
 			out.text = "SHOOT" if _ammo > 0 else "EMPTY"
 			out.enabled = _ammo > 0
+		"accuse":
+			out.icon = "warning"
+			out.text = "HOLD" if _pressed.has("accuse") else "ACCUSE"
+			out.enabled = _accuse_target != 0 and _accuse_ready >= 1.0
 		"sabotage":
 			out.icon = "blackout"
 			out.text = "BLACKOUT"
@@ -1672,6 +1812,9 @@ func _draw_button(c: CanvasItem, id: String) -> void:
 	if _flash[id] > 0.0:
 		var f: float = _flash[id]
 		c.draw_arc(pos, radius + 4.0 + (1.0 - f) * 10.0, 0.0, TAU, 72, UiStyle.with_alpha(color, f * 0.8 * alpha), 3.0, true)
+	if id == "accuse" and _accuse_hold > 0.0:
+		c.draw_circle(pos, radius * _ease_out(_accuse_hold), UiStyle.with_alpha(color, 0.3 * alpha))
+		c.draw_arc(pos, radius + 6.0, -PI / 2.0, -PI / 2.0 + TAU * _accuse_hold, 72, UiStyle.with_alpha(Color.WHITE, 0.9 * alpha), 3.0, true)
 	if id == "sabotage" and _hold > 0.0:
 		c.draw_circle(pos, radius * _ease_out(_hold), UiStyle.with_alpha(color, 0.3 * alpha))
 		c.draw_arc(pos, radius + 6.0, -PI / 2.0, -PI / 2.0 + TAU * _hold, 72, UiStyle.with_alpha(Color.WHITE, 0.9 * alpha), 3.0, true)

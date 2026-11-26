@@ -19,11 +19,12 @@ func _initialize() -> void:
 		"test_drop_makes_item_loose", "test_physics_throw_and_hit", "test_thrown_item_cools",
 		"test_respawn_lost_item", "test_downed_lies_along_the_fall", "test_mirror_item_physics_fields",
 		"test_vented_item_drifts_then_returns", "test_shove_blocked_by_walls", "test_knocked_loose_flies",
-		"test_bot_roster_roles",
+		"test_bot_roster_roles", "test_accuse_validation", "test_accuse_public_record",
+		"test_accuse_in_blackout_is_anonymous", "test_blackout_tap_gesture", "test_gesture_audience",
 	]:
 		call(test)
 	if failures == 0:
-		print("PASS: rules (40 tests)")
+		print("PASS: rules (45 tests)")
 	quit(1 if failures else 0)
 
 
@@ -185,6 +186,8 @@ func test_blackout() -> void:
 	rules.tick(StationRules.BLACKOUT_FIRST_DELAY)
 	check(not rules.request_sabotage(crew), "crew cannot sabotage")
 	check(rules.request_sabotage(bad), "infiltrator blackout")
+	check(not rules.is_blackout(), "lights still on during the helmet tap")
+	rules.tick(StationRules.BLACKOUT_TAP_LEAD)
 	check(rules.is_blackout(), "blackout active")
 	check(not rules.request_sabotage(bad), "blackout cooldown")
 	rules.tick(StationRules.BLACKOUT_SECONDS + 0.1)
@@ -642,3 +645,142 @@ func test_bot_roster_roles() -> void:
 			bot_infiltrator += 1
 		check(not var_to_str(rules.public_snapshot()).contains("bot"), "snapshots don't carry roster extras")
 	check(bot_infiltrator > 0 and bot_infiltrator < 12, "either side can be the infiltrator (%d/12 bot)" % bot_infiltrator)
+
+
+## Everyone else far away (out of every accuse range), standing.
+func park_others(rules: StationRules, keep: Array) -> void:
+	var x := 40.0
+	for id in rules.players:
+		if not keep.has(id):
+			rules.set_pose(id, Vector3(x, 0, 40), 0.0)
+			x += 30.0
+
+
+func test_accuse_validation() -> void:
+	var rules := make_round(4)
+	var a := 1
+	var b := 2
+	var c := 3
+	park_others(rules, [a, b, c])
+	rules.set_pose(c, Vector3(-30, 0, -30), 0.0)
+	rules.set_pose(a, Vector3.ZERO, 0.0)  # facing +z
+	rules.set_pose(b, Vector3(0, 0, StationRules.ACCUSE_RANGE + 1.0), 0.0)
+	rules.drain_events()
+	check(rules.request_accuse(a) == 0, "accuse: target out of range refused")
+	check(rules.accuse_cooldown(a) == 0.0, "accuse: a refused accuse spends no cooldown")
+	rules.set_pose(b, Vector3(8, 0, 0), 0.0)
+	check(rules.request_accuse(a) == 0, "accuse: target outside the aim cone refused")
+	check(rules.request_accuse(a, b) == 0, "accuse: a named target must be in the cone too")
+	var walls := func(_from: Vector3, _to: Vector3) -> bool: return false
+	check(rules.request_accuse(a, b, walls, PI / 2) == 0, "accuse: no line of sight refused")
+	check(rules.request_accuse(a, c, Callable(), PI / 2) == 0, "accuse: named target out of range refused")
+	check(rules.drain_events().is_empty(), "accuse: refusals emit nothing")
+	check(rules.request_accuse(a, b, Callable(), PI / 2) == b, "accuse: aimed at the target accepted")
+	check(rules.request_accuse(a, b, Callable(), PI / 2) == 0, "accuse: cooldown refuses a second accuse")
+	rules.tick(StationRules.ACCUSE_COOLDOWN * 0.5)
+	check(rules.request_accuse(a, 0, Callable(), PI / 2) == 0, "accuse: still cooling down")
+	rules.tick(StationRules.ACCUSE_COOLDOWN * 0.5 + 0.05)
+	check(rules.request_accuse(a, 0, Callable(), PI / 2) == b, "accuse: ready again after the cooldown, auto-picks in the cone")
+	# Ghosts and downed players can't accuse; ghosts can't be accused.
+	rules.set_pose(b, Vector3(0, 0, 5), 0.0)
+	rules.set_pose(a, Vector3.ZERO, 0.0)
+	rules.players[b].accuse_ready = 0.0
+	rules.players[a].state = StationRules.DEAD
+	check(rules.request_accuse(a, b) == 0, "accuse: a ghost can't accuse")
+	face(rules, b, Vector3(0, 0, 5), Vector3.ZERO)
+	check(rules.request_accuse(b, a) == 0, "accuse: a ghost can't be accused")
+	rules.players[a].state = StationRules.OK
+	rules.players[a].accuse_ready = 0.0
+	rules.players[a].state = StationRules.DOWNED
+	check(rules.request_accuse(a, b) == 0, "accuse: a downed player can't accuse")
+	check(rules.request_accuse(b, a) == a, "accuse: a downed player can be accused")
+	var events := rules.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "accuse")
+	check(events.size() > 0, "accuse: event emitted")
+	for event in events:
+		check(event.keys().size() == 3 and event.has("by") and event.has("target"), "accuse event carries only by/target: %s" % [event])
+		check(not var_to_str(event).contains("infiltrator") and not var_to_str(event).contains("crew"), "accuse event has no role")
+	rules.tick(StationRules.ROUND_SECONDS)
+	rules.players[b].accuse_ready = 0.0
+	check(rules.request_accuse(b, a) == 0, "accuse: refused after the round")
+
+
+func test_accuse_public_record() -> void:
+	var rules := make_round(4)
+	park_others(rules, [1, 2])
+	rules.set_pose(1, Vector3.ZERO, 0.0)
+	rules.set_pose(2, Vector3(0, 0, 6), 0.0)
+	rules.drain_events()
+	check(rules.request_accuse(1) == 2, "accuse accepted")
+	check(str(rules.timeline.back()).ends_with("P1 accused P2."), "timeline row: %s" % rules.timeline.back())
+	var alerts := rules.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "alert")
+	check(alerts.size() == 1 and alerts[0].kind == "accuse" and alerts[0].text == "P1 accused P2.", "accuse alert for the ticker")
+	var snap := rules.public_snapshot()
+	check(snap.accusations.size() == 1 and int(snap.accusations[0].target) == 2 and int(snap.accusations[0].by) == 1 \
+		and absf(float(snap.accusations[0].left) - StationRules.ACCUSE_MARK_SECONDS) < 0.01, "accusation in the snapshot")
+	check(not var_to_str(snap).contains("infiltrator"), "snapshot still role-free after an accuse")
+	check(float(snap.players[1].accuse_in) > 7.0, "accuse cooldown in the snapshot")
+	var mirror := StationRules.new()
+	mirror.apply_snapshot(snap, 3, StationRules.CREW)
+	check(mirror.accusations.size() == 1 and int(mirror.accusations[0].target) == 2 \
+		and float(mirror.accusations[0].until) > mirror.elapsed + 2.9, "mirror rebuilds the accusation")
+	check(not mirror.can_accuse(1) and mirror.can_accuse(3), "mirror knows the cooldowns")
+	rules.tick(StationRules.ACCUSE_MARK_SECONDS + 0.05)
+	check(rules.accusations.is_empty(), "the accusation fades after 3 s")
+	rules.set_pose(2, Vector3(0, 0, 6), PI)
+	rules.request_accuse(2)
+	rules.remove_player(1)
+	check(rules.accusations.is_empty(), "a leaver's accusation is dropped")
+
+
+func test_accuse_in_blackout_is_anonymous() -> void:
+	var rules := make_round(4)
+	park_others(rules, [1, 2])
+	rules.set_pose(1, Vector3.ZERO, 0.0)
+	rules.set_pose(2, Vector3(0, 0, 6), 0.0)
+	rules.blackout_until = rules.elapsed + 10.0
+	rules.drain_events()
+	check(rules.request_accuse(1) == 2, "accuse allowed in a blackout")
+	check(str(rules.timeline.back()).ends_with("Someone accused someone."), "blackout timeline row anonymous: %s" % rules.timeline.back())
+	for event in rules.drain_events():
+		if event.type == "alert":
+			check(event.text == "Someone accused someone.", "blackout accuse alert anonymous")
+
+
+func test_blackout_tap_gesture() -> void:
+	var rules := make_round(5)
+	var bad := rules.infiltrator_id()
+	var bad_name: String = rules.players[bad].name
+	rules.tick(StationRules.BLACKOUT_FIRST_DELAY)
+	rules.drain_events()
+	check(rules.request_sabotage(bad), "blackout accepted")
+	var events := rules.drain_events()
+	check(events.size() == 1 and events[0].type == "gesture" and events[0].gesture == "helmet_tap" \
+		and int(events[0].by) == bad and events[0].keys().size() == 3, "only the helmet-tap gesture first: %s" % [events])
+	check(not var_to_str(events).contains("infiltrator") and not var_to_str(events).contains("crew"), "gesture event has no role")
+	check(not rules.is_blackout() and not rules.request_sabotage(bad), "tap pending: no double blackout")
+	rules.tick(StationRules.BLACKOUT_TAP_LEAD)
+	check(rules.is_blackout(), "lights die after the tap")
+	var later := rules.drain_events()
+	check(later.size() == 1 and later[0].type == "alert" and later[0].kind == "blackout", "blackout alert after the tap")
+	check(not var_to_str(later).contains(bad_name) and not var_to_str(later).contains("by"), "blackout alert names nobody")
+	check(not str(rules.timeline.back()).contains(bad_name) and str(rules.timeline.back()).ends_with("Someone triggered a blackout."),
+		"blackout timeline row names nobody: %s" % rules.timeline.back())
+	check(not var_to_str(rules.public_snapshot()).contains(bad_name + " triggered"), "snapshot doesn't name the trigger")
+
+
+func test_gesture_audience() -> void:
+	var rules := make_round(5)
+	park_others(rules, [1, 2, 3, 4, 5])
+	rules.set_pose(1, Vector3.ZERO, 0.0)
+	rules.set_pose(2, Vector3(0, 0, 4), 0.0)  # close: sees it round a corner too
+	rules.set_pose(3, Vector3(0, 0, 20), 0.0)  # in sight unless a wall is in the way
+	rules.set_pose(4, Vector3(0, 0, StationRules.GESTURE_SIGHT + 5.0), 0.0)  # too far
+	rules.set_pose(5, Vector3(20, 0, 0), 0.0)  # behind the wall (x > 10)
+	rules.players[3].state = StationRules.DEAD  # ghosts watch too
+	var wall := func(from: Vector3, to: Vector3) -> bool: return from.x < 10.0 and to.x < 10.0
+	var seen := rules.sight_audience(1, wall)
+	seen.sort()
+	check(seen == [1, 2, 3], "gesture audience: self, near, in sight; not far or behind a wall: %s" % [seen])
+	var all := rules.sight_audience(1)
+	all.sort()
+	check(all == [1, 2, 3, 5], "gesture audience without walls: %s" % [all])

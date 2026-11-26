@@ -11,7 +11,7 @@ signal rooms_changed
 
 const PORT := 24600
 const DISCOVERY_PORT := 24601
-const PROTOCOL := 5
+const PROTOCOL := 6  # 6: accuse request, accusations + accuse_in in snapshots, gesture events
 const MAX_PLAYERS := 8
 const GAME_ID := "drift-station"
 const PALETTE := [Color("ff5a5a"), Color("4da3ff"), Color("ffd23f"), Color("53d769"),
@@ -407,6 +407,13 @@ func broadcast_event(event: Dictionary) -> void:
 	_send_to_roster("_event", [event])
 
 
+## Host -> one registered client (never a bot or the host itself): an event only
+## some peers may see, e.g. a gesture seen by the players in sight of it.
+func send_event(id: int, event: Dictionary) -> void:
+	if is_host() and id != 1 and roster.has(id) and not is_bot(id):
+		_event.rpc_id(id, event)
+
+
 @rpc("authority", "reliable")
 func _event(event: Dictionary) -> void:
 	if world != null:
@@ -506,6 +513,23 @@ func request(action: String, pos: Vector3, yaw: float) -> void:
 func _request(action: String, pos: Vector3, yaw: float) -> void:
 	if multiplayer.is_server() and world != null and action in ["interact", "shove", "sabotage", "shoot"]:
 		world.host_request(multiplayer.get_remote_sender_id(), action, pos, yaw)
+
+
+## Client -> host: accuse `target` (the HUD's pick; 0 = whoever is in the aim
+## cone). `yaw` is the aim (towards the target); the host validates range, cone,
+## line of sight and cooldown from this pose.
+func request_accuse(target: int, pos: Vector3, yaw: float) -> void:
+	if is_host():
+		if world != null:
+			world.host_accuse(1, target, pos, yaw)
+	else:
+		_accuse.rpc_id(1, target, pos, yaw)
+
+
+@rpc("any_peer", "reliable")
+func _accuse(target: int, pos: Vector3, yaw: float) -> void:
+	if multiplayer.is_server() and world != null:
+		world.host_accuse(multiplayer.get_remote_sender_id(), target, pos, yaw)
 
 
 # --- LAN discovery -----------------------------------------------------------

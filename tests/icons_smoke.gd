@@ -114,7 +114,7 @@ func _check_ui_components() -> void:
 			_check(_raster(UiLogo.svg(layout, "light", "all", true, state)) != null, "logo %s %s: SVG failed" % [layout, state])
 	for file_name in UiLogo.FILES:
 		var spec: Array = UiLogo.FILES[file_name]
-		var path := "res://assets/ui/logo/" + file_name
+		var path: String = "res://assets/ui/logo/" + str(file_name)
 		var text := FileAccess.get_file_as_string(path)
 		_check(text.strip_edges() == UiLogo.svg(spec[0], spec[1], "all", true, "crew").strip_edges(),
 			"%s is stale: re-export with UiLogo.export_all(\"res://assets/ui/logo\")" % path)
@@ -131,7 +131,8 @@ func _check_ui_components() -> void:
 		]
 		for part in parts:
 			stage.add_child(part)
-			part.size = frame
+			if is_equal_approx(part.anchor_left, part.anchor_right):
+				part.size = frame
 		(parts[5] as HudAmmo).set_ammo(2)
 		(parts[6] as HudCountdown).set_remaining(2.4)
 		(parts[7] as HudAlerts).present("LIGHTS OUT", "danger", "blackout")

@@ -5,6 +5,8 @@ extends Node3D
 ## client mirror rebuilt from public snapshots.
 
 signal leave_requested
+## Every public event this peer applied (tests and tools listen).
+signal event_seen(event: Dictionary)
 
 const POSE_INTERVAL := 0.05
 const SNAPSHOT_INTERVAL := 0.2
@@ -40,6 +42,7 @@ var _physics_synced := false
 var _impact_sound_ms := 0
 var _music_state := ""
 var bots: BotController  # host only: drives bot players (scripts/bots/), null without bots
+var _hud_tags := false  # the HUD draws the name tags (the avatars' Label3D tags stay hidden)
 
 
 func _init(round_seed := -1) -> void:
@@ -100,6 +103,10 @@ func _ready() -> void:
 		avatar.landed.connect(func(at: Vector3, impact: float):
 			sfx.play("footstep_%d" % (randi() % 3 + 1), at, -2.0)
 			_fx("burst", ["footstep_dust", at]))
+		if avatar.visual.has_signal("gesture_beat"):
+			avatar.visual.connect("gesture_beat", func(gesture: String, _index: int):
+				if gesture == "helmet_tap":
+					sfx.play("helmet_tap", avatar.global_position + Vector3(0, 1.7, 0), -8.0))
 		if id == my_id:
 			local = avatar
 	if not Net.dedicated:  # a dedicated server has no local player, camera or HUD
@@ -113,6 +120,9 @@ func _ready() -> void:
 		hud.action_pressed.connect(_on_action)
 		hud.leave_pressed.connect(func(): leave_requested.emit())
 		hud.lobby_pressed.connect(func(): Net.back_to_lobby())
+		if hud.has_signal("accuse_pressed"):
+			hud.connect("accuse_pressed", request_accuse)
+		_hud_tags = hud.has_method("set_name_tags")
 	if Net.is_host():
 		rules.physics_driven = true
 		var rng := RandomNumberGenerator.new()
@@ -147,6 +157,21 @@ func _on_action(action: String) -> void:
 		if hud != null:
 			hud.mark_shove_used(rules, my_id)  # optimistic; the next snapshot corrects it
 	Net.request(action, local.position, local.facing_yaw())
+
+
+## Accuse `target` (the HUD's pick after the hold; 0 = whoever is in front).
+## The aim rides along as the yaw towards the target; the host validates it.
+func request_accuse(target: int) -> void:
+	if local == null or not rules.can_accuse(my_id):
+		return
+	var aim := local.facing_yaw()
+	if rules.players.has(target) and target != my_id:
+		var to: Vector3 = rules.players[target].pos - local.position
+		if Vector2(to.x, to.z).length() > 0.05:
+			aim = atan2(to.x, to.z)
+		if avatars.has(target):
+			local.point_at(avatars[target].visual)  # optimistic; the host's event repeats it
+	Net.request_accuse(target, local.position, aim)
 
 
 ## Call an optional Vfx method if the module provides it.
@@ -206,6 +231,14 @@ func host_request(id: int, action: String, pos: Vector3, yaw: float) -> void:
 	_flush_events()
 
 
+func host_accuse(id: int, target: int, pos: Vector3, aim: float) -> void:
+	if rules.players.has(id):
+		rules.set_pose(id, pos, float(rules.players[id].yaw))
+	if rules.request_accuse(id, target, _line_of_sight, aim) != 0:
+		_dirty = true
+	_flush_events()
+
+
 func host_player_left(id: int) -> void:
 	rules.remove_player(id)
 	_remove_avatar(id)
@@ -221,7 +254,21 @@ func _flush_events() -> void:
 			bots.on_event(event)
 		if event.type == "result" or event.type == "swing":
 			continue
+		if event.type == "gesture":
+			_send_to_watchers(event)
+			continue
 		Net.broadcast_event(event)
+		client_event(event)
+
+
+## Host: a gesture goes only to the peers who could see that avatar right now,
+## so the event tells nobody more than the animation itself (StationRules.sight_audience).
+func _send_to_watchers(event: Dictionary) -> void:
+	var audience := rules.sight_audience(int(event.by), _line_of_sight)
+	for id in audience:
+		if id != my_id:
+			Net.send_event(id, event)
+	if audience.has(my_id):
 		client_event(event)
 
 
@@ -293,6 +340,9 @@ func client_poses(poses: Dictionary) -> void:
 
 
 func client_event(event: Dictionary) -> void:
+	if hud != null and hud.has_method("notify_event"):
+		hud.notify_event(event)
+	event_seen.emit(event)
 	match event.type:
 		"alert":
 			if hud != null:
@@ -377,6 +427,19 @@ func client_event(event: Dictionary) -> void:
 				var trail_color := Color(0.28, 0.92, 1.0) if rules.items[event.item].kind == "core" else Color(1.0, 0.6, 0.14)
 				_fx("attach_trail", [item_nodes[event.item], trail_color])
 				_flying[event.item] = true
+		"gesture":
+			# A public gesture on an avatar (the helmet tap before a blackout). No role.
+			var by := int(event.by)
+			if avatars.has(by):
+				avatars[by].play_gesture(str(event.gesture))
+		"accuse":
+			var by := int(event.by)
+			var target := int(event.target)
+			if avatars.has(by):
+				avatars[by].point_at(avatars[target].visual if avatars.has(target) else null)
+				sfx.play("accuse", avatars[by].global_position + Vector3(0, 1.4, 0), -4.0)
+			if avatars.has(target) and target != my_id:
+				avatars[target].express("shocked", 0.8)
 		"fx":
 			_fx("burst", [event.kind, event.at])
 			if event.kind == "drop":
@@ -463,6 +526,13 @@ func _process(delta: float) -> void:
 	if hud != null:
 		hud.update_state(rules, action, my_id)
 		hud.set_world_markers(StationHud.markers_for(rules, my_id))
+		if _hud_tags:
+			hud.set_name_tags(StationHud.name_tags_for(rules, my_id, avatars))
+		if local != null and hud.has_method("accuse_hold"):
+			# Holding ACCUSE raises the arm towards the HUD's target.
+			var hold: float = hud.call("accuse_hold")
+			var aimed: int = hud.call("accuse_target")
+			local.set_point_preview(avatars[aimed].visual if hold > 0.0 and avatars.has(aimed) else null, hold)
 
 
 ## Outline whatever the Interact button would act on.
@@ -642,4 +712,4 @@ func _apply_power_state() -> void:
 	for id in avatars:
 		var avatar: CrewMember = avatars[id]
 		avatar.flashlight.visible = state != "restored"
-		avatar.name_tag.visible = state != "blackout" and not avatar.is_local
+		avatar.name_tag.visible = state != "blackout" and not avatar.is_local and not _hud_tags

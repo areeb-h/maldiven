@@ -15,6 +15,10 @@ var _failures: Array[String] = []
 
 
 func _initialize() -> void:
+	call_deferred("_run")  # models need to be inside the tree for world-space checks
+
+
+func _run() -> void:
 	var t0 := Time.get_ticks_msec()
 	var models: Array[CrewModel] = []
 	for ci in COLORS.size():
@@ -128,6 +132,7 @@ func _initialize() -> void:
 	_check(first.body.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "ghost casts no shadow")
 	_check_finite(first, "ghost")
 	first.set_ghost(false)
+	_acting_checks(models[3], models[5], dt)
 	# Legacy path: gameplay swinging LeftLeg etc. without set_motion.
 	(models[2].find_child("LeftLeg", true, false) as Node3D).rotation.x = 0.5
 	models[2]._process(dt)
@@ -142,6 +147,173 @@ func _initialize() -> void:
 			print("  failed: " + f)
 		print("FAIL: crew model")
 		quit(1)
+
+
+## v4 acting API: expressions with body language, gestures, reach, look, one-shots.
+func _acting_checks(m: CrewModel, other: CrewModel, dt: float) -> void:
+	m.position = Vector3(10, 0, 0)
+	m.rotation.y = 0.6
+	var settle := func(frames: int, speed := 0.0) -> void:
+		for f in frames:
+			m.set_motion(speed, true, false, false, dt)
+			m._process(dt)
+	for e in CrewMaterials.EXPRESSIONS:
+		m.set_expression(e, 0.0, 0.12, e == "angry")
+		settle.call(30)
+		_check_finite(m, "expression body " + e)
+		_check(m.get_expression() == e, "expression %s shows (glitch cut too)" % e)
+	m.set_expression("neutral")
+	# Every held gesture, standing and walking.
+	for g in CrewModel.HELD_GESTURES:
+		m.set_performance(g, 0.0)
+		settle.call(40)
+		_check_finite(m, "gesture " + g)
+		settle.call(20, 2.0)
+		_check_finite(m, "gesture %s walking" % g)
+	m.set_performance("", 0.0)
+	settle.call(20)
+	# Point at a target: the arm (shoulder -> fingertip) aims at it.
+	var target := m.global_transform * Vector3(-1.5, 1.6, 3.0)
+	m.set_gesture("point", 1.0, target)
+	settle.call(40)
+	var shoulder := m.bones[CrewBody.R_ARM].global_position
+	var aim := (m.get_fingertip(1) - shoulder).normalized()
+	var want := (target - shoulder).normalized()
+	_check(rad_to_deg(aim.angle_to(want)) < 15.0, "point aims at the target (%.1f deg)" % rad_to_deg(aim.angle_to(want)))
+	settle.call(30, 3.0)
+	aim = (m.get_fingertip(1) - m.bones[CrewBody.R_ARM].global_position).normalized()
+	want = (target - m.bones[CrewBody.R_ARM].global_position).normalized()
+	_check(rad_to_deg(aim.angle_to(want)) < 20.0, "point holds while walking (%.1f deg)" % rad_to_deg(aim.angle_to(want)))
+	m.set_gesture("point", 0.0)
+	settle.call(30)
+	# Helmet tap: two beats on time, the fingertip on the ear pod at each contact.
+	var beats: Array[float] = []
+	var clock := [0.0]
+	m.gesture_beat.connect(func(g: String, _i: int) -> void:
+		if g == "helmet_tap":
+			beats.append(clock[0]))
+	for walk in [0.0, 2.5]:
+		beats.clear()
+		clock[0] = 0.0
+		m.play_gesture("helmet_tap")
+		var worst := 0.0
+		for f in 60:
+			clock[0] += dt
+			m.set_motion(walk, true, false, false, dt)
+			m._process(dt)
+			if absf(clock[0] - 0.3) < dt * 0.6 or absf(clock[0] - 0.52) < dt * 0.6:
+				var pod := m.bones[CrewBody.HEAD].global_transform * Vector3(-0.212, 0.095, 0.015)
+				worst = maxf(worst, m.get_fingertip(1).distance_to(pod))
+		_check(beats.size() == 2 and absf(beats[0] - 0.3) < 0.03 and absf(beats[1] - 0.52) < 0.03, "helmet_tap beats at 0.30/0.52 s (%s, speed %.1f)" % [beats, walk])
+		_check(worst < 0.03, "helmet_tap fingertip touches the helmet (%.3f m, speed %.1f)" % [worst, walk])
+		_check_finite(m, "helmet_tap")
+	# Random idle fidgets never pick the helmet tap.
+	var picked_tap := false
+	for i in 400:
+		m._fidget_t = -1.0
+		m._fidget_timer = 0.0
+		m._update_fidget(dt)
+		picked_tap = picked_tap or m._fidget_kind == 1
+	_check(not picked_tap, "random fidgets never pick the helmet tap")
+	m._fidget_t = -1.0
+	# Reach: fingertip on the target within 1 cm; weight ramp without pops.
+	var reach_t := m.global_transform * Vector3(-0.3, 1.2, 0.5)
+	var prev := m.get_fingertip(1)
+	var steps: Array[float] = []
+	for f in 40:
+		m.set_reach(1, reach_t, clampf(float(f) / 8.0, 0.0, 1.0), "open")
+		settle.call(1)
+		steps.append(m.get_fingertip(1).distance_to(prev))
+		prev = m.get_fingertip(1)
+	_check(m.get_fingertip(1).distance_to(reach_t) < 0.01, "reach fingertip within 1 cm (%.3f m)" % m.get_fingertip(1).distance_to(reach_t))
+	# The 8-frame ramp moves the hand ~0.6 m; a pop is one step far above the average.
+	var ramp := steps.slice(0, 9)
+	var mean := 0.0
+	for v in ramp:
+		mean += v / ramp.size()
+	_check(ramp.max() < mean * 2.5 and steps.slice(22).max() < 0.01, "reach blends in without popping (max %.3f, mean %.3f, settled %.4f m/frame)" % [ramp.max(), mean, steps.slice(22).max()])
+	m.set_reach(1, reach_t, 0.0)
+	settle.call(20)
+	# Look target at 60 degrees: the head turns to it.
+	var look_at := m.global_transform * Vector3(sin(1.05) * 3.0, 1.6, cos(1.05) * 3.0)
+	m.set_look_target(look_at)
+	settle.call(60)
+	var head := m.bones[CrewBody.HEAD].global_transform
+	var hdir := Vector3(head.basis.z.x, 0, head.basis.z.z).normalized()
+	var tdir := Vector3(look_at.x - head.origin.x, 0, look_at.z - head.origin.z).normalized()
+	_check(rad_to_deg(hdir.angle_to(tdir)) < 15.0, "head turns to the look target (%.1f deg off)" % rad_to_deg(hdir.angle_to(tdir)))
+	m.set_look_target(null)
+	m.play_head("nod")
+	m.play_head("shake")
+	settle.call(60)
+	# One-shots, step back root motion, draw, stagger, hit with a source.
+	for g in CrewModel.ONE_SHOTS:
+		m.play_gesture(g)
+		settle.call(int(float(CrewModel.ONE_SHOTS[g]) / dt) + 4)
+		_check_finite(m, "one-shot " + g)
+	var rm := m.take_root_motion()
+	_check(rm.is_equal_approx(Vector3(0, 0, -CrewModel.STEP_BACK)), "step_back leaves root motion (%s)" % rm)
+	m.set_held_item("gun")
+	m.play_draw()
+	settle.call(40)
+	m.set_aiming(true, 0.0)
+	m.set_trigger(0.6)
+	m.on_shot()
+	settle.call(30)
+	m.set_aiming(false)
+	m.set_trigger(0.0)
+	m.set_held_item("")
+	m.play_stagger(m.global_position + Vector3(0, 0, 3))
+	m.play_hit(m.global_position + Vector3(2, 1, 0))
+	settle.call(80)
+	_check_finite(m, "draw/aim/stagger/hit")
+	# Downed -> get up (standing again within GET_UP_TIME).
+	m.set_downed(true)
+	settle.call(40)
+	m.play_get_up()
+	settle.call(int(CrewModel.GET_UP_TIME / dt) + 10)
+	_check(m.bones[CrewBody.HIPS].position.y > 0.85 and m.get_expression() != "downed", "play_get_up stands up (hips %.2f, face %s)" % [m.bones[CrewBody.HIPS].position.y, m.get_expression()])
+	# Tension, lights, glints, frost, wear, body carry, carried dangle.
+	m.set_tension(1.0)
+	m.set_lights(0.0, 0.0, 0.0)
+	m.set_visor_glint(0, Vector3(0, 3, 3), Color(0.3, 0.9, 1.0, 1.0), 0.1)
+	m.set_frost(0.6)
+	m.set_wear(1.5)
+	m.set_held_item("body")
+	for f in 40:
+		m.set_motion(2.0, true, true, false, dt)
+	_check_finite(m, "tension / body carry")
+	m.set_tension(0.0)
+	m.set_lights()
+	m.set_held_item("")
+	other.set_carried(true)
+	for f in 60:
+		other.position.y = 0.05 * sin(f * 0.4)
+		other.set_motion(0.0, true, false, false, dt)
+	_check_finite(other, "carried dangle")
+	other.set_carried(false)
+	other.set_downed(false)
+	# Determinism: two identical suits driven identically pose identically.
+	var a := CrewModel.build(Color(0.3, 0.6, 0.9), 2, 4)
+	var b := CrewModel.build(Color(0.3, 0.6, 0.9), 2, 4)
+	root.add_child(a)
+	root.add_child(b)
+	for mm in [a, b]:
+		mm.set_expression("suspicious")
+		mm.play_gesture("wave")
+	var same := true
+	for f in 400:
+		for mm: CrewModel in [a, b]:
+			mm.set_motion(1.0 if f > 200 else 0.0, true, false, false, dt)
+			mm._process(dt)
+		for i in a.bones.size():
+			same = same and a.bones[i].transform.is_equal_approx(b.bones[i].transform)
+		same = same and a._blink == b._blink and a._look == b._look
+	_check(same, "identical suits animate identically (deterministic)")
+	a.queue_free()
+	b.queue_free()
+	m.position = Vector3.ZERO
+	m.rotation.y = 0.0
 
 
 func _check(ok: bool, what: String) -> void:
