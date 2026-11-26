@@ -163,6 +163,7 @@ var _ammo_view: HudAmmo
 var _ticker: HudTicker
 var _tags: HudNameTags
 var _auto_tags := false
+var _player_colors := {}
 
 
 func _ready() -> void:
@@ -611,6 +612,10 @@ func update_state(rules: StationRules, action: Dictionary, my_id: int) -> void:
 			UiMotion.pop(_role_chip, 0.0, 1.35, 0.3)
 			_reveal_role())
 	_elapsed = rules.elapsed
+	if _player_colors.size() != rules.players.size():
+		_player_colors.clear()
+		for id in rules.players:
+			_player_colors[str(rules.players[id].name)] = rules.players[id].color
 	_update_timer(rules)
 	_update_blackout(rules)
 	_update_objective(rules, my_id)
@@ -828,6 +833,56 @@ static func markers_for(rules: StationRules, my_id: int) -> Array:
 	return out
 
 
+## Name tags (U5) for everyone but me: [{id, name, color, pos, armed, state}].
+## Pass `avatars` (id -> Node3D) for smooth positions; else the rules' poses.
+static func name_tags_for(rules: StationRules, my_id: int, avatars := {}) -> Array:
+	var out := []
+	var gun_holder := 0
+	if rules.items.has("gun"):
+		gun_holder = int(rules.items.gun.holder)
+	for id in rules.players:
+		if id == my_id:
+			continue
+		var player: Dictionary = rules.players[id]
+		var pos: Vector3 = player.pos
+		if avatars.has(id) and is_instance_valid(avatars[id]):
+			pos = (avatars[id] as Node3D).global_position
+		out.append({"id": id, "name": str(player.name), "color": player.color, "pos": pos,
+			"armed": id == gun_holder, "state": str(player.state)})
+	return out
+
+
+## World hook for the HUD's name tags (replaces the old Label3D tags). The
+## first call turns the overlay on; pass name_tags_for(rules, my_id, avatars).
+func set_name_tags(tags: Array) -> void:
+	_tags.visible = true
+	_tags.camera = camera
+	_tags.set_tags(tags)
+
+
+## Let the HUD build the tags itself from the rules (no world call needed).
+func use_hud_name_tags(on := true) -> void:
+	_auto_tags = on
+	_tags.visible = on
+
+
+## Spectator / screenshot / trailer mode (U11): hides the touch controls, the
+## menu button, the edge markers, the objective chip and the timer; keeps the
+## alerts, ticker, countdown and ammo pips.
+func set_cinematic(on: bool) -> void:
+	_cinematic = on
+	_controls.visible = not on
+	_hint.visible = not on
+	_role_word.visible = not on
+	for node: Control in [_top_panel, _timer_pill, _menu_button]:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE if on else (Control.MOUSE_FILTER_STOP if node == _menu_button else Control.MOUSE_FILTER_IGNORE)
+	_markers.visible = not on
+
+
+func is_cinematic() -> bool:
+	return _cinematic
+
+
 ## World hook: replaces the HUD's own markers with the world's list.
 ## markers: Array of {pos: Vector3, kind: String, label: String}.
 func set_world_markers(markers: Array) -> void:
@@ -913,8 +968,6 @@ func flash_alert(text: String, kind: String) -> void:
 	_ticker.push(_elapsed, ticker_sentence(shown), _player_colors, icon)
 
 
-var _player_colors := {}
-
 
 ## "POWER RESTORED — vault and armory open" -> "Power restored. Vault and armory open."
 static func ticker_sentence(text: String) -> String:
@@ -974,6 +1027,7 @@ func set_life_state(state: String, down_left: float) -> void:
 func _process(delta: float) -> void:
 	_pulse += delta
 	_markers.camera = camera
+	_tags.camera = camera
 	if crew != null and is_instance_valid(crew):
 		_markers.origin = crew.global_position
 	# Vignette: red pulse for alarms (~1.6 Hz), cold tint in a blackout.
@@ -1004,8 +1058,9 @@ func _update_blackout(rules: StationRules) -> void:
 	_blackout_left = maxf(0.0, rules.blackout_until - rules.elapsed)
 	if dark != _blackout:
 		_blackout = dark
-		_blackout_age = 0.0
+		_blackout_age = 0.0 if (dark or _bo > 0.0) else 99.0
 		_glitch_in = 0.7
+		_tags.set_dark(dark)
 		UiMotion.haptic(40 if dark else 15)
 
 
@@ -1025,6 +1080,19 @@ func blackout_flicker() -> float:
 	return 1.0
 
 
+## Chrome opacity: 1 -> 0.3 over 0.2 s as the lights fail, with two full
+## flicker frames on the way; the reverse when power returns.
+func chrome_alpha() -> float:
+	var k := clampf(_blackout_age / 0.2, 0.0, 1.0)
+	var frame := int(_blackout_age * 30.0)
+	var flick := _blackout_age < 0.2 and (frame == 1 or frame == 4)
+	if _blackout:
+		return 1.0 if flick else lerpf(1.0, 0.3, k)
+	if _blackout_age > 5.0 and _bo <= 0.0:
+		return 1.0
+	return 0.3 if flick else lerpf(0.3, 1.0, k)
+
+
 func _update_blackout_look(delta: float) -> void:
 	_blackout_age += delta
 	_bo = move_toward(_bo, 1.0 if _blackout else 0.0, delta / (0.5 if _blackout else 0.9))
@@ -1041,14 +1109,18 @@ func _update_blackout_look(delta: float) -> void:
 		_safe_root.position.x = _margin.position.x + jolt
 	# Emergency palette: warm the glass, red edge on the objective panel, dim
 	# the timer (reduced HUD).
-	_safe_root.modulate = Color(1.0, 1.0 - 0.1 * _bo, 1.0 - 0.12 * _bo, flicker)
+	_safe_root.modulate = Color(1.0, 1.0 - 0.1 * _bo, 1.0 - 0.12 * _bo, 1.0)
 	_controls.modulate.a = flicker
-	_markers.modulate.a = flicker
+	_markers.modulate.a = flicker * (0.0 if _cinematic else 1.0)
+	# Chrome drops to 30 % over 0.2 s with two flicker frames (U4); the alerts,
+	# ticker, countdown and ammo stay at full strength.
+	_chrome = chrome_alpha()
+	for node: Control in [_top_panel, _timer_pill, _menu_button, _hint]:
+		node.modulate.a = _chrome * (0.0 if _cinematic else 1.0)
 	if not is_equal_approx(_bo, _bo_applied):
 		_bo_applied = _bo
 		_top_box.border_color = Color(1, 1, 1, 0.1).lerp(UiStyle.with_alpha(UiStyle.DANGER, 0.75), _bo)
 		_top_box.border_width_left = 1 + int(round(3.0 * _bo))
-		_timer_pill.modulate.a = 1.0 - 0.4 * _bo
 	_blackout_fx.visible = _bo > 0.001
 	if _blackout_fx.visible:
 		var material := _blackout_fx.material as ShaderMaterial
@@ -1088,7 +1160,6 @@ func _show_callout(kind: String) -> void:
 func _on_fired() -> void:
 	_shot_age = 0.0
 	_shot_window = 0.7
-	_casings.append({"age": 0.0, "slot": _ammo})
 	UiMotion.haptic(35)
 
 
@@ -1125,10 +1196,17 @@ func _update_fx(delta: float) -> void:
 		_shot_window -= delta
 		if _shot_window <= 0.0 and _hit_age > 0.7:
 			_miss_age = 0.0
-	for casing in _casings:
-		casing.age += delta
-	_casings = _casings.filter(func(c): return c.age < 0.7)
-	if _has_gun or _callout_age < 3.0 or _hit_age < 1.4 or _miss_age < 0.9 or not _casings.is_empty() or _shot_age < 0.4:
+	# Charge pips beside the shoot button (touch) or bottom-right (desktop).
+	var show_ammo := _has_gun and _life != "dead" and not _result.visible
+	_ammo_view.visible = show_ammo
+	if show_ammo:
+		if _ammo_view.ammo != _ammo:
+			_ammo_view.set_ammo(_ammo, _ammo < _ammo_view.ammo)
+		_ammo_view.reset_size()
+		var anchor := _ammo_anchor()
+		var kick := 1.0 - UiType.ease_out(_shot_age / 0.18)
+		_ammo_view.position = anchor - _ammo_view.size * 0.5 + Vector2(8.0 * kick, -3.0 * kick)
+	if _callout_age < 3.0 or _hit_age < 1.4 or _miss_age < 0.9:
 		_fx.queue_redraw()
 	elif _fx.has_meta("drawn"):
 		_fx.remove_meta("drawn")
@@ -1138,59 +1216,16 @@ func _update_fx(delta: float) -> void:
 func _ammo_anchor() -> Vector2:
 	if _touch and crew != null:
 		var shoot := _button_pos("shoot")
-		return shoot + Vector2(-float(BUTTONS.shoot[1]) - 118.0, 0)
-	return Vector2(size.x - _margin.size.x - 110.0, size.y - _margin.size.y - 70.0)
+		return shoot + Vector2(-float(BUTTONS.shoot[1]) - 104.0, 0)
+	return Vector2(size.x - _margin.size.x - 100.0, size.y - _margin.size.y - 50.0)
 
 
 func _draw_fx() -> void:
 	_fx.set_meta("drawn", true)
 	if _result.visible:
 		return
-	if _has_gun and _life != "dead":
-		_draw_ammo(_fx, _ammo_anchor())
 	_draw_callout(_fx)
 	_draw_hit(_fx)
-
-
-## Magazine readout: three brass rounds (spent ones hollow), a big count and
-## a recoil kick on each shot; spent casings arc out of the slot.
-func _draw_ammo(c: CanvasItem, center: Vector2) -> void:
-	var kick := 1.0 - UiType.ease_out(_shot_age / 0.18)
-	var at := center + Vector2(10.0 * kick, -4.0 * kick)
-	var plate := Rect2(at - Vector2(100, 34), Vector2(200, 68))
-	var box := UiStyle.panel_box(UiStyle.AMBER, 0.66, 0, 10)
-	box.skew = Vector2(-0.12, 0)
-	box.border_color = UiStyle.with_alpha(Color("ff8a4a"), 0.35 + 0.5 * kick)
-	box.border_width_left = 4
-	box.shadow_size = 8
-	c.draw_style_box(box, plate)
-	UiIcons.draw(c, "gun", plate.position + Vector2(30, 34), 34.0, Color(1, 1, 1, 0.92))
-	var brass := Color("ffc861")
-	for i in range(StationRules.GUN_AMMO):
-		var x := plate.position.x + 62.0 + i * 17.0
-		var round_rect := Rect2(x, plate.position.y + 24.0, 10.0, 26.0)
-		if i < _ammo:
-			c.draw_rect(Rect2(round_rect.position + Vector2(0, 8), Vector2(10, 18)), brass)
-			c.draw_circle(round_rect.position + Vector2(5, 9), 5.0, brass.lightened(0.2))
-			c.draw_rect(Rect2(round_rect.position + Vector2(0, 22), Vector2(10, 4)), brass.darkened(0.35))
-		else:
-			c.draw_rect(Rect2(round_rect.position + Vector2(0, 8), Vector2(10, 18)), Color(1, 1, 1, 0.16), false, 1.5)
-	var font := UiStyle.font("title")
-	var count := str(_ammo)
-	var color := UiStyle.TEXT if _ammo > 0 else UiStyle.DANGER
-	c.draw_string(font, Vector2(plate.position.x + 122.0, plate.position.y + 47.0), count, HORIZONTAL_ALIGNMENT_LEFT, -1, 34, color)
-	var caps := UiStyle.font("caps")
-	c.draw_string(caps, Vector2(plate.position.x + 150.0, plate.position.y + 30.0), "/%d" % StationRules.GUN_AMMO,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UiStyle.MUTED)
-	c.draw_string(caps, Vector2(plate.position.x + 150.0, plate.position.y + 50.0), "RDS" if _ammo > 0 else "OUT",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UiStyle.MUTED if _ammo > 0 else UiStyle.DANGER)
-	for casing in _casings:
-		var k: float = casing.age / 0.7
-		var start := Vector2(plate.position.x + 67.0 + float(casing.slot) * 17.0, plate.position.y + 30.0)
-		var pos := start + Vector2(70.0 * k, -110.0 * k + 220.0 * k * k)
-		c.draw_set_transform(pos, k * 9.0, Vector2.ONE)
-		c.draw_rect(Rect2(-4, -8, 8, 16), UiStyle.with_alpha(brass, 1.0 - k))
-		c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Pickup / empty callout under the centre: brackets, kicker, big words,
@@ -1228,8 +1263,8 @@ func _draw_callout(c: CanvasItem) -> void:
 				continue
 			var at := rect.end - Vector2(34.0 + (StationRules.GUN_AMMO - 1 - i) * 22.0, 62.0)
 			c.draw_set_transform(at, 0.0, Vector2.ONE * pop)
-			c.draw_rect(Rect2(-6, -6, 12, 24), UiStyle.with_alpha(Color("ffc861"), k))
-			c.draw_circle(Vector2(0, -6), 6.0, UiStyle.with_alpha(Color("ffd98a"), k))
+			c.draw_rect(Rect2(-6, -6, 12, 24), UiStyle.with_alpha(HudAmmo.CHARGE, k))
+			c.draw_circle(Vector2(0, -6), 6.0, UiStyle.with_alpha(HudAmmo.CHARGE.lightened(0.4), k))
 			c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

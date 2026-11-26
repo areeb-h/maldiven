@@ -92,12 +92,74 @@ func _run() -> void:
 	if _drawn == 0:
 		print("note: canvas draw was not invoked in this run mode; draw() not exercised")
 
+	await _check_ui_components()
+
 	if _failures.is_empty():
 		print("PASS: icons (%d glyphs, %d aliases)" % [names.size(), UiIcons.ALIASES.size()])
 		quit(0)
 	else:
 		print("FAIL: icons (%d problems)" % _failures.size())
 		quit(1)
+
+
+## Logo, title cards and the standalone HUD components the trailer instances
+## (production plan U1-U11): they build from plain data, seek in time, lay out
+## at 1280×720 and 2560×1440, and the exported logo files match the code.
+func _check_ui_components() -> void:
+	for layout in UiLogo.LAYOUTS:
+		var tex := UiLogo.texture(layout, 96, "dark")
+		_check(tex != null and tex.get_height() == 96, "logo %s: texture failed" % layout)
+		_check(not UiLogo.visor(layout).is_empty(), "logo %s: no helmet visor" % layout)
+		for state in UiLogo.STATES:
+			_check(_raster(UiLogo.svg(layout, "light", "all", true, state)) != null, "logo %s %s: SVG failed" % [layout, state])
+	for file_name in UiLogo.FILES:
+		var spec: Array = UiLogo.FILES[file_name]
+		var path := "res://assets/ui/logo/" + file_name
+		var text := FileAccess.get_file_as_string(path)
+		_check(text.strip_edges() == UiLogo.svg(spec[0], spec[1], "all", true, "crew").strip_edges(),
+			"%s is stale: re-export with UiLogo.export_all(\"res://assets/ui/logo\")" % path)
+	var stage := Control.new()
+	root.add_child(stage)
+	for frame in [Vector2(1280, 720), Vector2(2560, 1440)]:
+		stage.size = frame
+		var parts: Array[Control] = [
+			UiStyle.card_statement("ONE OF YOU IS LYING."), UiStyle.card_line("2–8 friends. One of you is lying."),
+			TitleCard.create("lockup", {"line": "2–8 friends. One of you is lying."}), TitleCard.create("slate"),
+			UiStyle.logo(120.0, "infiltrator"), HudAmmo.create({"ammo": 3}), HudCountdown.create("pod", 20.0),
+			HudAlerts.create(), HudTicker.create({"font_share": 0.033, "snap": true}), HudResult.new(), HudBriefing.new(),
+			UiStyle.make_name_tag("Zara", Color("b36bff")),
+		]
+		for part in parts:
+			stage.add_child(part)
+			part.size = frame
+		(parts[5] as HudAmmo).set_ammo(2)
+		(parts[6] as HudCountdown).set_remaining(2.4)
+		(parts[7] as HudAlerts).present("LIGHTS OUT", "danger", "blackout")
+		(parts[8] as HudTicker).push(122.0, "Sam triggered a blackout.", {"Sam": Color("ff8a3d")})
+		var result := parts[9] as HudResult
+		result.present({"title": "CORE STOLEN", "color": UiStyle.INFILTRATOR, "reason": "The cargo pod launched with the core.",
+			"infiltrator": {"name": "Sam", "color": Color("ff8a3d")},
+			"players": [{"name": "Jon", "color": Color("4da3ff")}, {"name": "Sam", "color": Color("ff8a3d")}],
+			"rows": HudResult.story_rows(["2:02  Sam triggered a blackout.", "4:05  Zara was spaced."], "Sam", ["Jon", "Sam", "Zara"])})
+		(parts[10] as HudBriefing).present({"role": StationRules.INFILTRATOR, "name": "Sam", "style": "flash"})
+		for t in [0.0, 0.05, 1.0, 1.45, 2.6]:
+			for part in parts:
+				if part.has_method("set_progress"):
+					part.call("set_progress", t)
+			await process_frame
+		_check(result.data.rows[0].anon == "Sam", "result: blackout row is not anonymised live")
+		_check(str(result.data.rows[1].tag) == "ZARA WAS CREW", "result: no turning-point tag on the spaced row")
+		for part in parts:
+			part.queue_free()
+		await process_frame
+	var hud := StationHud.new()
+	stage.add_child(hud)
+	hud.set_cinematic(true)
+	hud.flash_alert("BLACKOUT — main lights failed", "blackout")
+	_check(StationHud.ticker_sentence("POWER RESTORED — vault and armory open") == "Power restored. Vault and armory open.",
+		"ticker sentence: %s" % StationHud.ticker_sentence("POWER RESTORED — vault and armory open"))
+	await process_frame
+	stage.queue_free()
 
 
 func _raster(svg_text: String) -> Image:
