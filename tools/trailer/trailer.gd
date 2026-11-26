@@ -5,6 +5,13 @@ extends SceneTree
 ## xvfb-run -a -s "-screen 0 1280x720x24" <godot> --path . --rendering-method mobile \
 ##     --resolution 1280x720 --fixed-fps 30 --script res://tools/trailer/trailer.gd \
 ##     -- --out <dir> [--fps 30] [--from 0] [--to 80] [--preview] [--check] [--msaa 4|2]
+##        [--start-frame N] [--cues-only]
+##
+## --start-frame N resumes an interrupted render into the same --out: it renders
+## absolute frames N.. with their absolute file numbers (the current beat's state
+## is rebuilt without rendering; resume on a beat boundary for an exact seam)
+## and leaves cues.json alone. --cues-only (with --headless) writes the full
+## cues.json for the whole cut without rendering anything.
 ##
 ## Masters are rendered supersampled (e.g. --resolution 2560x1440) with 4x MSAA
 ## and downscaled to 1080p by make_video.py.
@@ -33,6 +40,8 @@ func _run() -> void:
 	var preview := false
 	var check := false
 	var msaa := 4
+	var start_frame := -1
+	var cues_only := false
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		var value := args[i + 1] if i + 1 < args.size() else ""
@@ -51,6 +60,10 @@ func _run() -> void:
 				check = true
 			"--msaa":
 				msaa = int(value)
+			"--start-frame":
+				start_frame = int(value)
+			"--cues-only":
+				cues_only = true
 	if out.is_empty():
 		push_error("trailer: pass --out <dir>")
 		quit(2)
@@ -67,26 +80,42 @@ func _run() -> void:
 	var total: float = CutScript.total_seconds()
 	if to < 0.0 or to > total:
 		to = total
-	# Warm up shaders and probes on the first beat before frame 0 is taken.
-	for i in 4:
-		cut.update(from)
-		await process_frame
-	cut.restart()
+	if cues_only:
+		for f in range(int(round(to * fps))):
+			cut.update(float(f) / fps)
+		_write_sheet(out, {"fps": fps, "from": 0.0, "to": to, "frames": int(round(to * fps)), "cues": cut.cues})
+		print("trailer: cues written")
+		quit(0)
+		return
 	var first := int(round(from * fps))
+	var name_offset := first
+	if start_frame >= 0:
+		# Resume: rebuild the current beat up to the frame before, then warm up.
+		first = start_frame
+		name_offset = 0
+		for f in range(int(round(CutScript.beat_start_for(float(first) / fps) * fps)), first):
+			cut.update(float(f) / fps)
+		for i in 4:
+			await process_frame
+	else:
+		# Warm up shaders and probes on the first beat before frame 0 is taken.
+		for i in 4:
+			cut.update(from)
+			await process_frame
+		cut.restart()
 	var last := int(round(to * fps))
 	var started := Time.get_ticks_msec()
 	for f in range(first, last):
 		cut.update(float(f) / fps)
 		await RenderingServer.frame_post_draw
 		var image := root.get_texture().get_image()
-		image.save_png(out.path_join("frames/f_%05d.png" % (f - first)))
+		image.save_png(out.path_join("frames/f_%05d.png" % (f - name_offset)))
 		if (f - first) % int(fps * 10.0) == 0:
 			print("trailer: %.1f s of %.1f rendered (%.0f s wall)" % [float(f) / fps, to, (Time.get_ticks_msec() - started) / 1000.0])
 	var sheet := {"fps": fps, "from": from, "to": to, "frames": last - first, "cues": cut.cues,
 		"render_seconds": (Time.get_ticks_msec() - started) / 1000.0}
-	var file := FileAccess.open(out.path_join("cues.json"), FileAccess.WRITE)
-	file.store_string(JSON.stringify(sheet, "\t"))
-	file.close()
+	if start_frame < 0:
+		_write_sheet(out, sheet)
 	# Under software Vulkan the engine can stall during shutdown; this line marks the end.
 	print("trailer: done, %d frames in %.0f s" % [last - first, sheet.render_seconds])
 	quit(0)
@@ -108,3 +137,9 @@ func _check(cut: Node3D) -> void:
 			cut.check_view("%s @%.1f" % [beat[0], start + float(beat[1]) * k])
 		start += float(beat[1])
 	print("trailer: check done")
+
+
+func _write_sheet(out: String, sheet: Dictionary) -> void:
+	var file := FileAccess.open(out.path_join("cues.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(sheet, "\t"))
+	file.close()

@@ -62,6 +62,16 @@ static func total_seconds() -> float:
 
 # --- frame driver -------------------------------------------------------------------
 
+## Start time (seconds) of the beat that contains `t`.
+static func beat_start_for(t: float) -> float:
+	var start := 0.0
+	for b: Array in BEATS:
+		if t < start + float(b[1]):
+			return start
+		start += float(b[1])
+	return start
+
+
 ## Builds the world and the title-card overlay. Call once before update().
 func setup_cut(p_fps: float) -> void:
 	fps = p_fps
