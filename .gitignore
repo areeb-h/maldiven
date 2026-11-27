@@ -10,3 +10,5 @@ assets/previews/*.png
 __pycache__/
 *.pyc
 tools/.cache/
+# Agents' temporary render/probe scripts
+_tmp_*
