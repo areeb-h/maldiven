@@ -153,6 +153,12 @@ static func story_rows(timeline: Array, infiltrator: String, names: Array) -> Ar
 		var lower := body.to_lower()
 		if lower.contains("triggered a blackout"):
 			dark_until = seconds + StationRules.BLACKOUT_SECONDS
+			# Only the infiltrator can kill the lights: the round logs it as
+			# "Someone"; the result names them (from the result data, not the line).
+			if actor == "" and infiltrator != "" and body.begins_with("Someone "):
+				body = infiltrator + body.substr(7)
+				row.text = body
+				actor = infiltrator
 			row.anon = actor
 		elif actor != "" and seconds <= dark_until and not lower.contains("disconnected"):
 			row.anon = actor  # it happened in the dark: nobody saw who

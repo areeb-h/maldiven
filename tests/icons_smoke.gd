@@ -141,14 +141,15 @@ func _check_ui_components() -> void:
 		result.present({"title": "CORE STOLEN", "color": UiStyle.INFILTRATOR, "reason": "The cargo pod launched with the core.",
 			"infiltrator": {"name": "Sam", "color": Color("ff8a3d")},
 			"players": [{"name": "Jon", "color": Color("4da3ff")}, {"name": "Sam", "color": Color("ff8a3d")}],
-			"rows": HudResult.story_rows(["2:02  Sam triggered a blackout.", "4:05  Zara was spaced."], "Sam", ["Jon", "Sam", "Zara"])})
+			"rows": HudResult.story_rows(["2:02  Someone triggered a blackout.", "4:05  Zara was spaced."], "Sam", ["Jon", "Sam", "Zara"])})
 		(parts[10] as HudBriefing).present({"role": StationRules.INFILTRATOR, "name": "Sam", "style": "flash"})
 		for t in [0.0, 0.05, 1.0, 1.45, 2.6]:
 			for part in parts:
 				if part.has_method("set_progress"):
 					part.call("set_progress", t)
 			await process_frame
-		_check(result.data.rows[0].anon == "Sam", "result: blackout row is not anonymised live")
+		_check(result.data.rows[0].anon == "Sam" and str(result.data.rows[0].text).begins_with("Sam "),
+			"result: the blackout row does not resolve to the infiltrator")
 		_check(str(result.data.rows[1].tag) == "ZARA WAS CREW", "result: no turning-point tag on the spaced row")
 		for part in parts:
 			part.queue_free()

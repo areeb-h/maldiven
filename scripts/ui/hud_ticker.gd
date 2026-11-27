@@ -52,7 +52,8 @@ func _ready() -> void:
 
 
 func _font_px() -> int:
-	return maxi(12, int(size.y * font_share)) if font_share > 0.0 else font_size
+	# Share of the frame height; a portrait frame uses its width instead.
+	return maxi(12, int(minf(size.y, size.x) * font_share)) if font_share > 0.0 else font_size
 
 
 ## Push a sentence: names coloured from `colors` (name -> Color), icon from

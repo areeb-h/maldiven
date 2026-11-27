@@ -210,7 +210,7 @@ func _ready() -> void:
 	_build_menu_button()
 	_countdown = HudCountdown.new()
 	add_child(_countdown)
-	_anchor(_countdown, 0.5, 0.3, Rect2(-200, -(HudCountdown.RADIUS + 18.0), 400, 260))
+	_anchor(_countdown, 0.5, 0.34, Rect2(-200, -(HudCountdown.RADIUS + 18.0), 400, 260))
 	_build_status()
 	_hint = UiStyle.outlined(UiStyle.label("", "body", UiStyle.LABEL, Color(1, 1, 1, 0.6)), 6)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -845,8 +845,9 @@ static func markers_for(rules: StationRules, my_id: int) -> Array:
 		for entry in accusations:
 			var target := int(entry.get("target", 0))
 			if rules.players.has(target) and float(entry.get("until", 0.0)) > rules.elapsed:
+				# Anonymous in a blackout, like every name the rules show then.
 				out.append({"pos": rules.players[target].pos + Vector3(0, 2.75, 0), "kind": "suspect",
-					"label": str(rules.players[target].name)})
+					"label": "" if rules.is_blackout() else str(rules.players[target].name)})
 	for id in rules.players:
 		var player: Dictionary = rules.players[id]
 		if id == my_id or player.state != StationRules.DOWNED or int(player.carried_by) != 0:
@@ -873,7 +874,7 @@ func accuse_hold() -> float:
 func _update_accuse(rules: StationRules, my_id: int) -> void:
 	var me: Dictionary = rules.players.get(my_id, {})
 	var ready_at := float(me.get("accuse_ready", 0.0))
-	_accuse_ready = 1.0 if ready_at <= rules.elapsed else clampf(1.0 - (ready_at - rules.elapsed) / 10.0, 0.0, 1.0)
+	_accuse_ready = 1.0 if ready_at <= rules.elapsed else clampf(1.0 - (ready_at - rules.elapsed) / StationRules.ACCUSE_COOLDOWN, 0.0, 1.0)
 	var playing := rules.phase == StationRules.Phase.STABILISE or rules.phase == StationRules.Phase.EXTRACTION
 	var cam := camera if camera != null and is_instance_valid(camera) else (get_viewport().get_camera_3d() if is_inside_tree() else null)
 	if not playing or me.is_empty() or _life != "ok" or rules.is_blackout() or cam == null or _cinematic:
@@ -1033,6 +1034,13 @@ func _show_result(rules: StationRules) -> void:
 	_alerts.clear()
 	_hint.hide()
 	_callout = ""
+	# The result owns the screen: no chrome, tags, markers or ticker behind it.
+	_safe_root.visible = false
+	_ticker.clear()
+	_ticker.visible = false
+	_tags.visible = false
+	_markers.visible = false
+	_countdown.visible = false
 	_result.show_result(rules, role, is_host)
 
 
@@ -1146,9 +1154,9 @@ func _process(delta: float) -> void:
 	# Banners stay clear of the objective panel; the ticker sits under it.
 	var panel_right := _top_panel.position.x + _top_panel.size.x + 16.0
 	var safe_width := _safe_root.size.x
-	var left := maxf(safe_width * 0.5 - 300.0, panel_right)
+	var left := maxf(safe_width * 0.5 - 320.0, panel_right)
 	_alerts.offset_left = left - safe_width * 0.5
-	_alerts.offset_right = _alerts.offset_left + 600.0
+	_alerts.offset_right = _alerts.offset_left + 640.0
 	_ticker.origin_px = Vector2(_margin.position.x, _margin.position.y + _top_panel.size.y + 60.0)
 	_update_blackout_look(delta)
 	_update_fx(delta)
@@ -1324,7 +1332,7 @@ func _ammo_anchor() -> Vector2:
 	if _touch and crew != null:
 		var shoot := _button_pos("shoot")
 		return shoot + Vector2(-float(BUTTONS.shoot[1]) - 104.0, 0)
-	return Vector2(size.x - _margin.size.x - 100.0, size.y - _margin.size.y - 50.0)
+	return Vector2(size.x - _margin.size.x - 100.0, size.y - _margin.size.y - 92.0)
 
 
 func _draw_fx() -> void:

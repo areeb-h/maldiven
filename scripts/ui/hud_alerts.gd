@@ -16,7 +16,7 @@ extends Control
 const MAX_VISIBLE := 2
 const HOLD := 3.2
 const GAP := 8.0
-const MAX_WIDTH := 560.0
+const MAX_WIDTH := 640.0
 const ENTER := 0.22
 const LEAVE := 0.25
 ## Higher stays longer when the stack is full (docs/look-and-feel.md §3).
