@@ -7,7 +7,7 @@ extends Node
 ## holds at 1280×720, 1600×900 and 20:9 phones (1600×720 logical).
 
 const SETTINGS_PATH := "user://settings.cfg"
-const VERSION := "0.4.0"
+var VERSION: String = str(ProjectSettings.get_setting("application/config/version", "dev"))
 const BotDriver = preload("res://scripts/dev/bot_driver.gd")
 const PLAY_WIDTH := 480.0
 const LOBBY_WIDTH := 640.0
@@ -270,7 +270,7 @@ func _build_home() -> void:
 	# Left: branding.
 	var brand := _column(_home, 620.0)
 	brand.add_theme_constant_override("separation", UiStyle.S2)
-	var tag := UiStyle.chip("WEEK 1 BUILD  ·  v%s" % VERSION, UiStyle.ACCENT, "", false)
+	var tag := UiStyle.chip("PREVIEW  ·  v%s" % VERSION, UiStyle.ACCENT, "", false)
 	tag.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	brand.add_child(tag)
 	# The logo lockup (UiLogo): DRIFT over STATION, the O a crew helmet. Every

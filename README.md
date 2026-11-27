@@ -1,6 +1,6 @@
 # Maldiven: Drift Station
 
-**Drift Station** is a third-person 3D social-deduction game for 2–8 friends, Android first (PC works too). A dying station has lost power. The crew carries power cells to the reactor, unlocks the core and tries to fly it out on the shuttle. One of them is the infiltrator, who wants the core in the cargo pod instead, and can kill the lights to get it there. Expect shoving, scrums at the shuttle and arguments over the end-of-round timeline. Godot 4.7.2, Mobile renderer, Jolt physics. Version 0.4.0.
+**Drift Station** is a third-person 3D social-deduction game for 2–8 friends, Android first (PC works too). A dying station has lost power. The crew carries power cells to the reactor, unlocks the core and tries to fly it out on the shuttle. One of them is the infiltrator, who wants the core in the cargo pod instead, and can kill the lights to get it there. Expect shoving, scrums at the shuttle and arguments over the end-of-round timeline. Godot 4.7.2, Mobile renderer, Jolt physics. Version 0.6.0.
 
 ## Play the week-1 build
 
@@ -23,7 +23,9 @@ There's no in-game voice yet. Play in the same room or on a Discord call.
 | Look | Right-mouse drag | Drag on the right side |
 | Jump | Space | Jump button |
 | Interact (pick up / drop / insert / pull out) | E | Interact button (shows what it will do) |
-| Shove | F | Shove button |
+| Shove / throw | F | Shove button |
+| Accuse (point at a suspect) | Hold R | Hold the Accuse button (shows when someone is in view) |
+| Shoot (if you hold the gun) | T or left click | Shoot button |
 | Sabotage: Blackout (infiltrator only) | Q | Sabotage button |
 | Menu | Esc | |
 
